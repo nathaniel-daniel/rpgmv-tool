@@ -40,6 +40,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glob"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
+
+[[package]]
 name = "nd-util"
 version = "0.0.0"
 source = "git+https://github.com/nathaniel-daniel/nd-util-rs#248a4578ceec8c3765c757d7670ca58335f69013"
@@ -68,6 +74,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "argh",
+ "glob",
  "nd-util",
  "rpgmvp",
 ]

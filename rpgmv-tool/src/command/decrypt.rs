@@ -2,6 +2,7 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::ensure;
 use anyhow::Context;
+use glob::glob;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Write;
@@ -13,6 +14,13 @@ use std::path::PathBuf;
 pub struct Options {
     #[argh(option, long = "input", short = 'i', description = "a file to decrypt")]
     pub input: Vec<PathBuf>,
+
+    #[argh(
+        option,
+        long = "glob-input",
+        description = "a glob of input files to decrypt"
+    )]
+    pub glob_input: Vec<String>,
 
     #[argh(
         option,
@@ -38,7 +46,17 @@ where
 /// Interface inspired by mv.
 /// See: https://man7.org/linux/man-pages/man1/mv.1p.html
 pub fn exec(options: Options) -> anyhow::Result<()> {
-    ensure!(!options.input.is_empty(), "need at least 1 input");
+    let mut inputs = options.input;
+    for input in options.glob_input {
+        let iter = glob(&input)?;
+        for input in iter {
+            let input = input?;
+
+            inputs.push(input);
+        }
+    }
+
+    ensure!(!inputs.is_empty(), "need at least 1 input");
 
     let output_metadata = try_metadata(&options.output)
         .with_context(|| format!("failed to stat \"{}\"", options.output.display()))?;
@@ -46,13 +64,13 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
     // If the output is a directory, use the vector impl.
     match output_metadata {
         Some(metadata) if metadata.is_dir() => {
-            return exec_vector(&options.input, &options.output);
+            return exec_vector(&inputs, &options.output);
         }
         Some(_) | None => {}
     }
 
-    if options.input.len() == 1 {
-        let input = &options.input[0];
+    if inputs.len() == 1 {
+        let input = &inputs[0];
 
         // For file destinations or non-existent destinations
         // We filter out directory outputs earlier.
