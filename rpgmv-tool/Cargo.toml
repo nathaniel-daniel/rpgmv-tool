@@ -1,0 +1,11 @@
+[package]
+name = "rpgmv-tool"
+version = "0.0.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+anyhow = "1.0.81"
+argh = "0.1.12"
+nd-util = { git = "https://github.com/nathaniel-daniel/nd-util-rs", version = "0.0.0" }
+rpgmvp = { version = "0.0.0", path = "../rpgmvp" }
