@@ -82,7 +82,9 @@ dependencies = [
  "argh",
  "glob",
  "nd-util",
+ "rpgmv-types",
  "rpgmvp",
+ "serde_json",
 ]
 
 [[package]]
