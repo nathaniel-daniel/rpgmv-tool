@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "rpgmvp",
     "rpgmv-tool",
+    "rpgmv-types",
 ]
 
 [profile.release]
