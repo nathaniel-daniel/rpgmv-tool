@@ -115,10 +115,10 @@ mod test {
         let map: Map = serde_json::from_str(MAP_1).expect("failed to parse");
         assert!(!map.autoplay_bgm);
         // dbg!(map);
-        
+
         let map_ser = serde_json::to_string(&map).expect("failed to serialize");
         let map_de = serde_json::from_str(&map_ser).expect("failed to parse");
-        
+
         assert!(map == map_de);
     }
 

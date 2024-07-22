@@ -27,29 +27,29 @@ pub struct EventPage {
     /// ?
     #[serde(rename = "moveRoute")]
     pub move_route: MoveRoute,
-    
+
     /// ?
     #[serde(rename = "moveSpeed")]
     pub move_speed: u32,
-    
+
     /// ?
     #[serde(rename = "moveType")]
     pub move_type: u32,
-    
+
     /// ?
     #[serde(rename = "priorityType")]
     pub priority_type: u32,
-    
+
     /// ?
     #[serde(rename = "stepAnime")]
     pub step_anime: bool,
-    
+
     /// ?
     pub through: bool,
-    
+
     /// ?
     pub trigger: u8,
-    
+
     /// ?
     #[serde(rename = "walkAnime")]
     pub walk_anime: bool,
