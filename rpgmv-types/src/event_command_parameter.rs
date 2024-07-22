@@ -30,7 +30,7 @@ impl EventCommandParameter {
     pub fn as_int(&self) -> Option<&i32> {
         match self {
             Self::Int(n) => Some(n),
-            _ => None
+            _ => None,
         }
     }
 }
