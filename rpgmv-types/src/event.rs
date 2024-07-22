@@ -1,7 +1,7 @@
 use crate::EventPage;
 
 /// An event
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Event {
     /// The event id

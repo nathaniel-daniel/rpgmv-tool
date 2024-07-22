@@ -2,7 +2,7 @@ use super::AudioFile;
 use super::Event;
 
 /// A Map
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Map {
     /// ?
@@ -112,14 +112,19 @@ mod test {
 
     #[test]
     fn map_1() {
-        let map: Map = serde_json::from_str(&MAP_1).expect("failed to parse");
+        let map: Map = serde_json::from_str(MAP_1).expect("failed to parse");
         assert!(!map.autoplay_bgm);
         // dbg!(map);
+        
+        let map_ser = serde_json::to_string(&map).expect("failed to serialize");
+        let map_de = serde_json::from_str(&map_ser).expect("failed to parse");
+        
+        assert!(map == map_de);
     }
 
     #[test]
     fn map_2() {
-        let map: Map = serde_json::from_str(&MAP_2).expect("failed to parse");
+        let map: Map = serde_json::from_str(MAP_2).expect("failed to parse");
         assert!(!map.autoplay_bgm);
         // dbg!(map);
     }
