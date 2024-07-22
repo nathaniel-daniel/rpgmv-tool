@@ -1,4 +1,5 @@
 use super::AudioFile;
+use super::Event;
 
 /// A Map
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -91,7 +92,7 @@ pub struct Map {
     pub data: Vec<u16>,
 
     /// ?
-    pub events: Vec<Option<()>>,
+    pub events: Vec<Option<Event>>,
 }
 
 #[cfg(test)]
@@ -103,9 +104,22 @@ mod test {
         "/test-data/maps/Map001.json"
     ));
 
+    // Taken from https://github.com/samuelcardillo/MMORPGMaker-MV/blob/c9dc5f0c4cfe6d1e7d0111f94bc5e7e2ebc16ecd/data/Map002.json.
+    const MAP_2: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/test-data/maps/Map002.json"
+    ));
+
     #[test]
-    fn test() {
+    fn map_1() {
         let map: Map = serde_json::from_str(&MAP_1).expect("failed to parse");
+        assert!(!map.autoplay_bgm);
+        // dbg!(map);
+    }
+
+    #[test]
+    fn map_2() {
+        let map: Map = serde_json::from_str(&MAP_2).expect("failed to parse");
         assert!(!map.autoplay_bgm);
         // dbg!(map);
     }
