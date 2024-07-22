@@ -110,6 +110,12 @@ mod test {
         "/test-data/maps/Map002.json"
     ));
 
+    // Taken from https://github.com/craftadria/Timetrollergames.HLD/blob/cd7630f613ac844dba579fc56f30d5048c73032d/wwwroot/data/MAP004.JSON.
+    const MAP_4: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/test-data/maps/Map004.json"
+    ));
+
     #[test]
     fn map_1() {
         let map: Map = serde_json::from_str(MAP_1).expect("failed to parse");
@@ -127,5 +133,22 @@ mod test {
         let map: Map = serde_json::from_str(MAP_2).expect("failed to parse");
         assert!(!map.autoplay_bgm);
         // dbg!(map);
+
+        let map_ser = serde_json::to_string(&map).expect("failed to serialize");
+        let map_de = serde_json::from_str(&map_ser).expect("failed to parse");
+
+        assert!(map == map_de);
+    }
+
+    #[test]
+    fn map_4() {
+        let map: Map = serde_json::from_str(MAP_4).expect("failed to parse");
+        assert!(!map.autoplay_bgm);
+        // dbg!(map);
+
+        let map_ser = serde_json::to_string(&map).expect("failed to serialize");
+        let map_de = serde_json::from_str(&map_ser).expect("failed to parse");
+
+        assert!(map == map_de);
     }
 }
