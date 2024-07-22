@@ -4,10 +4,10 @@
 pub enum EventCommandParameter {
     /// A string
     String(String),
-    
+
     /// A number
     Int(u32),
-    
+
     /// A boolean
     Bool(bool),
 }
