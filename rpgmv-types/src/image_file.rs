@@ -1,5 +1,5 @@
 /// An image
-#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ImageFile {
     /// ?
