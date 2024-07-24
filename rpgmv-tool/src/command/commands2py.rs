@@ -121,6 +121,25 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, ")")?;
             }
+            Command::ConditionalBranch(command) => {
+                write!(&mut python, "if ")?;
+                match command {
+                    ConditionalBranchCommand::Variable {
+                        lhs_id,
+                        rhs_id,
+                        operation,
+                    } => {
+                        let lhs = config.get_variable_name(lhs_id);
+                        let rhs = match rhs_id {
+                            MaybeRef::Constant(value) => value.to_string(),
+                            MaybeRef::Ref(id) => config.get_variable_name(id),
+                        };
+                        let operation = operation.as_str();
+
+                        writeln!(&mut python, "{lhs} {operation} {rhs}:")?;
+                    }
+                }
+            }
             Command::ControlSwitches {
                 start_id,
                 end_id,
@@ -145,6 +164,9 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
             )?,
             Command::FadeoutScreen => writeln!(&mut python, "FadeoutScreen()")?,
             Command::Wait { duration } => writeln!(&mut python, "Wait(duration={duration})")?,
+            Command::ConditionalBranchEnd => {
+                // Trust indents over branch ends
+            }
             Command::Unknown { code, parameters } => {
                 writeln!(
                     &mut python,
@@ -193,6 +215,8 @@ impl CommandCode {
 
     const SHOW_TEXT: Self = Self(101);
 
+    const CONDITONAL_BRANCH: Self = Self(111);
+
     const CONTROL_SWITCHES: Self = Self(121);
 
     const TRANSFER_PLAYER: Self = Self(201);
@@ -208,6 +232,10 @@ impl CommandCode {
     const WAIT: Self = Self(230);
 
     const TEXT_DATA: Self = Self(401);
+    /// I think this is an end for the CONDITONAL_BRANCH block.
+    /// I can't be sure as the game doesn't actually care if this exists;
+    /// it just ignores it, only taking into account indents.
+    const CONDITONAL_BRANCH_END: Self = Self(412);
 }
 
 impl std::fmt::Debug for CommandCode {
@@ -216,6 +244,7 @@ impl std::fmt::Debug for CommandCode {
             Self::UNKNOWN_505 => write!(f, "UNKNOWN_505"),
             Self::NOP => write!(f, "NOP"),
             Self::SHOW_TEXT => write!(f, "SHOW_TEXT"),
+            Self::CONDITONAL_BRANCH => write!(f, "CONDITONAL_BRANCH"),
             Self::CONTROL_SWITCHES => write!(f, "CONTROL_SWITCHES"),
             Self::TRANSFER_PLAYER => write!(f, "TRANSFER_PLAYER"),
             Self::SET_MOVEMENT_ROUTE => write!(f, "SET_MOVEMENT_ROUTE"),
@@ -225,7 +254,81 @@ impl std::fmt::Debug for CommandCode {
             Self::FADEOUT_SCREEN => write!(f, "FADEOUT_SCREEN"),
             Self::WAIT => write!(f, "WAIT"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
+            Self::CONDITONAL_BRANCH_END => write!(f, "CONDITONAL_BRANCH_END"),
             _ => write!(f, "Unknown({})", self.0),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum ConditionalBranchKind {
+    Switch = 0,
+    Variable = 1,
+
+    Actor = 4,
+
+    Gold = 7,
+
+    Script = 12,
+}
+
+impl ConditionalBranchKind {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            0 => Ok(Self::Switch),
+            1 => Ok(Self::Variable),
+            4 => Ok(Self::Actor),
+            7 => Ok(Self::Gold),
+            12 => Ok(Self::Script),
+            _ => bail!("{value} is not a valid ConditionalBranchKind"),
+        }
+    }
+
+    /// Get this as a u8.
+    pub fn as_u8(self) -> u8 {
+        self as u8
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum ConditionalBranchVariableOperation {
+    EqualTo = 0,
+    Gte = 1,
+    Lte = 2,
+    Gt = 3,
+    Lt = 4,
+    Neq = 5,
+}
+
+impl ConditionalBranchVariableOperation {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            0 => Ok(Self::EqualTo),
+            1 => Ok(Self::Gte),
+            2 => Ok(Self::Lte),
+            3 => Ok(Self::Gt),
+            4 => Ok(Self::Lt),
+            5 => Ok(Self::Neq),
+            _ => bail!("{value} is not a valid ConditionalBranchVariableOperation"),
+        }
+    }
+
+    /// Get this as a u8.
+    pub fn as_u8(self) -> u8 {
+        self as u8
+    }
+
+    /// Get this as a str.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::EqualTo => "==",
+            Self::Gte => ">=",
+            Self::Lte => "<=",
+            Self::Gt => ">",
+            Self::Lt => "<",
+            Self::Neq => "!=",
         }
     }
 }
@@ -241,6 +344,7 @@ enum Command {
         position_type: u32,
         lines: Vec<String>,
     },
+    ConditionalBranch(ConditionalBranchCommand),
     ControlSwitches {
         start_id: u32,
         end_id: u32,
@@ -253,10 +357,26 @@ enum Command {
     Wait {
         duration: u32,
     },
+    ConditionalBranchEnd,
     Unknown {
         code: CommandCode,
         parameters: Vec<rpgmv_types::EventCommandParameter>,
     },
+}
+
+#[derive(Debug)]
+enum ConditionalBranchCommand {
+    Variable {
+        lhs_id: u32,
+        rhs_id: MaybeRef<u32>,
+        operation: ConditionalBranchVariableOperation,
+    },
+}
+
+#[derive(Debug, Copy, Clone, Hash)]
+enum MaybeRef<T> {
+    Constant(T),
+    Ref(u32),
 }
 
 fn parse_event_command_list(
@@ -313,6 +433,53 @@ fn parse_event_command_list(
                     lines: Vec::new(),
                 }
             }
+            (_, CommandCode::CONDITONAL_BRANCH) => {
+                ensure!(!event_command.parameters.is_empty());
+                let kind = event_command.parameters[0]
+                    .as_int()
+                    .and_then(|value| u8::try_from(*value).ok())
+                    .context("`kind` is not a `u32`")?;
+                let kind = ConditionalBranchKind::from_u8(kind)?;
+
+                let inner = match kind {
+                    ConditionalBranchKind::Variable => {
+                        ensure!(event_command.parameters.len() == 5);
+
+                        let lhs_id = event_command.parameters[1]
+                            .as_int()
+                            .and_then(|value| u32::try_from(*value).ok())
+                            .context("`lhs_id` is not a `u32`")?;
+                        let is_constant = event_command.parameters[2]
+                            .as_int()
+                            .and_then(|value| u8::try_from(*value).ok())
+                            .context("`is_constant` is not a `u32`")?;
+                        let is_constant = is_constant == 0;
+                        let rhs_id = event_command.parameters[3]
+                            .as_int()
+                            .and_then(|value| u32::try_from(*value).ok())
+                            .context("`rhs_id` is not a `u32`")?;
+                        let rhs_id = if is_constant {
+                            MaybeRef::Constant(rhs_id)
+                        } else {
+                            MaybeRef::Ref(rhs_id)
+                        };
+                        let operation = event_command.parameters[4]
+                            .as_int()
+                            .and_then(|value| u8::try_from(*value).ok())
+                            .context("`operation` is not a `u8`")?;
+                        let operation = ConditionalBranchVariableOperation::from_u8(operation)?;
+
+                        ConditionalBranchCommand::Variable {
+                            lhs_id,
+                            rhs_id,
+                            operation,
+                        }
+                    }
+                    _ => bail!("ConditionalBranchKind {kind:?} is not supported"),
+                };
+
+                Command::ConditionalBranch(inner)
+            }
             (_, CommandCode::CONTROL_SWITCHES) => {
                 ensure!(event_command.parameters.len() == 3);
 
@@ -360,7 +527,11 @@ fn parse_event_command_list(
 
                 Command::Wait { duration }
             }
-            _ => Command::Unknown {
+            (_, CommandCode::CONDITONAL_BRANCH_END) => {
+                ensure!(event_command.parameters.is_empty());
+                Command::ConditionalBranchEnd
+            }
+            (_, _) => Command::Unknown {
                 code: command_code,
                 parameters: event_command.parameters.clone(),
             },

@@ -1,6 +1,6 @@
+use serde::de::Error;
 use std::collections::BTreeMap;
 use std::path::Path;
-use serde::de::Error;
 
 /// Config
 #[derive(Debug, serde::Deserialize, Default)]
@@ -8,11 +8,10 @@ pub struct Config {
     /// Switches
     #[serde(default, deserialize_with = "deserialize_u32_key_btree_map")]
     pub switches: BTreeMap<u32, String>,
-    /*
+
     /// Variables
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_u32_key_btree_map")]
     pub variables: BTreeMap<u32, String>,
-    */
 }
 
 impl Config {
@@ -34,10 +33,13 @@ impl Config {
             .unwrap_or_else(|| format!("game_switch_{id}"))
     }
 
-    /*
-     /// Get a variable name
-     pub fn get_variable_name()
-    */
+    /// Get a variable name
+    pub fn get_variable_name(&self, id: u32) -> String {
+        self.variables
+            .get(&id)
+            .map(|name| name.to_string())
+            .unwrap_or_else(|| format!("game_variable_{id}"))
+    }
 }
 
 fn deserialize_u32_key_btree_map<'de, D, V>(deserializer: D) -> Result<BTreeMap<u32, V>, D::Error>
