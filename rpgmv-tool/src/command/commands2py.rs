@@ -1,3 +1,6 @@
+mod config;
+
+use self::config::Config;
 use anyhow::bail;
 use anyhow::ensure;
 use anyhow::Context;
@@ -29,6 +32,14 @@ pub struct Options {
 
     #[argh(
         option,
+        long = "config",
+        short = 'c',
+        description = "the path to the config to use"
+    )]
+    config: Option<PathBuf>,
+
+    #[argh(
+        option,
         long = "output",
         short = 'o',
         description = "the path to the output file",
@@ -38,6 +49,12 @@ pub struct Options {
 }
 
 pub fn exec(options: Options) -> anyhow::Result<()> {
+    let config = match options.config {
+        Some(config) => Config::from_path(&config)
+            .with_context(|| format!("failed to load config from \"{}\"", config.display()))?,
+        None => Config::default(),
+    };
+
     let input_str = std::fs::read_to_string(&options.input)
         .with_context(|| format!("failed to read \"{}\"", options.input.display()))?;
     let input: rpgmv_types::Map = serde_json::from_str(&input_str)
@@ -104,6 +121,23 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, ")")?;
             }
+            Command::ControlSwitches {
+                start_id,
+                end_id,
+                value,
+            } => {
+                let mut iter = (start_id..(end_id + 1)).peekable();
+                let value = stringify_bool(value);
+
+                while let Some(id) = iter.next() {
+                    let name = config.get_switch_name(id);
+
+                    writeln!(&mut python, "{name} = {value}")?;
+                    if iter.peek().is_some() {
+                        write_indent(&mut python, indent);
+                    }
+                }
+            }
             Command::ChangeTransparency { set_transparent } => writeln!(
                 &mut python,
                 "ChangeTransparency(set_transparent={})",
@@ -159,6 +193,8 @@ impl CommandCode {
 
     const SHOW_TEXT: Self = Self(101);
 
+    const CONTROL_SWITCHES: Self = Self(121);
+
     const TRANSFER_PLAYER: Self = Self(201);
 
     const SET_MOVEMENT_ROUTE: Self = Self(205);
@@ -180,6 +216,7 @@ impl std::fmt::Debug for CommandCode {
             Self::UNKNOWN_505 => write!(f, "UNKNOWN_505"),
             Self::NOP => write!(f, "NOP"),
             Self::SHOW_TEXT => write!(f, "SHOW_TEXT"),
+            Self::CONTROL_SWITCHES => write!(f, "CONTROL_SWITCHES"),
             Self::TRANSFER_PLAYER => write!(f, "TRANSFER_PLAYER"),
             Self::SET_MOVEMENT_ROUTE => write!(f, "SET_MOVEMENT_ROUTE"),
             Self::CHANGE_TRANSPARENCY => write!(f, "CHANGE_TRANSPARENCY"),
@@ -204,6 +241,11 @@ enum Command {
         position_type: u32,
         lines: Vec<String>,
     },
+    ControlSwitches {
+        start_id: u32,
+        end_id: u32,
+        value: bool,
+    },
     ChangeTransparency {
         set_transparent: bool,
     },
@@ -221,9 +263,8 @@ fn parse_event_command_list(
     list: &[rpgmv_types::EventCommand],
 ) -> anyhow::Result<Vec<(u16, Command)>> {
     let mut ret = Vec::with_capacity(list.len());
-    let mut list_iter = list.into_iter();
 
-    while let Some(event_command) = list_iter.next() {
+    for event_command in list.iter() {
         let command_code = CommandCode(event_command.code);
 
         let last_command = ret.last_mut().map(|(_code, command)| command);
@@ -254,7 +295,7 @@ fn parse_event_command_list(
                 let face_index = event_command.parameters[1]
                     .as_int()
                     .and_then(|n| u32::try_from(*n).ok())
-                    .context("`face_index` is not a u32")?;
+                    .context("`face_index` is not a `u32`")?;
                 let background = event_command.parameters[2]
                     .as_int()
                     .and_then(|n| u32::try_from(*n).ok())
@@ -272,12 +313,36 @@ fn parse_event_command_list(
                     lines: Vec::new(),
                 }
             }
+            (_, CommandCode::CONTROL_SWITCHES) => {
+                ensure!(event_command.parameters.len() == 3);
+
+                let start_id = event_command.parameters[0]
+                    .as_int()
+                    .and_then(|value| u32::try_from(*value).ok())
+                    .context("`start_switch_id` is not a `u32`")?;
+                let end_id = event_command.parameters[1]
+                    .as_int()
+                    .and_then(|value| u32::try_from(*value).ok())
+                    .context("`end_switch_id` is not a `u32`")?;
+                let value = event_command.parameters[2]
+                    .as_int()
+                    .and_then(|value| u32::try_from(*value).ok())
+                    .context("`value` is not a `u32`")?;
+                ensure!(value <= 1);
+                let value = value == 0;
+
+                Command::ControlSwitches {
+                    start_id,
+                    end_id,
+                    value,
+                }
+            }
             (_, CommandCode::CHANGE_TRANSPARENCY) => {
                 ensure!(event_command.parameters.len() == 1);
                 let value = *event_command.parameters[0]
                     .as_int()
                     .context("parameter is not an int")?;
-                ensure!(value <= 1);
+                ensure!(value > 0 && value <= 1);
 
                 let set_transparent = value == 0;
                 Command::ChangeTransparency { set_transparent }
@@ -288,10 +353,10 @@ fn parse_event_command_list(
             }
             (_, CommandCode::WAIT) => {
                 ensure!(event_command.parameters.len() == 1);
-                let duration = *event_command.parameters[0]
+                let duration = event_command.parameters[0]
                     .as_int()
-                    .context("parameter is not an int")?;
-                let duration = u32::try_from(duration)?;
+                    .and_then(|duration| u32::try_from(*duration).ok())
+                    .context("`duration` is not a `u32`")?;
 
                 Command::Wait { duration }
             }
