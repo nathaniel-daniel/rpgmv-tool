@@ -26,6 +26,14 @@ pub enum EventCommandParameter {
 }
 
 impl EventCommandParameter {
+    /// Get this as a string.
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Self::String(n) => Some(n),
+            _ => None,
+        }
+    }
+
     /// Get this as an int.
     pub fn as_int(&self) -> Option<&i32> {
         match self {

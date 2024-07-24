@@ -63,17 +63,54 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
 
     let mut python = String::new();
     for (indent, command) in commands {
-        for _ in 0..indent {
-            python.push('\t');
-        }
+        write_indent(&mut python, indent);
 
         match command {
-            Command::ChangeTransparency { set_transparent } => {
-                writeln!(&mut python, "ChangeTransparency(set_transparent={})", stringify_bool(set_transparent))?
+            Command::Nop => {}
+            Command::ShowText {
+                face_name,
+                face_index,
+                background,
+                position_type,
+                lines,
+            } => {
+                writeln!(&mut python, "ShowText(")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "face_name='{face_name}',")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "face_index={face_index},")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "background={background},")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "position_type={position_type},")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "lines=[")?;
+
+                for line in lines {
+                    let line = line.replace('\'', "\\'");
+
+                    write_indent(&mut python, indent + 2);
+                    writeln!(&mut python, "'{line}',")?;
+                }
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "],")?;
+
+                write_indent(&mut python, indent);
+                writeln!(&mut python, ")")?;
             }
-            Command::Wait { duration } => {
-                writeln!(&mut python, "Wait(duration={duration})")?
-            }
+            Command::ChangeTransparency { set_transparent } => writeln!(
+                &mut python,
+                "ChangeTransparency(set_transparent={})",
+                stringify_bool(set_transparent)
+            )?,
+            Command::FadeoutScreen => writeln!(&mut python, "FadeoutScreen()")?,
+            Command::Wait { duration } => writeln!(&mut python, "Wait(duration={duration})")?,
             Command::Unknown { code, parameters } => {
                 writeln!(
                     &mut python,
@@ -95,10 +132,16 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn stringify_bool(b: bool)  -> &'static str{
+fn stringify_bool(b: bool) -> &'static str {
     match b {
         true => "True",
         false => "False",
+    }
+}
+
+fn write_indent(string: &mut String, indent: u16) {
+    for _ in 0..indent {
+        string.push('\t');
     }
 }
 
@@ -107,16 +150,44 @@ fn stringify_bool(b: bool)  -> &'static str{
 struct CommandCode(u32);
 
 impl CommandCode {
-    const CHANGE_TRANSPARENCY: Self = CommandCode(211);
-    
-    const WAIT: Self = CommandCode(230);
+    /// This is likely related to move routes somehow,
+    /// Like how the TEXT_DATA command extends the SHOW_TEXT command.
+    /// However, I can't find the implementation of this instruction.
+    const UNKNOWN_505: Self = Self(505);
+
+    const NOP: Self = Self(0);
+
+    const SHOW_TEXT: Self = Self(101);
+
+    const TRANSFER_PLAYER: Self = Self(201);
+
+    const SET_MOVEMENT_ROUTE: Self = Self(205);
+
+    const CHANGE_TRANSPARENCY: Self = Self(211);
+    const SHOW_ANIMATION: Self = Self(212);
+    const SHOW_BALLOON_ICON: Self = Self(213);
+
+    const FADEOUT_SCREEN: Self = Self(221);
+
+    const WAIT: Self = Self(230);
+
+    const TEXT_DATA: Self = Self(401);
 }
 
 impl std::fmt::Debug for CommandCode {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match *self {
+            Self::UNKNOWN_505 => write!(f, "UNKNOWN_505"),
+            Self::NOP => write!(f, "NOP"),
+            Self::SHOW_TEXT => write!(f, "SHOW_TEXT"),
+            Self::TRANSFER_PLAYER => write!(f, "TRANSFER_PLAYER"),
+            Self::SET_MOVEMENT_ROUTE => write!(f, "SET_MOVEMENT_ROUTE"),
             Self::CHANGE_TRANSPARENCY => write!(f, "CHANGE_TRANSPARENCY"),
+            Self::SHOW_ANIMATION => write!(f, "SHOW_ANIMATION"),
+            Self::SHOW_BALLOON_ICON => write!(f, "SHOW_BALLOON_ICON"),
+            Self::FADEOUT_SCREEN => write!(f, "FADEOUT_SCREEN"),
             Self::WAIT => write!(f, "WAIT"),
+            Self::TEXT_DATA => write!(f, "TEXT_DATA"),
             _ => write!(f, "Unknown({})", self.0),
         }
     }
@@ -125,10 +196,21 @@ impl std::fmt::Debug for CommandCode {
 /// A command
 #[derive(Debug)]
 enum Command {
+    Nop,
+    ShowText {
+        face_name: String,
+        face_index: u32,
+        background: u32,
+        position_type: u32,
+        lines: Vec<String>,
+    },
     ChangeTransparency {
         set_transparent: bool,
     },
-    Wait {duration: u32},
+    FadeoutScreen,
+    Wait {
+        duration: u32,
+    },
     Unknown {
         code: CommandCode,
         parameters: Vec<rpgmv_types::EventCommandParameter>,
@@ -139,11 +221,58 @@ fn parse_event_command_list(
     list: &[rpgmv_types::EventCommand],
 ) -> anyhow::Result<Vec<(u16, Command)>> {
     let mut ret = Vec::with_capacity(list.len());
-    for event_command in list {
+    let mut list_iter = list.into_iter();
+
+    while let Some(event_command) = list_iter.next() {
         let command_code = CommandCode(event_command.code);
 
-        let command = match command_code {
-            CommandCode::CHANGE_TRANSPARENCY => {
+        let last_command = ret.last_mut().map(|(_code, command)| command);
+        let command = match (last_command, command_code) {
+            (Some(Command::ShowText { lines, .. }), CommandCode::TEXT_DATA) => {
+                ensure!(event_command.parameters.len() == 1);
+                let line = event_command.parameters[0]
+                    .as_str()
+                    .context("line is not a string")?
+                    .to_string();
+
+                lines.push(line);
+
+                continue;
+            }
+            (_, CommandCode::NOP) => {
+                ensure!(event_command.parameters.is_empty());
+
+                Command::Nop
+            }
+            (_, CommandCode::SHOW_TEXT) => {
+                ensure!(event_command.parameters.len() == 4);
+
+                let face_name = event_command.parameters[0]
+                    .as_str()
+                    .context("`face_name` is not a string")?
+                    .to_string();
+                let face_index = event_command.parameters[1]
+                    .as_int()
+                    .and_then(|n| u32::try_from(*n).ok())
+                    .context("`face_index` is not a u32")?;
+                let background = event_command.parameters[2]
+                    .as_int()
+                    .and_then(|n| u32::try_from(*n).ok())
+                    .context("`background` is not a string")?;
+                let position_type = event_command.parameters[3]
+                    .as_int()
+                    .and_then(|n| u32::try_from(*n).ok())
+                    .context("`position_type` is not a string")?;
+
+                Command::ShowText {
+                    face_name,
+                    face_index,
+                    background,
+                    position_type,
+                    lines: Vec::new(),
+                }
+            }
+            (_, CommandCode::CHANGE_TRANSPARENCY) => {
                 ensure!(event_command.parameters.len() == 1);
                 let value = *event_command.parameters[0]
                     .as_int()
@@ -153,14 +282,18 @@ fn parse_event_command_list(
                 let set_transparent = value == 0;
                 Command::ChangeTransparency { set_transparent }
             }
-            CommandCode::WAIT => {
+            (_, CommandCode::FADEOUT_SCREEN) => {
+                ensure!(event_command.parameters.is_empty());
+                Command::FadeoutScreen
+            }
+            (_, CommandCode::WAIT) => {
                 ensure!(event_command.parameters.len() == 1);
                 let duration = *event_command.parameters[0]
                     .as_int()
                     .context("parameter is not an int")?;
                 let duration = u32::try_from(duration)?;
-                
-                Command::Wait { duration}
+
+                Command::Wait { duration }
             }
             _ => Command::Unknown {
                 code: command_code,
@@ -170,5 +303,6 @@ fn parse_event_command_list(
 
         ret.push((event_command.indent, command));
     }
+
     Ok(ret)
 }
