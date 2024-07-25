@@ -213,6 +213,23 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                     }
                 }
             }
+            Command::ControlVariables {
+                start_variable_id,
+                end_variable_id,
+                operation,
+                value,
+            } => {
+                let operation = operation.as_str();
+                let value = match value {
+                    ControlVariablesValue::Constant { value } => value.to_string(),
+                    ControlVariablesValue::Variable { id } => config.get_variable_name(id),
+                };
+                for variable_id in start_variable_id..(end_variable_id + 1) {
+                    let name = config.get_variable_name(variable_id);
+                    write_indent(&mut python, indent);
+                    writeln!(&mut python, "{name} {operation} {value}")?;
+                }
+            }
             Command::ChangeTransparency { set_transparent } => {
                 write_indent(&mut python, indent);
                 writeln!(
@@ -352,6 +369,7 @@ impl CommandCode {
     const COMMON_EVENT: Self = Self(117);
 
     const CONTROL_SWITCHES: Self = Self(121);
+    const CONTROL_VARIABLES: Self = Self(122);
 
     const TRANSFER_PLAYER: Self = Self(201);
 
@@ -387,6 +405,7 @@ impl std::fmt::Debug for CommandCode {
             Self::CONDITONAL_BRANCH => write!(f, "CONDITONAL_BRANCH"),
             Self::COMMON_EVENT => write!(f, "COMMON_EVENT"),
             Self::CONTROL_SWITCHES => write!(f, "CONTROL_SWITCHES"),
+            Self::CONTROL_VARIABLES => write!(f, "CONTROL_VARIABLES"),
             Self::TRANSFER_PLAYER => write!(f, "TRANSFER_PLAYER"),
             Self::SET_MOVEMENT_ROUTE => write!(f, "SET_MOVEMENT_ROUTE"),
             Self::CHANGE_TRANSPARENCY => write!(f, "CHANGE_TRANSPARENCY"),
@@ -481,6 +500,63 @@ impl ConditionalBranchVariableOperation {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum ControlVariablesOperation {
+    Const = 0,
+    Var = 1,
+    Random = 2,
+    GameData = 3,
+    Script = 4,
+}
+
+impl ControlVariablesOperation {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            0 => Ok(Self::Const),
+            1 => Ok(Self::Var),
+            2 => Ok(Self::Random),
+            3 => Ok(Self::GameData),
+            4 => Ok(Self::Script),
+            _ => bail!("{value} is not a valid ControlVariablesOperation"),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum OperateVariableOperation {
+    Set = 0,
+    Add = 1,
+    Sub = 2,
+    Mul = 3,
+    Div = 4,
+}
+
+impl OperateVariableOperation {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            0 => Ok(Self::Set),
+            1 => Ok(Self::Add),
+            2 => Ok(Self::Sub),
+            3 => Ok(Self::Mul),
+            4 => Ok(Self::Div),
+            _ => bail!("{value} is not a valid OperateVariableOperation"),
+        }
+    }
+
+    /// Get this as a str.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Set => "=",
+            Self::Add => "+=",
+            Self::Sub => "-=",
+            Self::Mul => "*=",
+            Self::Div => "/=",
+        }
+    }
+}
+
 /// A command
 #[derive(Debug)]
 enum Command {
@@ -500,6 +576,12 @@ enum Command {
         start_id: u32,
         end_id: u32,
         value: bool,
+    },
+    ControlVariables {
+        start_variable_id: u32,
+        end_variable_id: u32,
+        operation: OperateVariableOperation,
+        value: ControlVariablesValue,
     },
     ChangeTransparency {
         set_transparent: bool,
@@ -529,6 +611,12 @@ enum ConditionalBranchCommand {
         rhs_id: MaybeRef<u32>,
         operation: ConditionalBranchVariableOperation,
     },
+}
+
+#[derive(Debug)]
+enum ControlVariablesValue {
+    Constant { value: u32 },
+    Variable { id: u32 },
 }
 
 #[derive(Debug, Copy, Clone, Hash)]
@@ -668,6 +756,63 @@ fn parse_event_command_list(
                 Command::ControlSwitches {
                     start_id,
                     end_id,
+                    value,
+                }
+            }
+            (_, CommandCode::CONTROL_VARIABLES) => {
+                ensure!(event_command.parameters.len() >= 4);
+                let start_variable_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`start_variable_id` is not a `u32`")?;
+                let end_variable_id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`end_variable_id` is not a `u32`")?;
+                let operate_variable_operation = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`control_variables_operation` is not a `u8`")?;
+                let operate_variable_operation =
+                    OperateVariableOperation::from_u8(operate_variable_operation)?;
+                let control_variables_operation = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`control_variables_operation` is not a `u8`")?;
+                let control_variables_operation =
+                    ControlVariablesOperation::from_u8(control_variables_operation)?;
+
+                let value = match control_variables_operation {
+                    ControlVariablesOperation::Const => {
+                        ensure!(event_command.parameters.len() == 5);
+
+                        let value = event_command.parameters[4]
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
+                            .context("`value` is not a `u32`")?;
+
+                        ControlVariablesValue::Constant { value }
+                    }
+                    ControlVariablesOperation::Var => {
+                        ensure!(event_command.parameters.len() == 5);
+
+                        let id = event_command.parameters[4]
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
+                            .context("`id` is not a `u32`")?;
+
+                        ControlVariablesValue::Variable { id }
+                    }
+                    _ => {
+                        let name = "ControlVariablesOperation";
+                        bail!("{name} {control_variables_operation:?} is not supported")
+                    }
+                };
+
+                Command::ControlVariables {
+                    start_variable_id,
+                    end_variable_id,
+                    operation: operate_variable_operation,
                     value,
                 }
             }
