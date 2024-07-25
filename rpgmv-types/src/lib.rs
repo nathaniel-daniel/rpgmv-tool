@@ -7,7 +7,6 @@ mod event_page_condition;
 mod image_file;
 mod map;
 mod move_command;
-mod move_command_parameter;
 mod move_route;
 
 pub use self::audio_file::AudioFile;
@@ -19,5 +18,4 @@ pub use self::event_page_condition::EventPageCondition;
 pub use self::image_file::ImageFile;
 pub use self::map::Map;
 pub use self::move_command::MoveCommand;
-pub use self::move_command_parameter::MoveCommandParameter;
 pub use self::move_route::MoveRoute;

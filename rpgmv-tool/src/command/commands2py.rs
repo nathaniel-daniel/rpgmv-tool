@@ -331,6 +331,90 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, "transfer_player({map_arg}, x={x}, y={y}, direction={direction}, fade_type={fade_type})")?;
             }
+            Command::SetMovementRoute {
+                character_id,
+                route,
+            } => {
+                let repeat = stringify_bool(route.repeat);
+                let skippable = stringify_bool(route.skippable);
+                let wait = stringify_bool(route.wait);
+
+                write_indent(&mut python, indent);
+                writeln!(&mut python, "set_movement_route(")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "character_id={character_id},")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "route=MoveRoute(")?;
+
+                write_indent(&mut python, indent + 2);
+                writeln!(&mut python, "repeat={repeat},")?;
+
+                write_indent(&mut python, indent + 2);
+                writeln!(&mut python, "skippable={skippable},")?;
+
+                write_indent(&mut python, indent + 2);
+                writeln!(&mut python, "wait={wait},")?;
+
+                write_indent(&mut python, indent + 2);
+                writeln!(&mut python, "list=[")?;
+
+                for command in route.list {
+                    let command_indent = command
+                        .indent
+                        .map(|indent| indent.to_string())
+                        .unwrap_or_else(|| "None".to_string());
+
+                    write_indent(&mut python, indent + 3);
+                    writeln!(&mut python, "MoveCommand(")?;
+
+                    write_indent(&mut python, indent + 4);
+                    writeln!(&mut python, "code={},", command.code)?;
+
+                    write_indent(&mut python, indent + 4);
+                    writeln!(&mut python, "indent={command_indent},")?;
+
+                    match command.parameters {
+                        Some(parameters) => {
+                            write_indent(&mut python, indent + 4);
+                            writeln!(&mut python, "parameters=[")?;
+
+                            for parameter in parameters {
+                                write_indent(&mut python, indent + 5);
+
+                                match parameter {
+                                    serde_json::Value::Number(number) if number.is_i64() => {
+                                        let value =
+                                            number.as_i64().context("value is not an i64")?;
+                                        writeln!(&mut python, "{value},")?;
+                                    }
+                                    _ => bail!("cannot write parameter \"{parameter:?}\""),
+                                }
+                            }
+
+                            write_indent(&mut python, indent + 4);
+                            writeln!(&mut python, "],")?;
+                        }
+                        None => {
+                            write_indent(&mut python, indent + 4);
+                            writeln!(&mut python, "parameters=None,")?;
+                        }
+                    }
+
+                    write_indent(&mut python, indent + 3);
+                    writeln!(&mut python, "),")?;
+                }
+
+                write_indent(&mut python, indent + 2);
+                writeln!(&mut python, "]")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "),")?;
+
+                write_indent(&mut python, indent);
+                writeln!(&mut python, ")")?;
+            }
             Command::ChangeTransparency { set_transparent } => {
                 let set_transparent = stringify_bool(set_transparent);
 

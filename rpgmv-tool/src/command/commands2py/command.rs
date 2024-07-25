@@ -285,6 +285,10 @@ pub enum Command {
         direction: u8,
         fade_type: u8,
     },
+    SetMovementRoute {
+        character_id: i32,
+        route: rpgmv_types::MoveRoute,
+    },
     ChangeTransparency {
         set_transparent: bool,
     },
@@ -707,6 +711,19 @@ pub fn parse_event_command_list(
                     y,
                     direction,
                     fade_type,
+                }
+            }
+            (_, CommandCode::SET_MOVEMENT_ROUTE) => {
+                ensure!(event_command.parameters.len() == 2);
+                let character_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| i32::try_from(value).ok())
+                    .context("`value` is not an `i32`")?;
+                let route = serde_json::from_value(event_command.parameters[1].clone())?;
+
+                Command::SetMovementRoute {
+                    character_id,
+                    route,
                 }
             }
             (_, CommandCode::CHANGE_TRANSPARENCY) => {
