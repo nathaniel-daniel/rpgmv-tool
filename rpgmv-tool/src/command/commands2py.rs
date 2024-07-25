@@ -7,6 +7,7 @@ use anyhow::Context;
 use std::fmt::Write as _;
 use std::fs::File;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 
 #[derive(Debug, argh::FromArgs)]
@@ -55,28 +56,76 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
         None => Config::default(),
     };
 
+    let input_file_kind = FileKind::new(&options.input).with_context(|| {
+        format!(
+            "failed to determine file kind for \"{}\"",
+            options.input.display()
+        )
+    })?;
     let input_str = std::fs::read_to_string(&options.input)
         .with_context(|| format!("failed to read \"{}\"", options.input.display()))?;
-    let input: rpgmv_types::Map = serde_json::from_str(&input_str)
-        .with_context(|| format!("failed to read \"{}\"", options.input.display()))?;
+    let event_commands = match input_file_kind {
+        FileKind::Map => {
+            let mut map: rpgmv_types::Map = serde_json::from_str(&input_str)
+                .with_context(|| format!("failed to parse \"{}\"", options.input.display()))?;
 
-    let event = usize::try_from(options.event_id)
-        .ok()
-        .and_then(|event_id| input.events.get(event_id)?.as_ref())
-        .with_context(|| format!("no event with id {}", options.event_id))?;
-    ensure!(event.id == options.event_id);
+            let mut event = usize::try_from(options.event_id)
+                .ok()
+                .and_then(|event_id| {
+                    if event_id >= map.events.len() {
+                        return None;
+                    }
 
-    let event_page_index = match options.event_page {
-        Some(event_page) => event_page,
-        None if event.pages.len() == 1 => 0,
-        None => bail!("found multiple event pages. specify which one with the --event-page flag."),
+                    map.events.swap_remove(event_id)
+                })
+                .with_context(|| format!("no event with id {}", options.event_id))?;
+            ensure!(event.id == options.event_id);
+
+            let event_page_index = match options.event_page {
+                Some(event_page) => event_page,
+                None if event.pages.len() == 1 => 0,
+                None => {
+                    bail!(
+                        "found multiple event pages. specify which one with the --event-page option"
+                    )
+                }
+            };
+            let event_page_index = usize::from(event_page_index);
+            ensure!(
+                event_page_index < event.pages.len(),
+                "no event page with index {event_page_index}"
+            );
+            let event_page = event.pages.swap_remove(event_page_index);
+
+            event_page.list
+        }
+        FileKind::CommonEvents => {
+            let mut common_events: Vec<Option<rpgmv_types::CommonEvent>> =
+                serde_json::from_str(&input_str)
+                    .with_context(|| format!("failed to parse \"{}\"", options.input.display()))?;
+
+            let event = usize::try_from(options.event_id)
+                .ok()
+                .and_then(|event_id| {
+                    if event_id >= common_events.len() {
+                        return None;
+                    }
+
+                    common_events.swap_remove(event_id)
+                })
+                .with_context(|| format!("no event with id {}", options.event_id))?;
+            ensure!(event.id == options.event_id);
+
+            ensure!(
+                options.event_page.is_none(),
+                "common events do not have pages, remove the --event-page option"
+            );
+
+            event.list
+        }
     };
-    let event_page = event
-        .pages
-        .get(usize::from(event_page_index))
-        .with_context(|| format!("no event page with index {event_page_index}"))?;
 
-    let commands = parse_event_command_list(&event_page.list)?;
+    let commands = parse_event_command_list(&event_commands)?;
 
     let mut python = String::new();
     for (indent, command) in commands {
@@ -211,6 +260,39 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
     drop(output_file);
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Copy)]
+enum FileKind {
+    Map,
+    CommonEvents,
+}
+
+impl FileKind {
+    /// Try to extract a file kind from a path.
+    pub fn new(path: &Path) -> anyhow::Result<Self> {
+        let file_name = path
+            .file_name()
+            .context("missing file name")?
+            .to_str()
+            .context("file name is not unicode")?;
+        let (file_stem, extension) = file_name
+            .rsplit_once('.')
+            .context("file name has no extension")?;
+        ensure!(extension == "json", "file must be json");
+
+        if let Some(n) = file_stem.strip_prefix("Map") {
+            if n.chars().all(|c| c.is_ascii_alphanumeric()) {
+                return Ok(Self::Map);
+            }
+        }
+
+        if file_stem == "CommonEvents" {
+            return Ok(Self::CommonEvents);
+        }
+
+        bail!("unknown file type")
+    }
 }
 
 fn stringify_bool(b: bool) -> &'static str {

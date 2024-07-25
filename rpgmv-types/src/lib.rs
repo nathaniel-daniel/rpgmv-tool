@@ -1,4 +1,5 @@
 mod audio_file;
+mod common_event;
 mod event;
 mod event_command;
 mod event_page;
@@ -8,10 +9,9 @@ mod map;
 mod move_command;
 mod move_command_parameter;
 mod move_route;
-mod common_event;
 
-pub use self::common_event::CommonEvent;
 pub use self::audio_file::AudioFile;
+pub use self::common_event::CommonEvent;
 pub use self::event::Event;
 pub use self::event_command::EventCommand;
 pub use self::event_page::EventPage;
