@@ -436,6 +436,16 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, "{fn_name}({actor_arg}, skill={skill})")?;
             }
+            Command::When {
+                choice_index,
+                choice_name,
+            } => {
+                write_indent(&mut python, indent);
+                writeln!(&mut python, "if GetChoiceIndex() == {choice_index}:")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "# {choice_name}")?;
+            }
             Command::WhenEnd => {
                 // Trust indents over end commands
             }

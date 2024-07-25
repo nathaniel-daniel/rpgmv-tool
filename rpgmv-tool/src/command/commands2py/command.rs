@@ -310,6 +310,10 @@ pub enum Command {
         is_learn_skill: bool,
         skill_id: u32,
     },
+    When {
+        choice_index: u32,
+        choice_name: String,
+    },
     WhenEnd,
     Else,
     ConditionalBranchEnd,
@@ -769,6 +773,22 @@ pub fn parse_event_command_list(
                     actor_id,
                     is_learn_skill,
                     skill_id,
+                }
+            }
+            (_, CommandCode::WHEN) => {
+                ensure!(event_command.parameters.len() == 2);
+                let choice_index = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`choice_index` is not a `u32`")?;
+                let choice_name = event_command.parameters[1]
+                    .as_str()
+                    .context("`choice_name` is not a string")?
+                    .to_string();
+
+                Command::When {
+                    choice_index,
+                    choice_name,
                 }
             }
             (_, CommandCode::WHEN_END) => {
