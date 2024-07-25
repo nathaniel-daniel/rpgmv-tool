@@ -20,6 +20,14 @@ pub struct Config {
         deserialize_with = "deserialize_u32_key_btree_map"
     )]
     pub common_events: BTreeMap<u32, String>,
+
+    /// Actors
+    #[serde(default, deserialize_with = "deserialize_u32_key_btree_map")]
+    pub actors: BTreeMap<u32, String>,
+
+    /// Skills
+    #[serde(default, deserialize_with = "deserialize_u32_key_btree_map")]
+    pub skills: BTreeMap<u32, String>,
 }
 
 impl Config {
@@ -49,12 +57,28 @@ impl Config {
             .unwrap_or_else(|| format!("game_variable_{id}"))
     }
 
-    // Get a common event name
+    /// Get a common event name
     pub fn get_common_event_name(&self, id: u32) -> String {
         self.common_events
             .get(&id)
             .map(|name| name.to_string())
             .unwrap_or_else(|| format!("CommonEvent{id}"))
+    }
+
+    /// Get an actor name
+    pub fn get_actor_name(&self, id: u32) -> String {
+        self.actors
+            .get(&id)
+            .map(|name| name.to_string())
+            .unwrap_or_else(|| format!("game_actor_{id}"))
+    }
+
+    /// Get a skill name
+    pub fn get_skill_name(&self, id: u32) -> String {
+        self.skills
+            .get(&id)
+            .map(|name| name.to_string())
+            .unwrap_or_else(|| format!("game_skill_{id}"))
     }
 }
 

@@ -233,6 +233,31 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, "Wait(duration={duration})")?
             }
+            Command::ChangeSkill {
+                actor_id,
+                is_learn_skill,
+                skill_id,
+            } => {
+                let actor_arg = match actor_id {
+                    MaybeRef::Constant(actor_id) => {
+                        let name = config.get_actor_name(actor_id);
+                        format!("actor={name}")
+                    }
+                    MaybeRef::Ref(variable_id) => {
+                        let name = config.get_variable_name(variable_id);
+                        format!("actor_id={name}")
+                    }
+                };
+                let fn_name = if is_learn_skill {
+                    "LearnSkill"
+                } else {
+                    "ForgetSkill"
+                };
+                let skill = config.get_skill_name(skill_id);
+
+                write_indent(&mut python, indent);
+                writeln!(&mut python, "{fn_name}({actor_arg}, skill={skill})")?;
+            }
             Command::Else => {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, "else:")?;
@@ -342,6 +367,8 @@ impl CommandCode {
     const WAIT: Self = Self(230);
     const SHOW_PICTURE: Self = Self(231);
 
+    const CHANGE_SKILL: Self = Self(318);
+
     const TEXT_DATA: Self = Self(401);
 
     const ELSE: Self = Self(411);
@@ -369,6 +396,7 @@ impl std::fmt::Debug for CommandCode {
             Self::FADEIN_SCREEN => write!(f, "FADEIN_SCREEN"),
             Self::WAIT => write!(f, "WAIT"),
             Self::SHOW_PICTURE => write!(f, "SHOW_PICTURE"),
+            Self::CHANGE_SKILL => write!(f, "CHANGE_SKILL"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
             Self::ELSE => write!(f, "ELSE"),
             Self::CONDITONAL_BRANCH_END => write!(f, "CONDITONAL_BRANCH_END"),
@@ -480,6 +508,11 @@ enum Command {
     FadeinScreen,
     Wait {
         duration: u32,
+    },
+    ChangeSkill {
+        actor_id: MaybeRef<u32>,
+        is_learn_skill: bool,
+        skill_id: u32,
     },
     Else,
     ConditionalBranchEnd,
@@ -660,10 +693,44 @@ fn parse_event_command_list(
                 ensure!(event_command.parameters.len() == 1);
                 let duration = event_command.parameters[0]
                     .as_i64()
-                    .and_then(|duration| u32::try_from(duration).ok())
+                    .and_then(|value| u32::try_from(value).ok())
                     .context("`duration` is not a `u32`")?;
 
                 Command::Wait { duration }
+            }
+            (_, CommandCode::CHANGE_SKILL) => {
+                ensure!(event_command.parameters.len() == 4);
+                let is_constant = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_constant` is not a `u8`")?;
+                ensure!(is_constant <= 1);
+                let is_constant = is_constant == 0;
+                let actor_id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`actor_id` is not a `u32`")?;
+                let actor_id = if is_constant {
+                    MaybeRef::Constant(actor_id)
+                } else {
+                    MaybeRef::Ref(actor_id)
+                };
+                let is_learn_skill = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_learn_skill` is not a `u8`")?;
+                ensure!(is_learn_skill <= 1);
+                let is_learn_skill = is_learn_skill == 0;
+                let skill_id = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`skill_id` is not a `u32`")?;
+
+                Command::ChangeSkill {
+                    actor_id,
+                    is_learn_skill,
+                    skill_id,
+                }
             }
             (_, CommandCode::ELSE) => {
                 ensure!(event_command.parameters.is_empty());
