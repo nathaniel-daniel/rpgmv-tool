@@ -145,7 +145,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 lines,
             } => {
                 write_indent(&mut python, indent);
-                writeln!(&mut python, "ShowText(")?;
+                writeln!(&mut python, "show_text(")?;
 
                 write_indent(&mut python, indent + 1);
                 writeln!(&mut python, "face_name='{face_name}',")?;
@@ -183,7 +183,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 background,
             } => {
                 write_indent(&mut python, indent);
-                writeln!(&mut python, "ShowChoices(")?;
+                writeln!(&mut python, "show_choices(")?;
 
                 write_indent(&mut python, indent + 1);
                 writeln!(&mut python, "choices=[")?;
@@ -295,13 +295,13 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 };
 
                 write_indent(&mut python, indent);
-                writeln!(&mut python, "GainItem(item={item}, value={sign}{value})")?;
+                writeln!(&mut python, "gain_item(item={item}, value={sign}{value})")?;
             }
             Command::ChangeSaveAccess { disable } => {
                 let fn_name = if disable {
-                    "DisableSaving"
+                    "disable_saving"
                 } else {
-                    "EnableSaving"
+                    "enable_saving"
                 };
                 write_indent(&mut python, indent);
                 writeln!(&mut python, "{fn_name}()")?
@@ -329,7 +329,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                     MaybeRef::Ref(id) => config.get_variable_name(id),
                 };
                 write_indent(&mut python, indent);
-                writeln!(&mut python, "TransferPlayer({map_arg}, x={x}, y={y}, direction={direction}, fade_type={fade_type})")?;
+                writeln!(&mut python, "transfer_player({map_arg}, x={x}, y={y}, direction={direction}, fade_type={fade_type})")?;
             }
             Command::ChangeTransparency { set_transparent } => {
                 let set_transparent = stringify_bool(set_transparent);
@@ -337,7 +337,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 write_indent(&mut python, indent);
                 writeln!(
                     &mut python,
-                    "ChangeTransparency(set_transparent={set_transparent})"
+                    "change_transparency(set_transparent={set_transparent})"
                 )?
             }
             Command::ShowBalloonIcon {
@@ -348,15 +348,15 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 let wait = stringify_bool(wait);
 
                 write_indent(&mut python, indent);
-                writeln!(&mut python, "ShowBalloonIcon(character_id={character_id}, balloon_id={balloon_id}, wait={wait})")?
+                writeln!(&mut python, "show_balloon_icon(character_id={character_id}, balloon_id={balloon_id}, wait={wait})")?
             }
             Command::FadeoutScreen => {
                 write_indent(&mut python, indent);
-                writeln!(&mut python, "FadeoutScreen()")?
+                writeln!(&mut python, "fadeout_screen()")?
             }
             Command::FadeinScreen => {
                 write_indent(&mut python, indent);
-                writeln!(&mut python, "FadeinScreen()")?
+                writeln!(&mut python, "fadein_screen()")?
             }
             Command::TintScreen {
                 tone,
@@ -368,7 +368,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 write_indent(&mut python, indent);
                 writeln!(
                     &mut python,
-                    "TintScreen(tone={tone:?}, duration={duration}, wait={wait})"
+                    "tint_screen(tone={tone:?}, duration={duration}, wait={wait})"
                 )?
             }
             Command::FlashScreen {
@@ -381,12 +381,12 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 write_indent(&mut python, indent);
                 writeln!(
                     &mut python,
-                    "FlashScreen(color={color:?}, duration={duration}, wait={wait})"
+                    "flash_screen(color={color:?}, duration={duration}, wait={wait})"
                 )?
             }
             Command::Wait { duration } => {
                 write_indent(&mut python, indent);
-                writeln!(&mut python, "Wait(duration={duration})")?
+                writeln!(&mut python, "wait(duration={duration})")?
             }
             Command::ShowPicture {
                 picture_id,
@@ -410,7 +410,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 };
 
                 write_indent(&mut python, indent);
-                writeln!(&mut python, "ShowPicture(")?;
+                writeln!(&mut python, "show_picture(")?;
 
                 write_indent(&mut python, indent + 1);
                 writeln!(&mut python, "picture_id={picture_id},")?;
@@ -444,13 +444,13 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
             }
             Command::ErasePicture { picture_id } => {
                 write_indent(&mut python, indent);
-                writeln!(&mut python, "ErasePicture(picture_id={picture_id})")?;
+                writeln!(&mut python, "erase_picture(picture_id={picture_id})")?;
             }
             Command::PlaySe { audio } => {
                 let audio_name = escape_string(&audio.name);
 
                 write_indent(&mut python, indent);
-                writeln!(&mut python, "PlaySe(")?;
+                writeln!(&mut python, "play_se(")?;
 
                 write_indent(&mut python, indent + 1);
                 writeln!(&mut python, "audio=AudioFile(")?;
@@ -489,9 +489,9 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                     }
                 };
                 let fn_name = if is_learn_skill {
-                    "LearnSkill"
+                    "learn_skill"
                 } else {
-                    "ForgetSkill"
+                    "forget_skill"
                 };
                 let skill = config.get_skill_name(skill_id);
 
@@ -505,7 +505,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 write_indent(&mut python, indent);
                 writeln!(
                     &mut python,
-                    "if GetChoiceIndex() == {choice_index}: # {choice_name}"
+                    "if get_choice_index() == {choice_index}: # {choice_name}"
                 )?;
             }
             Command::WhenEnd => {

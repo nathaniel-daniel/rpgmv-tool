@@ -66,7 +66,7 @@ impl Config {
         self.common_events
             .get(&id)
             .map(|name| name.to_string())
-            .unwrap_or_else(|| format!("CommonEvent{id}"))
+            .unwrap_or_else(|| format!("common_event_{id}"))
     }
 
     /// Get an actor name
