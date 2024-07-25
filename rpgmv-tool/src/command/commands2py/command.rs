@@ -15,6 +15,7 @@ impl CommandCode {
     const NOP: Self = Self(0);
 
     const SHOW_TEXT: Self = Self(101);
+    const SHOW_CHOICES: Self = Self(102);
 
     const CONDITONAL_BRANCH: Self = Self(111);
 
@@ -71,6 +72,7 @@ impl std::fmt::Debug for CommandCode {
             Self::UNKNOWN_505 => write!(f, "UNKNOWN_505"),
             Self::NOP => write!(f, "NOP"),
             Self::SHOW_TEXT => write!(f, "SHOW_TEXT"),
+            Self::SHOW_CHOICES => write!(f, "SHOW_CHOICES"),
             Self::CONDITONAL_BRANCH => write!(f, "CONDITONAL_BRANCH"),
             Self::COMMON_EVENT => write!(f, "COMMON_EVENT"),
             Self::CONTROL_SWITCHES => write!(f, "CONTROL_SWITCHES"),
@@ -246,6 +248,13 @@ pub enum Command {
         position_type: u32,
         lines: Vec<String>,
     },
+    ShowChoices {
+        choices: Vec<String>,
+        cancel_type: i32,
+        default_type: u32,
+        position_type: u32,
+        background: u32,
+    },
     ConditionalBranch(ConditionalBranchCommand),
     CommonEvent {
         id: u32,
@@ -388,6 +397,35 @@ pub fn parse_event_command_list(
                     background,
                     position_type,
                     lines: Vec::new(),
+                }
+            }
+            (_, CommandCode::SHOW_CHOICES) => {
+                ensure!(event_command.parameters.len() == 5);
+
+                let choices = serde_json::from_value(event_command.parameters[0].clone())?;
+                let cancel_type = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| i32::try_from(value).ok())
+                    .context("`cancel_type` is not an `i32`")?;
+                let default_type = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`default_type` is not a `u32`")?;
+                let position_type = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`position_type` is not a `u32`")?;
+                let background = event_command.parameters[4]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`background` is not a `u32`")?;
+
+                Command::ShowChoices {
+                    choices,
+                    cancel_type,
+                    default_type,
+                    position_type,
+                    background,
                 }
             }
             (_, CommandCode::CONDITONAL_BRANCH) => {

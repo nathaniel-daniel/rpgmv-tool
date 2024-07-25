@@ -175,6 +175,44 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, ")")?;
             }
+            Command::ShowChoices {
+                choices,
+                cancel_type,
+                default_type,
+                position_type,
+                background,
+            } => {
+                write_indent(&mut python, indent);
+                writeln!(&mut python, "ShowChoices(")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "choices=[")?;
+
+                for choice in choices {
+                    let choice = escape_string(&choice);
+
+                    write_indent(&mut python, indent + 2);
+                    writeln!(&mut python, "'{choice}',")?;
+                }
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "],")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "cancel_type={cancel_type},")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "default_type={default_type},")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "position_type={position_type},")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "background={background},")?;
+
+                write_indent(&mut python, indent);
+                writeln!(&mut python, ")")?;
+            }
             Command::ConditionalBranch(command) => {
                 write_indent(&mut python, indent);
                 write!(&mut python, "if ")?;
@@ -399,14 +437,14 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 writeln!(&mut python, "{fn_name}({actor_arg}, skill={skill})")?;
             }
             Command::WhenEnd => {
-                // Trust indents over branch ends
+                // Trust indents over end commands
             }
             Command::Else => {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, "else:")?;
             }
             Command::ConditionalBranchEnd => {
-                // Trust indents over branch ends
+                // Trust indents over end commands
             }
             Command::Unknown { code, parameters } => {
                 write_indent(&mut python, indent);
