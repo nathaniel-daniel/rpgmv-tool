@@ -295,7 +295,16 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 };
 
                 write_indent(&mut python, indent);
-                writeln!(&mut python, "GainItem(item={item}, value={sign}{value})")?
+                writeln!(&mut python, "GainItem(item={item}, value={sign}{value})")?;
+            }
+            Command::ChangeSaveAccess { disable } => {
+                let fn_name = if disable {
+                    "DisableSaving"
+                } else {
+                    "EnableSaving"
+                };
+                write_indent(&mut python, indent);
+                writeln!(&mut python, "{fn_name}()")?
             }
             Command::ChangeTransparency { set_transparent } => {
                 let set_transparent = stringify_bool(set_transparent);

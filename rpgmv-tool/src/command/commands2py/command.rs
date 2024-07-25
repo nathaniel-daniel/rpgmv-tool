@@ -275,6 +275,9 @@ pub enum Command {
         is_add: bool,
         value: MaybeRef<u32>,
     },
+    ChangeSaveAccess {
+        disable: bool,
+    },
     ChangeTransparency {
         set_transparent: bool,
     },
@@ -635,6 +638,17 @@ pub fn parse_event_command_list(
                     is_add,
                     value,
                 }
+            }
+            (_, CommandCode::CHANGE_SAVE_ACCESS) => {
+                ensure!(event_command.parameters.len() == 1);
+                let disable = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`disable` is not a `u8`")?;
+                ensure!(disable <= 1);
+                let disable = disable == 0;
+
+                Command::ChangeSaveAccess { disable }
             }
             (_, CommandCode::CHANGE_TRANSPARENCY) => {
                 ensure!(event_command.parameters.len() == 1);
