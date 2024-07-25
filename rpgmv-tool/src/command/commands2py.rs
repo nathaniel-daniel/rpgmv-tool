@@ -69,7 +69,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
     let event_page_index = match options.event_page {
         Some(event_page) => event_page,
         None if event.pages.len() == 1 => 0,
-        None => bail!("found multiple event pages. specify which one with --event-page flag."),
+        None => bail!("found multiple event pages. specify which one with the --event-page flag."),
     };
     let event_page = event
         .pages
@@ -176,6 +176,10 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, "FadeoutScreen()")?
             }
+            Command::FadeinScreen => {
+                write_indent(&mut python, indent);
+                writeln!(&mut python, "FadeinScreen()")?
+            }
             Command::Wait { duration } => {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, "Wait(duration={duration})")?
@@ -251,6 +255,7 @@ impl CommandCode {
     const SHOW_BALLOON_ICON: Self = Self(213);
 
     const FADEOUT_SCREEN: Self = Self(221);
+    const FADEIN_SCREEN: Self = Self(222);
 
     const WAIT: Self = Self(230);
 
@@ -278,6 +283,7 @@ impl std::fmt::Debug for CommandCode {
             Self::SHOW_ANIMATION => write!(f, "SHOW_ANIMATION"),
             Self::SHOW_BALLOON_ICON => write!(f, "SHOW_BALLOON_ICON"),
             Self::FADEOUT_SCREEN => write!(f, "FADEOUT_SCREEN"),
+            Self::FADEIN_SCREEN => write!(f, "FADEIN_SCREEN"),
             Self::WAIT => write!(f, "WAIT"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
             Self::ELSE => write!(f, "ELSE"),
@@ -384,6 +390,7 @@ enum Command {
         set_transparent: bool,
     },
     FadeoutScreen,
+    FadeinScreen,
     Wait {
         duration: u32,
     },
@@ -557,6 +564,10 @@ fn parse_event_command_list(
             (_, CommandCode::FADEOUT_SCREEN) => {
                 ensure!(event_command.parameters.is_empty());
                 Command::FadeoutScreen
+            }
+            (_, CommandCode::FADEIN_SCREEN) => {
+                ensure!(event_command.parameters.is_empty());
+                Command::FadeinScreen
             }
             (_, CommandCode::WAIT) => {
                 ensure!(event_command.parameters.len() == 1);
