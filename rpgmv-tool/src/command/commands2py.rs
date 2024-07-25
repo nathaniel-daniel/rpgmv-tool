@@ -254,6 +254,19 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, "FadeinScreen()")?
             }
+            Command::FlashScreen {
+                color,
+                duration,
+                wait,
+            } => {
+                let wait = stringify_bool(wait);
+
+                write_indent(&mut python, indent);
+                writeln!(
+                    &mut python,
+                    "FlashScreen(color={color:?}, duration={duration}, wait={wait})"
+                )?
+            }
             Command::Wait { duration } => {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, "Wait(duration={duration})")?
@@ -698,6 +711,11 @@ enum Command {
     },
     FadeoutScreen,
     FadeinScreen,
+    FlashScreen {
+        color: [u8; 4],
+        duration: u32,
+        wait: bool,
+    },
     Wait {
         duration: u32,
     },
@@ -980,8 +998,9 @@ fn parse_event_command_list(
                 ensure!(event_command.parameters.len() == 1);
                 let value = event_command.parameters[0]
                     .as_i64()
-                    .context("parameter is not an int")?;
-                ensure!(value > 0 && value <= 1);
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`value` is not a `u32`")?;
+                ensure!(value <= 1);
 
                 let set_transparent = value == 0;
                 Command::ChangeTransparency { set_transparent }
@@ -993,6 +1012,23 @@ fn parse_event_command_list(
             (_, CommandCode::FADEIN_SCREEN) => {
                 ensure!(event_command.parameters.is_empty());
                 Command::FadeinScreen
+            }
+            (_, CommandCode::FLASH_SCREEN) => {
+                ensure!(event_command.parameters.len() == 3);
+                let color: [u8; 4] = serde_json::from_value(event_command.parameters[0].clone())?;
+                let duration = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`duration` is not a `u32`")?;
+                let wait = event_command.parameters[2]
+                    .as_bool()
+                    .context("`wait` is not a `bool`")?;
+
+                Command::FlashScreen {
+                    color,
+                    duration,
+                    wait,
+                }
             }
             (_, CommandCode::WAIT) => {
                 ensure!(event_command.parameters.len() == 1);
