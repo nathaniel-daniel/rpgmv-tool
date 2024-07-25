@@ -157,7 +157,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 writeln!(&mut python, "lines=[")?;
 
                 for line in lines {
-                    let line = line.replace('\'', "\\'");
+                    let line = escape_string(&line);
 
                     write_indent(&mut python, indent + 2);
                     writeln!(&mut python, "'{line}',")?;
@@ -254,6 +254,60 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
             Command::Wait { duration } => {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, "Wait(duration={duration})")?
+            }
+            Command::ShowImage {
+                picture_id,
+                picture_name,
+                origin,
+                x,
+                y,
+                scale_x,
+                scale_y,
+                opacity,
+                blend_mode,
+            } => {
+                let picture_name = escape_string(&picture_name);
+                let x = match x {
+                    MaybeRef::Constant(value) => value.to_string(),
+                    MaybeRef::Ref(id) => config.get_variable_name(id),
+                };
+                let y = match y {
+                    MaybeRef::Constant(value) => value.to_string(),
+                    MaybeRef::Ref(id) => config.get_variable_name(id),
+                };
+
+                write_indent(&mut python, indent);
+                writeln!(&mut python, "ShowImage(")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "picture_id={picture_id},")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "picture_name='{picture_name}',")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "origin={origin},")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "x={x},")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "y={y},")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "scale_x={scale_x},")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "scale_y={scale_y},")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "opacity={opacity},")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "blend_mode={blend_mode},")?;
+
+                write_indent(&mut python, indent);
+                writeln!(&mut python, ")")?;
             }
             Command::ChangeSkill {
                 actor_id,
@@ -353,6 +407,10 @@ fn write_indent(string: &mut String, indent: u16) {
     for _ in 0..indent {
         string.push('\t');
     }
+}
+
+fn escape_string(input: &str) -> String {
+    input.replace('\'', "\\'")
 }
 
 /// A command code
@@ -595,6 +653,17 @@ enum Command {
     FadeinScreen,
     Wait {
         duration: u32,
+    },
+    ShowImage {
+        picture_id: u32,
+        picture_name: String,
+        origin: u32,
+        x: MaybeRef<u32>,
+        y: MaybeRef<u32>,
+        scale_x: u32,
+        scale_y: u32,
+        opacity: u32,
+        blend_mode: u8,
     },
     ChangeSkill {
         actor_id: MaybeRef<u32>,
@@ -867,6 +936,69 @@ fn parse_event_command_list(
                     .context("`duration` is not a `u32`")?;
 
                 Command::Wait { duration }
+            }
+            (_, CommandCode::SHOW_PICTURE) => {
+                ensure!(event_command.parameters.len() == 10);
+                let picture_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`picture_id` is not a `u32`")?;
+                let picture_name = event_command.parameters[1]
+                    .as_str()
+                    .context("`picture_name` is not a string")?
+                    .to_string();
+                let origin = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`origin` is not a `u32`")?;
+                let is_constant = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`origin` is not a `u8`")?;
+                ensure!(is_constant <= 1);
+                let is_constant = is_constant == 0;
+                let x = event_command.parameters[4]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`x` is not a `u32`")?;
+                let y = event_command.parameters[5]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`y` is not a `u32`")?;
+                let scale_x = event_command.parameters[6]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`scale_x` is not a `u32`")?;
+                let scale_y = event_command.parameters[7]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`scale_y` is not a `u32`")?;
+                let opacity = event_command.parameters[7]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`opacity` is not a `u32`")?;
+                let blend_mode = event_command.parameters[7]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`opacity` is not a `u8`")?;
+
+                let (x, y) = if is_constant {
+                    (MaybeRef::Constant(x), MaybeRef::Constant(y))
+                } else {
+                    (MaybeRef::Ref(x), MaybeRef::Ref(y))
+                };
+
+                Command::ShowImage {
+                    picture_id,
+                    picture_name,
+                    origin,
+                    x,
+                    y,
+                    scale_x,
+                    scale_y,
+                    opacity,
+                    blend_mode,
+                }
             }
             (_, CommandCode::CHANGE_SKILL) => {
                 ensure!(event_command.parameters.len() == 4);
