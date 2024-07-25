@@ -318,10 +318,12 @@ impl ConditionalBranchKind {
         }
     }
 
+    /*
     /// Get this as a u8.
     pub fn as_u8(self) -> u8 {
         self as u8
     }
+    */
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -347,11 +349,12 @@ impl ConditionalBranchVariableOperation {
             _ => bail!("{value} is not a valid ConditionalBranchVariableOperation"),
         }
     }
-
+    /*
     /// Get this as a u8.
     pub fn as_u8(self) -> u8 {
         self as u8
     }
+    */
 
     /// Get this as a str.
     pub fn as_str(self) -> &'static str {
