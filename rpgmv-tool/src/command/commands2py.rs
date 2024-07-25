@@ -258,6 +258,7 @@ impl CommandCode {
     const FADEIN_SCREEN: Self = Self(222);
 
     const WAIT: Self = Self(230);
+    const SHOW_PICTURE: Self = Self(231);
 
     const TEXT_DATA: Self = Self(401);
 
@@ -285,6 +286,7 @@ impl std::fmt::Debug for CommandCode {
             Self::FADEOUT_SCREEN => write!(f, "FADEOUT_SCREEN"),
             Self::FADEIN_SCREEN => write!(f, "FADEIN_SCREEN"),
             Self::WAIT => write!(f, "WAIT"),
+            Self::SHOW_PICTURE => write!(f, "SHOW_PICTURE"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
             Self::ELSE => write!(f, "ELSE"),
             Self::CONDITONAL_BRANCH_END => write!(f, "CONDITONAL_BRANCH_END"),
@@ -401,7 +403,7 @@ enum Command {
     ConditionalBranchEnd,
     Unknown {
         code: CommandCode,
-        parameters: Vec<rpgmv_types::EventCommandParameter>,
+        parameters: Vec<serde_json::Value>,
     },
 }
 
@@ -454,16 +456,16 @@ fn parse_event_command_list(
                     .context("`face_name` is not a string")?
                     .to_string();
                 let face_index = event_command.parameters[1]
-                    .as_int()
-                    .and_then(|n| u32::try_from(*n).ok())
+                    .as_i64()
+                    .and_then(|n| u32::try_from(n).ok())
                     .context("`face_index` is not a `u32`")?;
                 let background = event_command.parameters[2]
-                    .as_int()
-                    .and_then(|n| u32::try_from(*n).ok())
+                    .as_i64()
+                    .and_then(|n| u32::try_from(n).ok())
                     .context("`background` is not a string")?;
                 let position_type = event_command.parameters[3]
-                    .as_int()
-                    .and_then(|n| u32::try_from(*n).ok())
+                    .as_i64()
+                    .and_then(|n| u32::try_from(n).ok())
                     .context("`position_type` is not a string")?;
 
                 Command::ShowText {
@@ -477,8 +479,8 @@ fn parse_event_command_list(
             (_, CommandCode::CONDITONAL_BRANCH) => {
                 ensure!(!event_command.parameters.is_empty());
                 let kind = event_command.parameters[0]
-                    .as_int()
-                    .and_then(|value| u8::try_from(*value).ok())
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
                     .context("`kind` is not a `u32`")?;
                 let kind = ConditionalBranchKind::from_u8(kind)?;
 
@@ -487,17 +489,17 @@ fn parse_event_command_list(
                         ensure!(event_command.parameters.len() == 5);
 
                         let lhs_id = event_command.parameters[1]
-                            .as_int()
-                            .and_then(|value| u32::try_from(*value).ok())
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
                             .context("`lhs_id` is not a `u32`")?;
                         let is_constant = event_command.parameters[2]
-                            .as_int()
-                            .and_then(|value| u8::try_from(*value).ok())
+                            .as_i64()
+                            .and_then(|value| u8::try_from(value).ok())
                             .context("`is_constant` is not a `u32`")?;
                         let is_constant = is_constant == 0;
                         let rhs_id = event_command.parameters[3]
-                            .as_int()
-                            .and_then(|value| u32::try_from(*value).ok())
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
                             .context("`rhs_id` is not a `u32`")?;
                         let rhs_id = if is_constant {
                             MaybeRef::Constant(rhs_id)
@@ -505,8 +507,8 @@ fn parse_event_command_list(
                             MaybeRef::Ref(rhs_id)
                         };
                         let operation = event_command.parameters[4]
-                            .as_int()
-                            .and_then(|value| u8::try_from(*value).ok())
+                            .as_i64()
+                            .and_then(|value| u8::try_from(value).ok())
                             .context("`operation` is not a `u8`")?;
                         let operation = ConditionalBranchVariableOperation::from_u8(operation)?;
 
@@ -524,8 +526,8 @@ fn parse_event_command_list(
             (_, CommandCode::COMMON_EVENT) => {
                 ensure!(event_command.parameters.len() == 1);
                 let id = event_command.parameters[0]
-                    .as_int()
-                    .and_then(|value| u32::try_from(*value).ok())
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
                     .context("`id` is not a `u32`")?;
 
                 Command::CommonEvent { id }
@@ -534,16 +536,16 @@ fn parse_event_command_list(
                 ensure!(event_command.parameters.len() == 3);
 
                 let start_id = event_command.parameters[0]
-                    .as_int()
-                    .and_then(|value| u32::try_from(*value).ok())
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
                     .context("`start_id` is not a `u32`")?;
                 let end_id = event_command.parameters[1]
-                    .as_int()
-                    .and_then(|value| u32::try_from(*value).ok())
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
                     .context("`end_id` is not a `u32`")?;
                 let value = event_command.parameters[2]
-                    .as_int()
-                    .and_then(|value| u32::try_from(*value).ok())
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
                     .context("`value` is not a `u32`")?;
                 ensure!(value <= 1);
                 let value = value == 0;
@@ -556,8 +558,8 @@ fn parse_event_command_list(
             }
             (_, CommandCode::CHANGE_TRANSPARENCY) => {
                 ensure!(event_command.parameters.len() == 1);
-                let value = *event_command.parameters[0]
-                    .as_int()
+                let value = event_command.parameters[0]
+                    .as_i64()
                     .context("parameter is not an int")?;
                 ensure!(value > 0 && value <= 1);
 
@@ -575,8 +577,8 @@ fn parse_event_command_list(
             (_, CommandCode::WAIT) => {
                 ensure!(event_command.parameters.len() == 1);
                 let duration = event_command.parameters[0]
-                    .as_int()
-                    .and_then(|duration| u32::try_from(*duration).ok())
+                    .as_i64()
+                    .and_then(|duration| u32::try_from(duration).ok())
                     .context("`duration` is not a `u32`")?;
 
                 Command::Wait { duration }
