@@ -80,8 +80,6 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
 
     let mut python = String::new();
     for (indent, command) in commands {
-        write_indent(&mut python, indent);
-
         match command {
             Command::Nop => {}
             Command::ShowText {
@@ -91,6 +89,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 position_type,
                 lines,
             } => {
+                write_indent(&mut python, indent);
                 writeln!(&mut python, "ShowText(")?;
 
                 write_indent(&mut python, indent + 1);
@@ -122,6 +121,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 writeln!(&mut python, ")")?;
             }
             Command::ConditionalBranch(command) => {
+                write_indent(&mut python, indent);
                 write!(&mut python, "if ")?;
                 match command {
                     ConditionalBranchCommand::Variable {
@@ -140,6 +140,12 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                     }
                 }
             }
+            Command::CommonEvent { id } => {
+                let name = config.get_common_event_name(id);
+
+                write_indent(&mut python, indent);
+                writeln!(&mut python, "{name}()")?;
+            }
             Command::ControlSwitches {
                 start_id,
                 end_id,
@@ -148,6 +154,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 let mut iter = (start_id..(end_id + 1)).peekable();
                 let value = stringify_bool(value);
 
+                write_indent(&mut python, indent);
                 while let Some(id) = iter.next() {
                     let name = config.get_switch_name(id);
 
@@ -157,17 +164,31 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                     }
                 }
             }
-            Command::ChangeTransparency { set_transparent } => writeln!(
-                &mut python,
-                "ChangeTransparency(set_transparent={})",
-                stringify_bool(set_transparent)
-            )?,
-            Command::FadeoutScreen => writeln!(&mut python, "FadeoutScreen()")?,
-            Command::Wait { duration } => writeln!(&mut python, "Wait(duration={duration})")?,
+            Command::ChangeTransparency { set_transparent } => {
+                write_indent(&mut python, indent);
+                writeln!(
+                    &mut python,
+                    "ChangeTransparency(set_transparent={})",
+                    stringify_bool(set_transparent)
+                )?
+            }
+            Command::FadeoutScreen => {
+                write_indent(&mut python, indent);
+                writeln!(&mut python, "FadeoutScreen()")?
+            }
+            Command::Wait { duration } => {
+                write_indent(&mut python, indent);
+                writeln!(&mut python, "Wait(duration={duration})")?
+            }
+            Command::Else => {
+                write_indent(&mut python, indent);
+                writeln!(&mut python, "else:")?;
+            }
             Command::ConditionalBranchEnd => {
                 // Trust indents over branch ends
             }
             Command::Unknown { code, parameters } => {
+                write_indent(&mut python, indent);
                 writeln!(
                     &mut python,
                     "# Unknown Command Code {code:?}, parameters: {parameters:?}"
@@ -217,6 +238,8 @@ impl CommandCode {
 
     const CONDITONAL_BRANCH: Self = Self(111);
 
+    const COMMON_EVENT: Self = Self(117);
+
     const CONTROL_SWITCHES: Self = Self(121);
 
     const TRANSFER_PLAYER: Self = Self(201);
@@ -232,6 +255,8 @@ impl CommandCode {
     const WAIT: Self = Self(230);
 
     const TEXT_DATA: Self = Self(401);
+
+    const ELSE: Self = Self(411);
     /// I think this is an end for the CONDITONAL_BRANCH block.
     /// I can't be sure as the game doesn't actually care if this exists;
     /// it just ignores it, only taking into account indents.
@@ -245,6 +270,7 @@ impl std::fmt::Debug for CommandCode {
             Self::NOP => write!(f, "NOP"),
             Self::SHOW_TEXT => write!(f, "SHOW_TEXT"),
             Self::CONDITONAL_BRANCH => write!(f, "CONDITONAL_BRANCH"),
+            Self::COMMON_EVENT => write!(f, "COMMON_EVENT"),
             Self::CONTROL_SWITCHES => write!(f, "CONTROL_SWITCHES"),
             Self::TRANSFER_PLAYER => write!(f, "TRANSFER_PLAYER"),
             Self::SET_MOVEMENT_ROUTE => write!(f, "SET_MOVEMENT_ROUTE"),
@@ -254,6 +280,7 @@ impl std::fmt::Debug for CommandCode {
             Self::FADEOUT_SCREEN => write!(f, "FADEOUT_SCREEN"),
             Self::WAIT => write!(f, "WAIT"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
+            Self::ELSE => write!(f, "ELSE"),
             Self::CONDITONAL_BRANCH_END => write!(f, "CONDITONAL_BRANCH_END"),
             _ => write!(f, "Unknown({})", self.0),
         }
@@ -345,6 +372,9 @@ enum Command {
         lines: Vec<String>,
     },
     ConditionalBranch(ConditionalBranchCommand),
+    CommonEvent {
+        id: u32,
+    },
     ControlSwitches {
         start_id: u32,
         end_id: u32,
@@ -357,6 +387,7 @@ enum Command {
     Wait {
         duration: u32,
     },
+    Else,
     ConditionalBranchEnd,
     Unknown {
         code: CommandCode,
@@ -480,17 +511,26 @@ fn parse_event_command_list(
 
                 Command::ConditionalBranch(inner)
             }
+            (_, CommandCode::COMMON_EVENT) => {
+                ensure!(event_command.parameters.len() == 1);
+                let id = event_command.parameters[0]
+                    .as_int()
+                    .and_then(|value| u32::try_from(*value).ok())
+                    .context("`id` is not a `u32`")?;
+
+                Command::CommonEvent { id }
+            }
             (_, CommandCode::CONTROL_SWITCHES) => {
                 ensure!(event_command.parameters.len() == 3);
 
                 let start_id = event_command.parameters[0]
                     .as_int()
                     .and_then(|value| u32::try_from(*value).ok())
-                    .context("`start_switch_id` is not a `u32`")?;
+                    .context("`start_id` is not a `u32`")?;
                 let end_id = event_command.parameters[1]
                     .as_int()
                     .and_then(|value| u32::try_from(*value).ok())
-                    .context("`end_switch_id` is not a `u32`")?;
+                    .context("`end_id` is not a `u32`")?;
                 let value = event_command.parameters[2]
                     .as_int()
                     .and_then(|value| u32::try_from(*value).ok())
@@ -526,6 +566,10 @@ fn parse_event_command_list(
                     .context("`duration` is not a `u32`")?;
 
                 Command::Wait { duration }
+            }
+            (_, CommandCode::ELSE) => {
+                ensure!(event_command.parameters.is_empty());
+                Command::Else
             }
             (_, CommandCode::CONDITONAL_BRANCH_END) => {
                 ensure!(event_command.parameters.is_empty());
