@@ -282,6 +282,21 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                     writeln!(&mut python, "{name} {operation} {value}")?;
                 }
             }
+            Command::ChangeItems {
+                item_id,
+                is_add,
+                value,
+            } => {
+                let item = config.get_item_name(item_id);
+                let sign = if is_add { "" } else { "-" };
+                let value = match value {
+                    MaybeRef::Constant(value) => value.to_string(),
+                    MaybeRef::Ref(id) => config.get_variable_name(id),
+                };
+
+                write_indent(&mut python, indent);
+                writeln!(&mut python, "GainItem(item={item}, value={sign}{value})")?
+            }
             Command::ChangeTransparency { set_transparent } => {
                 let set_transparent = stringify_bool(set_transparent);
 
@@ -441,10 +456,10 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 choice_name,
             } => {
                 write_indent(&mut python, indent);
-                writeln!(&mut python, "if GetChoiceIndex() == {choice_index}:")?;
-
-                write_indent(&mut python, indent + 1);
-                writeln!(&mut python, "# {choice_name}")?;
+                writeln!(
+                    &mut python,
+                    "if GetChoiceIndex() == {choice_index}: # {choice_name}"
+                )?;
             }
             Command::WhenEnd => {
                 // Trust indents over end commands

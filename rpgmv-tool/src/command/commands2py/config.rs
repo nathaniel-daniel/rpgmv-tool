@@ -28,6 +28,10 @@ pub struct Config {
     /// Skills
     #[serde(default, deserialize_with = "deserialize_u32_key_btree_map")]
     pub skills: BTreeMap<u32, String>,
+
+    /// Items
+    #[serde(default, deserialize_with = "deserialize_u32_key_btree_map")]
+    pub items: BTreeMap<u32, String>,
 }
 
 impl Config {
@@ -79,6 +83,14 @@ impl Config {
             .get(&id)
             .map(|name| name.to_string())
             .unwrap_or_else(|| format!("game_skill_{id}"))
+    }
+
+    /// Get an item name
+    pub fn get_item_name(&self, id: u32) -> String {
+        self.items
+            .get(&id)
+            .map(|name| name.to_string())
+            .unwrap_or_else(|| format!("game_item_{id}"))
     }
 }
 
