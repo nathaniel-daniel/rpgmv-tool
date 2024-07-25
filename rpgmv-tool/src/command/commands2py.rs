@@ -173,6 +173,11 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 write_indent(&mut python, indent);
                 write!(&mut python, "if ")?;
                 match command {
+                    ConditionalBranchCommand::Switch { id, check_true } => {
+                        let name = config.get_switch_name(id);
+                        let check_true_str = if check_true { "" } else { "not " };
+                        writeln!(&mut python, "{check_true_str}{name}:")?;
+                    }
                     ConditionalBranchCommand::Variable {
                         lhs_id,
                         rhs_id,
@@ -606,6 +611,10 @@ enum Command {
 
 #[derive(Debug)]
 enum ConditionalBranchCommand {
+    Switch {
+        id: u32,
+        check_true: bool,
+    },
     Variable {
         lhs_id: u32,
         rhs_id: MaybeRef<u32>,
@@ -688,6 +697,22 @@ fn parse_event_command_list(
                 let kind = ConditionalBranchKind::from_u8(kind)?;
 
                 let inner = match kind {
+                    ConditionalBranchKind::Switch => {
+                        ensure!(event_command.parameters.len() == 3);
+
+                        let id = event_command.parameters[1]
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
+                            .context("`id` is not a `u32`")?;
+                        let check_true = event_command.parameters[2]
+                            .as_i64()
+                            .and_then(|value| u8::try_from(value).ok())
+                            .context("`check_true` is not a `u32`")?;
+                        ensure!(check_true <= 1);
+                        let check_true = check_true == 0;
+
+                        ConditionalBranchCommand::Switch { id, check_true }
+                    }
                     ConditionalBranchKind::Variable => {
                         ensure!(event_command.parameters.len() == 5);
 
