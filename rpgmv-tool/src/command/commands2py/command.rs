@@ -278,6 +278,13 @@ pub enum Command {
     ChangeSaveAccess {
         disable: bool,
     },
+    TransferPlayer {
+        map_id: MaybeRef<u32>,
+        x: MaybeRef<u32>,
+        y: MaybeRef<u32>,
+        direction: u8,
+        fade_type: u8,
+    },
     ChangeTransparency {
         set_transparent: bool,
     },
@@ -288,6 +295,11 @@ pub enum Command {
     },
     FadeoutScreen,
     FadeinScreen,
+    TintScreen {
+        tone: [u8; 4],
+        duration: u32,
+        wait: bool,
+    },
     FlashScreen {
         color: [u8; 4],
         duration: u32,
@@ -650,6 +662,53 @@ pub fn parse_event_command_list(
 
                 Command::ChangeSaveAccess { disable }
             }
+            (_, CommandCode::TRANSFER_PLAYER) => {
+                ensure!(event_command.parameters.len() == 6);
+                let is_constant = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_constant` is not a `u8`")?;
+                ensure!(is_constant <= 1);
+                let is_constant = is_constant == 0;
+                let map_id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`y` is not a `u32`")?;
+                let x = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`x` is not a `u32`")?;
+                let y = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`y` is not a `u32`")?;
+                let direction = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`direction` is not a `u8`")?;
+                let fade_type = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`fade_type` is not a `u8`")?;
+
+                let (map_id, x, y) = if is_constant {
+                    (
+                        MaybeRef::Constant(map_id),
+                        MaybeRef::Constant(x),
+                        MaybeRef::Constant(y),
+                    )
+                } else {
+                    (MaybeRef::Ref(map_id), MaybeRef::Ref(x), MaybeRef::Ref(y))
+                };
+
+                Command::TransferPlayer {
+                    map_id,
+                    x,
+                    y,
+                    direction,
+                    fade_type,
+                }
+            }
             (_, CommandCode::CHANGE_TRANSPARENCY) => {
                 ensure!(event_command.parameters.len() == 1);
                 let value = event_command.parameters[0]
@@ -688,6 +747,23 @@ pub fn parse_event_command_list(
             (_, CommandCode::FADEIN_SCREEN) => {
                 ensure!(event_command.parameters.is_empty());
                 Command::FadeinScreen
+            }
+            (_, CommandCode::TINT_SCREEN) => {
+                ensure!(event_command.parameters.len() == 3);
+                let tone: [u8; 4] = serde_json::from_value(event_command.parameters[0].clone())?;
+                let duration = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`duration` is not a `u32`")?;
+                let wait = event_command.parameters[2]
+                    .as_bool()
+                    .context("`wait` is not a `bool`")?;
+
+                Command::TintScreen {
+                    tone,
+                    duration,
+                    wait,
+                }
             }
             (_, CommandCode::FLASH_SCREEN) => {
                 ensure!(event_command.parameters.len() == 3);

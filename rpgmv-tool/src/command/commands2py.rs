@@ -306,6 +306,31 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, "{fn_name}()")?
             }
+            Command::TransferPlayer {
+                map_id,
+                x,
+                y,
+                direction,
+                fade_type,
+            } => {
+                let map_arg = match map_id {
+                    MaybeRef::Constant(id) => format!("map=game_map_{id}"),
+                    MaybeRef::Ref(id) => {
+                        let name = config.get_variable_name(id);
+                        format!("map_id={name}")
+                    }
+                };
+                let x = match x {
+                    MaybeRef::Constant(value) => value.to_string(),
+                    MaybeRef::Ref(id) => config.get_variable_name(id),
+                };
+                let y = match y {
+                    MaybeRef::Constant(value) => value.to_string(),
+                    MaybeRef::Ref(id) => config.get_variable_name(id),
+                };
+                write_indent(&mut python, indent);
+                writeln!(&mut python, "TransferPlayer({map_arg}, x={x}, y={y}, direction={direction}, fade_type={fade_type})")?;
+            }
             Command::ChangeTransparency { set_transparent } => {
                 let set_transparent = stringify_bool(set_transparent);
 
@@ -332,6 +357,19 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
             Command::FadeinScreen => {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, "FadeinScreen()")?
+            }
+            Command::TintScreen {
+                tone,
+                duration,
+                wait,
+            } => {
+                let wait = stringify_bool(wait);
+
+                write_indent(&mut python, indent);
+                writeln!(
+                    &mut python,
+                    "TintScreen(tone={tone:?}, duration={duration}, wait={wait})"
+                )?
             }
             Command::FlashScreen {
                 color,
