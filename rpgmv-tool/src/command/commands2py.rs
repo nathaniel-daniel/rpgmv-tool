@@ -228,6 +228,9 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 let value = match value {
                     ControlVariablesValue::Constant { value } => value.to_string(),
                     ControlVariablesValue::Variable { id } => config.get_variable_name(id),
+                    ControlVariablesValue::Random { start, stop } => {
+                        format!("random.randrange(start={start}, stop={stop})")
+                    }
                 };
                 for variable_id in start_variable_id..(end_variable_id + 1) {
                     let name = config.get_variable_name(variable_id);
@@ -312,6 +315,33 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
             Command::ErasePicture { picture_id } => {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, "ErasePicture(picture_id={picture_id})")?;
+            }
+            Command::PlaySe { audio } => {
+                let audio_name = escape_string(&audio.name);
+
+                write_indent(&mut python, indent);
+                writeln!(&mut python, "PlaySe(")?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "audio=AudioFile(")?;
+
+                write_indent(&mut python, indent + 2);
+                writeln!(&mut python, "name='{audio_name}',")?;
+
+                write_indent(&mut python, indent + 2);
+                writeln!(&mut python, "pan={},", audio.pan)?;
+
+                write_indent(&mut python, indent + 2);
+                writeln!(&mut python, "pitch={},", audio.pitch)?;
+
+                write_indent(&mut python, indent + 2);
+                writeln!(&mut python, "volume={},", audio.volume)?;
+
+                write_indent(&mut python, indent + 1);
+                writeln!(&mut python, "),")?;
+
+                write_indent(&mut python, indent);
+                writeln!(&mut python, ")")?;
             }
             Command::ChangeSkill {
                 actor_id,
@@ -438,6 +468,8 @@ impl CommandCode {
     const CONTROL_SWITCHES: Self = Self(121);
     const CONTROL_VARIABLES: Self = Self(122);
 
+    const CHANGE_SAVE_ACCESS: Self = Self(134);
+
     const TRANSFER_PLAYER: Self = Self(201);
 
     const SET_MOVEMENT_ROUTE: Self = Self(205);
@@ -448,11 +480,15 @@ impl CommandCode {
 
     const FADEOUT_SCREEN: Self = Self(221);
     const FADEIN_SCREEN: Self = Self(222);
+    const TINT_SCREEN: Self = Self(223);
+    const FLASH_SCREEN: Self = Self(224);
 
     const WAIT: Self = Self(230);
     const SHOW_PICTURE: Self = Self(231);
 
     const ERASE_PICTURE: Self = Self(235);
+
+    const PLAY_SE: Self = Self(250);
 
     const CHANGE_SKILL: Self = Self(318);
 
@@ -475,6 +511,7 @@ impl std::fmt::Debug for CommandCode {
             Self::COMMON_EVENT => write!(f, "COMMON_EVENT"),
             Self::CONTROL_SWITCHES => write!(f, "CONTROL_SWITCHES"),
             Self::CONTROL_VARIABLES => write!(f, "CONTROL_VARIABLES"),
+            Self::CHANGE_SAVE_ACCESS => write!(f, "CHANGE_SAVE_ACCESS"),
             Self::TRANSFER_PLAYER => write!(f, "TRANSFER_PLAYER"),
             Self::SET_MOVEMENT_ROUTE => write!(f, "SET_MOVEMENT_ROUTE"),
             Self::CHANGE_TRANSPARENCY => write!(f, "CHANGE_TRANSPARENCY"),
@@ -482,9 +519,12 @@ impl std::fmt::Debug for CommandCode {
             Self::SHOW_BALLOON_ICON => write!(f, "SHOW_BALLOON_ICON"),
             Self::FADEOUT_SCREEN => write!(f, "FADEOUT_SCREEN"),
             Self::FADEIN_SCREEN => write!(f, "FADEIN_SCREEN"),
+            Self::TINT_SCREEN => write!(f, "TINT_SCREEN"),
+            Self::FLASH_SCREEN => write!(f, "FLASH_SCREEN"),
             Self::WAIT => write!(f, "WAIT"),
             Self::SHOW_PICTURE => write!(f, "SHOW_PICTURE"),
             Self::ERASE_PICTURE => write!(f, "ERASE_PICTURE"),
+            Self::PLAY_SE => write!(f, "PLAY_SE"),
             Self::CHANGE_SKILL => write!(f, "CHANGE_SKILL"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
             Self::ELSE => write!(f, "ELSE"),
@@ -669,11 +709,14 @@ enum Command {
         y: MaybeRef<u32>,
         scale_x: u32,
         scale_y: u32,
-        opacity: u32,
+        opacity: u8,
         blend_mode: u8,
     },
     ErasePicture {
         picture_id: u32,
+    },
+    PlaySe {
+        audio: rpgmv_types::AudioFile,
     },
     ChangeSkill {
         actor_id: MaybeRef<u32>,
@@ -705,6 +748,7 @@ enum ConditionalBranchCommand {
 enum ControlVariablesValue {
     Constant { value: u32 },
     Variable { id: u32 },
+    Random { start: u32, stop: u32 },
 }
 
 #[derive(Debug, Copy, Clone, Hash)]
@@ -907,6 +951,18 @@ fn parse_event_command_list(
 
                         ControlVariablesValue::Variable { id }
                     }
+                    ControlVariablesOperation::Random => {
+                        let start = event_command.parameters[4]
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
+                            .context("`start` is not a `u32`")?;
+                        let stop = event_command.parameters[5]
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
+                            .context("`stop` is not a `u32`")?;
+
+                        ControlVariablesValue::Random { start, stop }
+                    }
                     _ => {
                         let name = "ControlVariablesOperation";
                         bail!("{name} {control_variables_operation:?} is not supported")
@@ -985,8 +1041,8 @@ fn parse_event_command_list(
                     .context("`scale_y` is not a `u32`")?;
                 let opacity = event_command.parameters[8]
                     .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`opacity` is not a `u32`")?;
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`opacity` is not a `u8`")?;
                 let blend_mode = event_command.parameters[9]
                     .as_i64()
                     .and_then(|value| u8::try_from(value).ok())
@@ -1019,6 +1075,12 @@ fn parse_event_command_list(
                     .context("`picture_id` is not a `u32`")?;
 
                 Command::ErasePicture { picture_id }
+            }
+            (_, CommandCode::PLAY_SE) => {
+                ensure!(event_command.parameters.len() == 1);
+                let audio = serde_json::from_value(event_command.parameters[0].clone())?;
+
+                Command::PlaySe { audio }
             }
             (_, CommandCode::CHANGE_SKILL) => {
                 ensure!(event_command.parameters.len() == 4);
