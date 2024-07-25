@@ -255,7 +255,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 write_indent(&mut python, indent);
                 writeln!(&mut python, "Wait(duration={duration})")?
             }
-            Command::ShowImage {
+            Command::ShowPicture {
                 picture_id,
                 picture_name,
                 origin,
@@ -277,7 +277,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 };
 
                 write_indent(&mut python, indent);
-                writeln!(&mut python, "ShowImage(")?;
+                writeln!(&mut python, "ShowPicture(")?;
 
                 write_indent(&mut python, indent + 1);
                 writeln!(&mut python, "picture_id={picture_id},")?;
@@ -308,6 +308,10 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
 
                 write_indent(&mut python, indent);
                 writeln!(&mut python, ")")?;
+            }
+            Command::ErasePicture { picture_id } => {
+                write_indent(&mut python, indent);
+                writeln!(&mut python, "ErasePicture(picture_id={picture_id})")?;
             }
             Command::ChangeSkill {
                 actor_id,
@@ -448,6 +452,8 @@ impl CommandCode {
     const WAIT: Self = Self(230);
     const SHOW_PICTURE: Self = Self(231);
 
+    const ERASE_PICTURE: Self = Self(235);
+
     const CHANGE_SKILL: Self = Self(318);
 
     const TEXT_DATA: Self = Self(401);
@@ -478,6 +484,7 @@ impl std::fmt::Debug for CommandCode {
             Self::FADEIN_SCREEN => write!(f, "FADEIN_SCREEN"),
             Self::WAIT => write!(f, "WAIT"),
             Self::SHOW_PICTURE => write!(f, "SHOW_PICTURE"),
+            Self::ERASE_PICTURE => write!(f, "ERASE_PICTURE"),
             Self::CHANGE_SKILL => write!(f, "CHANGE_SKILL"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
             Self::ELSE => write!(f, "ELSE"),
@@ -654,7 +661,7 @@ enum Command {
     Wait {
         duration: u32,
     },
-    ShowImage {
+    ShowPicture {
         picture_id: u32,
         picture_name: String,
         origin: u32,
@@ -664,6 +671,9 @@ enum Command {
         scale_y: u32,
         opacity: u32,
         blend_mode: u8,
+    },
+    ErasePicture {
+        picture_id: u32,
     },
     ChangeSkill {
         actor_id: MaybeRef<u32>,
@@ -973,11 +983,11 @@ fn parse_event_command_list(
                     .as_i64()
                     .and_then(|value| u32::try_from(value).ok())
                     .context("`scale_y` is not a `u32`")?;
-                let opacity = event_command.parameters[7]
+                let opacity = event_command.parameters[8]
                     .as_i64()
                     .and_then(|value| u32::try_from(value).ok())
                     .context("`opacity` is not a `u32`")?;
-                let blend_mode = event_command.parameters[7]
+                let blend_mode = event_command.parameters[9]
                     .as_i64()
                     .and_then(|value| u8::try_from(value).ok())
                     .context("`opacity` is not a `u8`")?;
@@ -988,7 +998,7 @@ fn parse_event_command_list(
                     (MaybeRef::Ref(x), MaybeRef::Ref(y))
                 };
 
-                Command::ShowImage {
+                Command::ShowPicture {
                     picture_id,
                     picture_name,
                     origin,
@@ -999,6 +1009,16 @@ fn parse_event_command_list(
                     opacity,
                     blend_mode,
                 }
+            }
+            (_, CommandCode::ERASE_PICTURE) => {
+                ensure!(event_command.parameters.len() == 1);
+
+                let picture_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`picture_id` is not a `u32`")?;
+
+                Command::ErasePicture { picture_id }
             }
             (_, CommandCode::CHANGE_SKILL) => {
                 ensure!(event_command.parameters.len() == 4);
