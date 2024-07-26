@@ -7,11 +7,6 @@ use anyhow::Context;
 pub struct CommandCode(u32);
 
 impl CommandCode {
-    /// This is likely related to move routes somehow,
-    /// Like how the TEXT_DATA command extends the SHOW_TEXT command.
-    /// However, I can't find the implementation of this instruction.
-    const UNKNOWN_505: Self = Self(505);
-
     const NOP: Self = Self(0);
 
     const SHOW_TEXT: Self = Self(101);
@@ -70,12 +65,18 @@ impl CommandCode {
     /// I can't be sure as the game doesn't actually care if this exists;
     /// it just ignores it, only taking into account indents.
     const CONDITONAL_BRANCH_END: Self = Self(412);
+
+    /// This is likely related to move routes somehow,
+    /// Like how the TEXT_DATA command extends the SHOW_TEXT command.
+    /// However, I can't find the implementation of this instruction.
+    /// Furthermore, I don't know why it's event included;
+    /// It's data always duplicates the data of the SET_MOVEMENT_ROUTE command.
+    const SET_MOVEMENT_ROUTE_EXTRA: Self = Self(505);
 }
 
 impl std::fmt::Debug for CommandCode {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match *self {
-            Self::UNKNOWN_505 => write!(f, "UNKNOWN_505"),
             Self::NOP => write!(f, "NOP"),
             Self::SHOW_TEXT => write!(f, "SHOW_TEXT"),
             Self::SHOW_CHOICES => write!(f, "SHOW_CHOICES"),
@@ -109,6 +110,7 @@ impl std::fmt::Debug for CommandCode {
             Self::WHEN_END => write!(f, "WHEN_END"),
             Self::ELSE => write!(f, "ELSE"),
             Self::CONDITONAL_BRANCH_END => write!(f, "CONDITONAL_BRANCH_END"),
+            Self::SET_MOVEMENT_ROUTE_EXTRA => write!(f, "SET_MOVEMENT_ROUTE_EXTRA"),
             _ => write!(f, "Unknown({})", self.0),
         }
     }
@@ -147,13 +149,25 @@ impl ConditionalBranchKind {
     */
 }
 
+/// The type of variable compare operation
 #[derive(Debug, Copy, Clone)]
 pub enum ConditionalBranchVariableOperation {
+    /// ==
     EqualTo = 0,
+
+    /// >=
     Gte = 1,
+
+    /// <=
     Lte = 2,
+
+    /// >
     Gt = 3,
+
+    /// <
     Lt = 4,
+
+    /// !=
     Neq = 5,
 }
 
@@ -191,7 +205,7 @@ impl ConditionalBranchVariableOperation {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum ControlVariablesOperation {
+enum ControlVariablesOperation {
     Const = 0,
     Var = 1,
     Random = 2,
@@ -213,12 +227,22 @@ impl ControlVariablesOperation {
     }
 }
 
+/// The type of variable operation.
 #[derive(Debug, Copy, Clone)]
 pub enum OperateVariableOperation {
+    /// =
     Set = 0,
+
+    /// +=
     Add = 1,
+
+    /// -=
     Sub = 2,
+
+    /// *=
     Mul = 3,
+
+    /// /=
     Div = 4,
 }
 
