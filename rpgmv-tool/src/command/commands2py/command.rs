@@ -23,8 +23,11 @@ impl CommandCode {
 
     const CONTROL_SWITCHES: Self = Self(121);
     const CONTROL_VARIABLES: Self = Self(122);
+    const CONTROL_SELF_SWITCH: Self = Self(123);
 
     const CHANGE_ITEMS: Self = Self(126);
+
+    const CHANGE_ARMORS: Self = Self(128);
 
     const CHANGE_SAVE_ACCESS: Self = Self(134);
 
@@ -47,9 +50,12 @@ impl CommandCode {
 
     const ERASE_PICTURE: Self = Self(235);
 
+    const PLAY_BGM: Self = Self(241);
+
     const PLAY_SE: Self = Self(250);
 
     const CHANGE_SKILL: Self = Self(318);
+    const CHANGE_EQUIPMENT: Self = Self(319);
 
     const TEXT_DATA: Self = Self(401);
     const WHEN: Self = Self(402);
@@ -77,7 +83,9 @@ impl std::fmt::Debug for CommandCode {
             Self::COMMON_EVENT => write!(f, "COMMON_EVENT"),
             Self::CONTROL_SWITCHES => write!(f, "CONTROL_SWITCHES"),
             Self::CONTROL_VARIABLES => write!(f, "CONTROL_VARIABLES"),
+            Self::CONTROL_SELF_SWITCH => write!(f, "CONTROL_SELF_SWITCH"),
             Self::CHANGE_ITEMS => write!(f, "CHANGE_ITEMS"),
+            Self::CHANGE_ARMORS => write!(f, "CHANGE_ARMORS"),
             Self::CHANGE_SAVE_ACCESS => write!(f, "CHANGE_SAVE_ACCESS"),
             Self::TRANSFER_PLAYER => write!(f, "TRANSFER_PLAYER"),
             Self::SET_MOVEMENT_ROUTE => write!(f, "SET_MOVEMENT_ROUTE"),
@@ -92,8 +100,10 @@ impl std::fmt::Debug for CommandCode {
             Self::SHOW_PICTURE => write!(f, "SHOW_PICTURE"),
             Self::MOVE_PICTURE => write!(f, "MOVE_PICTURE"),
             Self::ERASE_PICTURE => write!(f, "ERASE_PICTURE"),
+            Self::PLAY_BGM => write!(f, "PLAY_BGM"),
             Self::PLAY_SE => write!(f, "PLAY_SE"),
             Self::CHANGE_SKILL => write!(f, "CHANGE_SKILL"),
+            Self::CHANGE_EQUIPMENT => writeln!(f, "CHANGE_EQUIPMENT"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
             Self::WHEN => write!(f, "WHEN"),
             Self::WHEN_END => write!(f, "WHEN_END"),
