@@ -3,6 +3,9 @@ A tool with utilities for interacting with RPGMaker MV assets.
 
 ## Subcommands
 
+### decrypt
+WIP, will also likely be renamed.
+
 ### commands2py
 This is a tool that can convert compiled event command JSON into Python for easier readability.
 Note that the generated Python is not intended to be run and will fail if you do so.

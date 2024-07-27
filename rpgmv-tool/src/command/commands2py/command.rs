@@ -7,6 +7,7 @@ use anyhow::Context;
 pub struct CommandCode(u32);
 
 impl CommandCode {
+    /// This has no implementation.
     const NOP: Self = Self(0);
 
     const SHOW_TEXT: Self = Self(101);
@@ -67,10 +68,10 @@ impl CommandCode {
     const CONDITONAL_BRANCH_END: Self = Self(412);
 
     /// This is likely related to move routes somehow,
-    /// Like how the TEXT_DATA command extends the SHOW_TEXT command.
+    /// like how the TEXT_DATA command extends the SHOW_TEXT command.
     /// However, I can't find the implementation of this instruction.
-    /// Furthermore, I don't know why it's event included;
-    /// It's data always duplicates the data of the SET_MOVEMENT_ROUTE command.
+    /// Furthermore, I don't know why it's even included;
+    /// Its data always duplicates the data of the SET_MOVEMENT_ROUTE command.
     const SET_MOVEMENT_ROUTE_EXTRA: Self = Self(505);
 }
 
