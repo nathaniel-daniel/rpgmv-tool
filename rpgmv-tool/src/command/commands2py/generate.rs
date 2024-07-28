@@ -2,6 +2,7 @@ use super::Command;
 use super::ConditionalBranchCommand;
 use super::Config;
 use super::ControlVariablesValue;
+use super::ControlVariablesValueGameData;
 use super::MaybeRef;
 use anyhow::bail;
 use anyhow::Context;
@@ -134,6 +135,30 @@ fn command2py(
                         "game_troop.members[{enemy_index}].is_state_affected(state={name}):"
                     )?;
                 }
+                ConditionalBranchCommand::Character {
+                    character_id,
+                    direction,
+                } => {
+                    writeln!(
+                        python,
+                        "game_character_{character_id}.direction == {direction}:"
+                    )?;
+                }
+                ConditionalBranchCommand::Gold { value, check } => {
+                    let check = check.as_str();
+
+                    writeln!(python, "game_party.gold {check} {value}:")?;
+                }
+                ConditionalBranchCommand::Item { item_id } => {
+                    let name = config.get_item_name(*item_id);
+
+                    writeln!(python, "game_party.has_item(item={name}):")?;
+                }
+                ConditionalBranchCommand::Script { value } => {
+                    let value = escape_string(value);
+
+                    writeln!(python, "execute_script('{value}'):")?;
+                }
             }
         }
         Command::CommonEvent { id } => {
@@ -168,6 +193,19 @@ fn command2py(
                 ControlVariablesValue::Random { start, stop } => {
                     format!("random.randrange(start={start}, stop={stop})")
                 }
+                ControlVariablesValue::GameData(game_data) => match game_data {
+                    ControlVariablesValueGameData::NumItems { item_id } => {
+                        let name = config.get_item_name(*item_id);
+
+                        format!("game_party.get_num_items(item={name})")
+                    }
+                    ControlVariablesValueGameData::ActorLevel { actor_id } => {
+                        let name = config.get_actor_name(*actor_id);
+                        format!("{name}.level")
+                    }
+                    ControlVariablesValueGameData::Gold => "game_party.gold".to_string(),
+                    _ => bail!("ControlVariablesValueGameData {game_data:?} is not supported"),
+                },
             };
             for variable_id in *start_variable_id..(*end_variable_id + 1) {
                 let name = config.get_variable_name(variable_id);

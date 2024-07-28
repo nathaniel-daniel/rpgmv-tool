@@ -6,6 +6,7 @@ use self::command::parse_event_command_list;
 use self::command::Command;
 use self::command::ConditionalBranchCommand;
 use self::command::ControlVariablesValue;
+use self::command::ControlVariablesValueGameData;
 use self::command::MaybeRef;
 use self::config::Config;
 use self::generate::commands2py;
@@ -142,7 +143,8 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
         }
     };
 
-    let commands = parse_event_command_list(&event_commands)?;
+    let commands =
+        parse_event_command_list(&event_commands).context("failed to parse event command list")?;
     let python = commands2py(&config, &commands)?;
 
     if !options.dry_run {
