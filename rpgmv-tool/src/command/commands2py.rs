@@ -47,6 +47,13 @@ pub struct Options {
     config: Option<PathBuf>,
 
     #[argh(
+        switch,
+        long = "dry-run",
+        description = "avoid writing the output files"
+    )]
+    dry_run: bool,
+
+    #[argh(
         option,
         long = "output",
         short = 'o',
@@ -63,7 +70,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
         None => Config::default(),
     };
 
-    let input_file_kind = FileKind::new(&options.input).with_context(|| {
+    let input_file_kind = FileKind::new(&options.input, true).with_context(|| {
         format!(
             "failed to determine file kind for \"{}\"",
             options.input.display()
@@ -130,12 +137,17 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
 
             event.list
         }
+        FileKind::Dir => {
+            bail!("input is a dir. This is currently unsupported.");
+        }
     };
 
     let commands = parse_event_command_list(&event_commands)?;
     let python = commands2py(&config, &commands)?;
 
-    write_string_safe(&options.output, &python)?;
+    if !options.dry_run {
+        write_string_safe(&options.output, &python)?;
+    }
 
     Ok(())
 }
@@ -161,11 +173,12 @@ where
 enum FileKind {
     Map,
     CommonEvents,
+    Dir,
 }
 
 impl FileKind {
     /// Try to extract a file kind from a path.
-    pub fn new(path: &Path) -> anyhow::Result<Self> {
+    pub fn new(path: &Path, allow_dir: bool) -> anyhow::Result<Self> {
         let metadata = match path.metadata() {
             Ok(metadata) => metadata,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -176,8 +189,9 @@ impl FileKind {
                     .with_context(|| format!("failed to get metadata for \"{}\"", path.display()));
             }
         };
+        let is_file = !metadata.is_dir();
 
-        if !metadata.is_dir() {
+        if is_file {
             let file_name = path
                 .file_name()
                 .context("missing file name")?
@@ -197,6 +211,8 @@ impl FileKind {
             if file_stem == "CommonEvents" {
                 return Ok(Self::CommonEvents);
             }
+        } else if allow_dir {
+            return Ok(Self::Dir);
         }
 
         bail!("unknown file type")
