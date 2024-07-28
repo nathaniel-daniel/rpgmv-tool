@@ -132,9 +132,23 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
     };
 
     let commands = parse_event_command_list(&event_commands)?;
+    let python = commands2py(&config, &commands)?;
 
+    let output_temp = nd_util::with_push_extension(&options.output, "tmp");
+    let mut output_file = File::create(&output_temp)
+        .with_context(|| format!("failed to open \"{}\"", output_temp.display()))?;
+    output_file.write_all(python.as_bytes())?;
+    output_file.flush()?;
+    output_file.sync_all()?;
+    std::fs::rename(&output_temp, &options.output)?;
+    drop(output_file);
+
+    Ok(())
+}
+
+fn commands2py(config: &Config, commands: &[(u16, Command)]) -> anyhow::Result<String> {
     let mut python = String::new();
-    for (indent, command) in commands {
+    for (indent, command) in commands.iter() {
         match command {
             Command::Nop => {}
             Command::ShowText {
@@ -144,35 +158,35 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 position_type,
                 lines,
             } => {
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "show_text(")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "face_name='{face_name}',")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "face_index={face_index},")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "background={background},")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "position_type={position_type},")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "lines=[")?;
 
                 for line in lines {
-                    let line = escape_string(&line);
+                    let line = escape_string(line);
 
-                    write_indent(&mut python, indent + 2);
+                    write_indent(&mut python, *indent + 2);
                     writeln!(&mut python, "'{line}',")?;
                 }
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "],")?;
 
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, ")")?;
             }
             Command::ShowChoices {
@@ -182,44 +196,44 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 position_type,
                 background,
             } => {
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "show_choices(")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "choices=[")?;
 
                 for choice in choices {
-                    let choice = escape_string(&choice);
+                    let choice = escape_string(choice);
 
-                    write_indent(&mut python, indent + 2);
+                    write_indent(&mut python, *indent + 2);
                     writeln!(&mut python, "'{choice}',")?;
                 }
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "],")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "cancel_type={cancel_type},")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "default_type={default_type},")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "position_type={position_type},")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "background={background},")?;
 
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, ")")?;
             }
             Command::ConditionalBranch(command) => {
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 write!(&mut python, "if ")?;
                 match command {
                     ConditionalBranchCommand::Switch { id, check_true } => {
-                        let name = config.get_switch_name(id);
-                        let check_true_str = if check_true { "" } else { "not " };
+                        let name = config.get_switch_name(*id);
+                        let check_true_str = if *check_true { "" } else { "not " };
                         writeln!(&mut python, "{check_true_str}{name}:")?;
                     }
                     ConditionalBranchCommand::Variable {
@@ -227,10 +241,10 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                         rhs_id,
                         operation,
                     } => {
-                        let lhs = config.get_variable_name(lhs_id);
+                        let lhs = config.get_variable_name(*lhs_id);
                         let rhs = match rhs_id {
                             MaybeRef::Constant(value) => value.to_string(),
-                            MaybeRef::Ref(id) => config.get_variable_name(id),
+                            MaybeRef::Ref(id) => config.get_variable_name(*id),
                         };
                         let operation = operation.as_str();
 
@@ -239,9 +253,9 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 }
             }
             Command::CommonEvent { id } => {
-                let name = config.get_common_event_name(id);
+                let name = config.get_common_event_name(*id);
 
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "{name}()")?;
             }
             Command::ControlSwitches {
@@ -249,17 +263,12 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 end_id,
                 value,
             } => {
-                let mut iter = (start_id..(end_id + 1)).peekable();
-                let value = stringify_bool(value);
-
-                write_indent(&mut python, indent);
-                while let Some(id) = iter.next() {
+                for id in *start_id..(*end_id + 1) {
                     let name = config.get_switch_name(id);
+                    let value = stringify_bool(*value);
 
+                    write_indent(&mut python, *indent);
                     writeln!(&mut python, "{name} = {value}")?;
-                    if iter.peek().is_some() {
-                        write_indent(&mut python, indent);
-                    }
                 }
             }
             Command::ControlVariables {
@@ -271,14 +280,14 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 let operation = operation.as_str();
                 let value = match value {
                     ControlVariablesValue::Constant { value } => value.to_string(),
-                    ControlVariablesValue::Variable { id } => config.get_variable_name(id),
+                    ControlVariablesValue::Variable { id } => config.get_variable_name(*id),
                     ControlVariablesValue::Random { start, stop } => {
                         format!("random.randrange(start={start}, stop={stop})")
                     }
                 };
-                for variable_id in start_variable_id..(end_variable_id + 1) {
+                for variable_id in *start_variable_id..(*end_variable_id + 1) {
                     let name = config.get_variable_name(variable_id);
-                    write_indent(&mut python, indent);
+                    write_indent(&mut python, *indent);
                     writeln!(&mut python, "{name} {operation} {value}")?;
                 }
             }
@@ -287,23 +296,23 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 is_add,
                 value,
             } => {
-                let item = config.get_item_name(item_id);
-                let sign = if is_add { "" } else { "-" };
+                let item = config.get_item_name(*item_id);
+                let sign = if *is_add { "" } else { "-" };
                 let value = match value {
                     MaybeRef::Constant(value) => value.to_string(),
-                    MaybeRef::Ref(id) => config.get_variable_name(id),
+                    MaybeRef::Ref(id) => config.get_variable_name(*id),
                 };
 
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "gain_item(item={item}, value={sign}{value})")?;
             }
             Command::ChangeSaveAccess { disable } => {
-                let fn_name = if disable {
+                let fn_name = if *disable {
                     "disable_saving"
                 } else {
                     "enable_saving"
                 };
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "{fn_name}()")?
             }
             Command::TransferPlayer {
@@ -316,19 +325,19 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 let map_arg = match map_id {
                     MaybeRef::Constant(id) => format!("map=game_map_{id}"),
                     MaybeRef::Ref(id) => {
-                        let name = config.get_variable_name(id);
+                        let name = config.get_variable_name(*id);
                         format!("map_id={name}")
                     }
                 };
                 let x = match x {
                     MaybeRef::Constant(value) => value.to_string(),
-                    MaybeRef::Ref(id) => config.get_variable_name(id),
+                    MaybeRef::Ref(id) => config.get_variable_name(*id),
                 };
                 let y = match y {
                     MaybeRef::Constant(value) => value.to_string(),
-                    MaybeRef::Ref(id) => config.get_variable_name(id),
+                    MaybeRef::Ref(id) => config.get_variable_name(*id),
                 };
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "transfer_player({map_arg}, x={x}, y={y}, direction={direction}, fade_type={fade_type})")?;
             }
             Command::SetMovementRoute {
@@ -339,49 +348,49 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 let skippable = stringify_bool(route.skippable);
                 let wait = stringify_bool(route.wait);
 
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "set_movement_route(")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "character_id={character_id},")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "route=MoveRoute(")?;
 
-                write_indent(&mut python, indent + 2);
+                write_indent(&mut python, *indent + 2);
                 writeln!(&mut python, "repeat={repeat},")?;
 
-                write_indent(&mut python, indent + 2);
+                write_indent(&mut python, *indent + 2);
                 writeln!(&mut python, "skippable={skippable},")?;
 
-                write_indent(&mut python, indent + 2);
+                write_indent(&mut python, *indent + 2);
                 writeln!(&mut python, "wait={wait},")?;
 
-                write_indent(&mut python, indent + 2);
+                write_indent(&mut python, *indent + 2);
                 writeln!(&mut python, "list=[")?;
 
-                for command in route.list {
+                for command in route.list.iter() {
                     let command_indent = command
                         .indent
                         .map(|indent| indent.to_string())
                         .unwrap_or_else(|| "None".to_string());
 
-                    write_indent(&mut python, indent + 3);
+                    write_indent(&mut python, *indent + 3);
                     writeln!(&mut python, "MoveCommand(")?;
 
-                    write_indent(&mut python, indent + 4);
+                    write_indent(&mut python, *indent + 4);
                     writeln!(&mut python, "code={},", command.code)?;
 
-                    write_indent(&mut python, indent + 4);
+                    write_indent(&mut python, *indent + 4);
                     writeln!(&mut python, "indent={command_indent},")?;
 
-                    match command.parameters {
+                    match command.parameters.as_ref() {
                         Some(parameters) => {
-                            write_indent(&mut python, indent + 4);
+                            write_indent(&mut python, *indent + 4);
                             writeln!(&mut python, "parameters=[")?;
 
                             for parameter in parameters {
-                                write_indent(&mut python, indent + 5);
+                                write_indent(&mut python, *indent + 5);
 
                                 match parameter {
                                     serde_json::Value::Number(number) if number.is_i64() => {
@@ -393,32 +402,32 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                                 }
                             }
 
-                            write_indent(&mut python, indent + 4);
+                            write_indent(&mut python, *indent + 4);
                             writeln!(&mut python, "],")?;
                         }
                         None => {
-                            write_indent(&mut python, indent + 4);
+                            write_indent(&mut python, *indent + 4);
                             writeln!(&mut python, "parameters=None,")?;
                         }
                     }
 
-                    write_indent(&mut python, indent + 3);
+                    write_indent(&mut python, *indent + 3);
                     writeln!(&mut python, "),")?;
                 }
 
-                write_indent(&mut python, indent + 2);
+                write_indent(&mut python, *indent + 2);
                 writeln!(&mut python, "]")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "),")?;
 
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, ")")?;
             }
             Command::ChangeTransparency { set_transparent } => {
-                let set_transparent = stringify_bool(set_transparent);
+                let set_transparent = stringify_bool(*set_transparent);
 
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(
                     &mut python,
                     "change_transparency(set_transparent={set_transparent})"
@@ -429,17 +438,17 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 balloon_id,
                 wait,
             } => {
-                let wait = stringify_bool(wait);
+                let wait = stringify_bool(*wait);
 
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "show_balloon_icon(character_id={character_id}, balloon_id={balloon_id}, wait={wait})")?
             }
             Command::FadeoutScreen => {
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "fadeout_screen()")?
             }
             Command::FadeinScreen => {
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "fadein_screen()")?
             }
             Command::TintScreen {
@@ -447,9 +456,9 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 duration,
                 wait,
             } => {
-                let wait = stringify_bool(wait);
+                let wait = stringify_bool(*wait);
 
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(
                     &mut python,
                     "tint_screen(tone={tone:?}, duration={duration}, wait={wait})"
@@ -460,16 +469,16 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 duration,
                 wait,
             } => {
-                let wait = stringify_bool(wait);
+                let wait = stringify_bool(*wait);
 
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(
                     &mut python,
                     "flash_screen(color={color:?}, duration={duration}, wait={wait})"
                 )?
             }
             Command::Wait { duration } => {
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "wait(duration={duration})")?
             }
             Command::ShowPicture {
@@ -483,78 +492,78 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 opacity,
                 blend_mode,
             } => {
-                let picture_name = escape_string(&picture_name);
+                let picture_name = escape_string(picture_name);
                 let x = match x {
                     MaybeRef::Constant(value) => value.to_string(),
-                    MaybeRef::Ref(id) => config.get_variable_name(id),
+                    MaybeRef::Ref(id) => config.get_variable_name(*id),
                 };
                 let y = match y {
                     MaybeRef::Constant(value) => value.to_string(),
-                    MaybeRef::Ref(id) => config.get_variable_name(id),
+                    MaybeRef::Ref(id) => config.get_variable_name(*id),
                 };
 
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "show_picture(")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "picture_id={picture_id},")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "picture_name='{picture_name}',")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "origin={origin},")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "x={x},")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "y={y},")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "scale_x={scale_x},")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "scale_y={scale_y},")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "opacity={opacity},")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "blend_mode={blend_mode},")?;
 
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, ")")?;
             }
             Command::ErasePicture { picture_id } => {
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "erase_picture(picture_id={picture_id})")?;
             }
             Command::PlaySe { audio } => {
                 let audio_name = escape_string(&audio.name);
 
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "play_se(")?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "audio=AudioFile(")?;
 
-                write_indent(&mut python, indent + 2);
+                write_indent(&mut python, *indent + 2);
                 writeln!(&mut python, "name='{audio_name}',")?;
 
-                write_indent(&mut python, indent + 2);
+                write_indent(&mut python, *indent + 2);
                 writeln!(&mut python, "pan={},", audio.pan)?;
 
-                write_indent(&mut python, indent + 2);
+                write_indent(&mut python, *indent + 2);
                 writeln!(&mut python, "pitch={},", audio.pitch)?;
 
-                write_indent(&mut python, indent + 2);
+                write_indent(&mut python, *indent + 2);
                 writeln!(&mut python, "volume={},", audio.volume)?;
 
-                write_indent(&mut python, indent + 1);
+                write_indent(&mut python, *indent + 1);
                 writeln!(&mut python, "),")?;
 
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, ")")?;
             }
             Command::ChangeSkill {
@@ -564,29 +573,29 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
             } => {
                 let actor_arg = match actor_id {
                     MaybeRef::Constant(actor_id) => {
-                        let name = config.get_actor_name(actor_id);
+                        let name = config.get_actor_name(*actor_id);
                         format!("actor={name}")
                     }
                     MaybeRef::Ref(variable_id) => {
-                        let name = config.get_variable_name(variable_id);
+                        let name = config.get_variable_name(*variable_id);
                         format!("actor_id={name}")
                     }
                 };
-                let fn_name = if is_learn_skill {
+                let fn_name = if *is_learn_skill {
                     "learn_skill"
                 } else {
                     "forget_skill"
                 };
-                let skill = config.get_skill_name(skill_id);
+                let skill = config.get_skill_name(*skill_id);
 
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "{fn_name}({actor_arg}, skill={skill})")?;
             }
             Command::When {
                 choice_index,
                 choice_name,
             } => {
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(
                     &mut python,
                     "if get_choice_index() == {choice_index}: # {choice_name}"
@@ -596,14 +605,14 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 // Trust indents over end commands
             }
             Command::Else => {
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(&mut python, "else:")?;
             }
             Command::ConditionalBranchEnd => {
                 // Trust indents over end commands
             }
             Command::Unknown { code, parameters } => {
-                write_indent(&mut python, indent);
+                write_indent(&mut python, *indent);
                 writeln!(
                     &mut python,
                     "# Unknown Command Code {code:?}, parameters: {parameters:?}"
@@ -612,16 +621,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
         }
     }
 
-    let output_temp = nd_util::with_push_extension(&options.output, "tmp");
-    let mut output_file = File::create(&output_temp)
-        .with_context(|| format!("failed to open \"{}\"", output_temp.display()))?;
-    output_file.write_all(python.as_bytes())?;
-    output_file.flush()?;
-    output_file.sync_all()?;
-    std::fs::rename(&output_temp, &options.output)?;
-    drop(output_file);
-
-    Ok(())
+    Ok(python)
 }
 
 #[derive(Debug, Clone, Copy)]
