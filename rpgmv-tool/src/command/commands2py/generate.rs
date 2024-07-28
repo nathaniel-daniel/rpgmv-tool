@@ -123,6 +123,17 @@ fn command2py(
 
                     writeln!(python, "{lhs} {operation} {rhs}:")?;
                 }
+                ConditionalBranchCommand::EnemyState {
+                    enemy_index,
+                    state_id,
+                } => {
+                    let name = config.get_state_name(*state_id);
+
+                    writeln!(
+                        python,
+                        "game_troop.members[{enemy_index}].is_state_affected(state={name}):"
+                    )?;
+                }
             }
         }
         Command::CommonEvent { id } => {

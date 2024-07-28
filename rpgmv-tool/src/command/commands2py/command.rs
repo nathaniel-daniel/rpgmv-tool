@@ -6,11 +6,12 @@ use anyhow::ensure;
 use anyhow::Context;
 
 #[derive(Debug, Copy, Clone)]
-pub enum ConditionalBranchKind {
+enum ConditionalBranchKind {
     Switch = 0,
     Variable = 1,
 
     Actor = 4,
+    Enemy = 5,
 
     Gold = 7,
 
@@ -24,6 +25,7 @@ impl ConditionalBranchKind {
             0 => Ok(Self::Switch),
             1 => Ok(Self::Variable),
             4 => Ok(Self::Actor),
+            5 => Ok(Self::Enemy),
             7 => Ok(Self::Gold),
             12 => Ok(Self::Script),
             _ => bail!("{value} is not a valid ConditionalBranchKind"),
@@ -36,6 +38,24 @@ impl ConditionalBranchKind {
         self as u8
     }
     */
+}
+
+/// The type of enemy check
+#[derive(Debug, Copy, Clone)]
+enum ConditionalBranchKindEnemyCheck {
+    Appeared = 0,
+    State = 1,
+}
+
+impl ConditionalBranchKindEnemyCheck {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            0 => Ok(Self::Appeared),
+            1 => Ok(Self::State),
+            _ => bail!("{value} is not a valid ConditionalBranchKindEnemyCheck"),
+        }
+    }
 }
 
 /// The type of variable compare operation
@@ -281,6 +301,10 @@ pub enum ConditionalBranchCommand {
         rhs_id: MaybeRef<u32>,
         operation: ConditionalBranchVariableOperation,
     },
+    EnemyState {
+        enemy_index: u32,
+        state_id: u32,
+    },
 }
 
 #[derive(Debug)]
@@ -435,6 +459,37 @@ pub fn parse_event_command_list(
                             lhs_id,
                             rhs_id,
                             operation,
+                        }
+                    }
+                    ConditionalBranchKind::Enemy => {
+                        ensure!(event_command.parameters.len() >= 3);
+                        let enemy_index = event_command.parameters[1]
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
+                            .context("`enemy_index` is not a `u32`")?;
+                        let check = event_command.parameters[2]
+                            .as_i64()
+                            .and_then(|value| u8::try_from(value).ok())
+                            .context("`check` is not a `u8`")?;
+                        let check = ConditionalBranchKindEnemyCheck::from_u8(check)?;
+
+                        match check {
+                            ConditionalBranchKindEnemyCheck::State => {
+                                ensure!(event_command.parameters.len() == 4);
+
+                                let state_id = event_command.parameters[2]
+                                    .as_i64()
+                                    .and_then(|value| u32::try_from(value).ok())
+                                    .context("`check` is not a `u32`")?;
+
+                                ConditionalBranchCommand::EnemyState {
+                                    enemy_index,
+                                    state_id,
+                                }
+                            }
+                            _ => {
+                                bail!("ConditionalBranchKindEnemyCheck {check:?} is not supported")
+                            }
                         }
                     }
                     _ => bail!("ConditionalBranchKind {kind:?} is not supported"),
