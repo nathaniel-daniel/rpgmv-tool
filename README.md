@@ -10,7 +10,7 @@ WIP, will also likely be renamed.
 This is a tool that can convert compiled event command JSON into Python for easier readability.
 Note that the generated Python is not intended to be run and will fail if you do so.
 The generated code will reference functions and variables that don't exist,
-and may not even be syntactially valid.
+and may not even be syntactically valid.
 The generated Python is purely for inspection.
 The simplest way to use this command is like so:
 ```bash
@@ -41,7 +41,7 @@ It has the following format:
 
 # A mapping of common event ids to names.
 # The command will use the given name instead of generating a name.
-[common_events]
+[common-events]
 # 5 = "do_it"
 
 # A mapping of actor ids to names.

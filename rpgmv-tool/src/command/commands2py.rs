@@ -145,7 +145,8 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
 
     let commands =
         parse_event_command_list(&event_commands).context("failed to parse event command list")?;
-    let python = commands2py(&config, &commands)?;
+    let mut python = String::with_capacity(event_commands.len() * 16);
+    commands2py(&config, &commands, &mut python)?;
 
     if !options.dry_run {
         write_string_safe(&options.output, &python)?;

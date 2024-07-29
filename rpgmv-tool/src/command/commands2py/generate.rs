@@ -8,21 +8,30 @@ use anyhow::bail;
 use anyhow::Context;
 use std::fmt::Write;
 
-pub fn commands2py(config: &Config, commands: &[(u16, Command)]) -> anyhow::Result<String> {
-    let mut python = String::new();
+pub fn commands2py<W>(
+    config: &Config,
+    commands: &[(u16, Command)],
+    mut writer: W,
+) -> anyhow::Result<()>
+where
+    W: std::fmt::Write,
+{
     for (indent, command) in commands.iter() {
-        command2py(config, *indent, command, &mut python)?;
+        command2py(config, *indent, command, &mut writer)?;
     }
 
-    Ok(python)
+    Ok(())
 }
 
-fn command2py(
+fn command2py<W>(
     config: &Config,
     indent: u16,
     command: &Command,
-    python: &mut String,
-) -> anyhow::Result<()> {
+    mut writer: W,
+) -> anyhow::Result<()>
+where
+    W: Write,
+{
     match command {
         Command::Nop => {}
         Command::ShowText {
@@ -32,36 +41,36 @@ fn command2py(
             position_type,
             lines,
         } => {
-            write_indent(python, indent);
-            writeln!(python, "show_text(")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(writer, "show_text(")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "face_name='{face_name}',")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(writer, "face_name='{face_name}',")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "face_index={face_index},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(writer, "face_index={face_index},")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "background={background},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(writer, "background={background},")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "position_type={position_type},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(writer, "position_type={position_type},")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "lines=[")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(writer, "lines=[")?;
 
             for line in lines {
                 let line = escape_string(line);
 
-                write_indent(python, indent + 2);
-                writeln!(python, "'{line}',")?;
+                write_indent(&mut writer, indent + 2)?;
+                writeln!(writer, "'{line}',")?;
             }
 
-            write_indent(python, indent + 1);
-            writeln!(python, "],")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "],")?;
 
-            write_indent(python, indent);
-            writeln!(python, ")")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, ")")?;
         }
         Command::ShowChoices {
             choices,
@@ -70,45 +79,45 @@ fn command2py(
             position_type,
             background,
         } => {
-            write_indent(python, indent);
-            writeln!(python, "show_choices(")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "show_choices(")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "choices=[")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "choices=[")?;
 
             for choice in choices {
                 let choice = escape_string(choice);
 
-                write_indent(python, indent + 2);
-                writeln!(python, "'{choice}',")?;
+                write_indent(&mut writer, indent + 2)?;
+                writeln!(&mut writer, "'{choice}',")?;
             }
 
-            write_indent(python, indent + 1);
-            writeln!(python, "],")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "],")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "cancel_type={cancel_type},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "cancel_type={cancel_type},")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "default_type={default_type},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "default_type={default_type},")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "position_type={position_type},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "position_type={position_type},")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "background={background},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "background={background},")?;
 
-            write_indent(python, indent);
-            writeln!(python, ")")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, ")")?;
         }
         Command::ConditionalBranch(command) => {
-            write_indent(python, indent);
-            write!(python, "if ")?;
+            write_indent(&mut writer, indent)?;
+            write!(&mut writer, "if ")?;
             match command {
                 ConditionalBranchCommand::Switch { id, check_true } => {
                     let name = config.get_switch_name(*id);
                     let check_true_str = if *check_true { "" } else { "not " };
-                    writeln!(python, "{check_true_str}{name}:")?;
+                    writeln!(&mut writer, "{check_true_str}{name}:")?;
                 }
                 ConditionalBranchCommand::Variable {
                     lhs_id,
@@ -122,7 +131,7 @@ fn command2py(
                     };
                     let operation = operation.as_str();
 
-                    writeln!(python, "{lhs} {operation} {rhs}:")?;
+                    writeln!(&mut writer, "{lhs} {operation} {rhs}:")?;
                 }
                 ConditionalBranchCommand::EnemyState {
                     enemy_index,
@@ -131,7 +140,7 @@ fn command2py(
                     let name = config.get_state_name(*state_id);
 
                     writeln!(
-                        python,
+                        &mut writer,
                         "game_troop.members[{enemy_index}].is_state_affected(state={name}):"
                     )?;
                 }
@@ -140,32 +149,32 @@ fn command2py(
                     direction,
                 } => {
                     writeln!(
-                        python,
+                        &mut writer,
                         "game_character_{character_id}.direction == {direction}:"
                     )?;
                 }
                 ConditionalBranchCommand::Gold { value, check } => {
                     let check = check.as_str();
 
-                    writeln!(python, "game_party.gold {check} {value}:")?;
+                    writeln!(&mut writer, "game_party.gold {check} {value}:")?;
                 }
                 ConditionalBranchCommand::Item { item_id } => {
                     let name = config.get_item_name(*item_id);
 
-                    writeln!(python, "game_party.has_item(item={name}):")?;
+                    writeln!(&mut writer, "game_party.has_item(item={name}):")?;
                 }
                 ConditionalBranchCommand::Script { value } => {
                     let value = escape_string(value);
 
-                    writeln!(python, "execute_script('{value}'):")?;
+                    writeln!(&mut writer, "execute_script('{value}'):")?;
                 }
             }
         }
         Command::CommonEvent { id } => {
             let name = config.get_common_event_name(*id);
 
-            write_indent(python, indent);
-            writeln!(python, "{name}()")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "{name}()")?;
         }
         Command::ControlSwitches {
             start_id,
@@ -176,8 +185,8 @@ fn command2py(
                 let name = config.get_switch_name(id);
                 let value = stringify_bool(*value);
 
-                write_indent(python, indent);
-                writeln!(python, "{name} = {value}")?;
+                write_indent(&mut writer, indent)?;
+                writeln!(&mut writer, "{name} = {value}")?;
             }
         }
         Command::ControlVariables {
@@ -209,8 +218,8 @@ fn command2py(
             };
             for variable_id in *start_variable_id..(*end_variable_id + 1) {
                 let name = config.get_variable_name(variable_id);
-                write_indent(python, indent);
-                writeln!(python, "{name} {operation} {value}")?;
+                write_indent(&mut writer, indent)?;
+                writeln!(&mut writer, "{name} {operation} {value}")?;
             }
         }
         Command::ChangeItems {
@@ -225,8 +234,8 @@ fn command2py(
                 MaybeRef::Ref(id) => config.get_variable_name(*id),
             };
 
-            write_indent(python, indent);
-            writeln!(python, "gain_item(item={item}, value={sign}{value})")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "gain_item(item={item}, value={sign}{value})")?;
         }
         Command::ChangeSaveAccess { disable } => {
             let fn_name = if *disable {
@@ -234,8 +243,8 @@ fn command2py(
             } else {
                 "enable_saving"
             };
-            write_indent(python, indent);
-            writeln!(python, "{fn_name}()")?
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "{fn_name}()")?
         }
         Command::TransferPlayer {
             map_id,
@@ -259,8 +268,8 @@ fn command2py(
                 MaybeRef::Constant(value) => value.to_string(),
                 MaybeRef::Ref(id) => config.get_variable_name(*id),
             };
-            write_indent(python, indent);
-            writeln!(python, "transfer_player({map_arg}, x={x}, y={y}, direction={direction}, fade_type={fade_type})")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "transfer_player({map_arg}, x={x}, y={y}, direction={direction}, fade_type={fade_type})")?;
         }
         Command::SetMovementRoute {
             character_id,
@@ -270,26 +279,26 @@ fn command2py(
             let skippable = stringify_bool(route.skippable);
             let wait = stringify_bool(route.wait);
 
-            write_indent(python, indent);
-            writeln!(python, "set_movement_route(")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "set_movement_route(")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "character_id={character_id},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "character_id={character_id},")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "route=MoveRoute(")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "route=MoveRoute(")?;
 
-            write_indent(python, indent + 2);
-            writeln!(python, "repeat={repeat},")?;
+            write_indent(&mut writer, indent + 2)?;
+            writeln!(&mut writer, "repeat={repeat},")?;
 
-            write_indent(python, indent + 2);
-            writeln!(python, "skippable={skippable},")?;
+            write_indent(&mut writer, indent + 2)?;
+            writeln!(&mut writer, "skippable={skippable},")?;
 
-            write_indent(python, indent + 2);
-            writeln!(python, "wait={wait},")?;
+            write_indent(&mut writer, indent + 2)?;
+            writeln!(&mut writer, "wait={wait},")?;
 
-            write_indent(python, indent + 2);
-            writeln!(python, "list=[")?;
+            write_indent(&mut writer, indent + 2)?;
+            writeln!(&mut writer, "list=[")?;
 
             for command in route.list.iter() {
                 let command_indent = command
@@ -297,60 +306,60 @@ fn command2py(
                     .map(|indent| indent.to_string())
                     .unwrap_or_else(|| "None".to_string());
 
-                write_indent(python, indent + 3);
-                writeln!(python, "MoveCommand(")?;
+                write_indent(&mut writer, indent + 3)?;
+                writeln!(&mut writer, "MoveCommand(")?;
 
-                write_indent(python, indent + 4);
-                writeln!(python, "code={},", command.code)?;
+                write_indent(&mut writer, indent + 4)?;
+                writeln!(&mut writer, "code={},", command.code)?;
 
-                write_indent(python, indent + 4);
-                writeln!(python, "indent={command_indent},")?;
+                write_indent(&mut writer, indent + 4)?;
+                writeln!(&mut writer, "indent={command_indent},")?;
 
                 match command.parameters.as_ref() {
                     Some(parameters) => {
-                        write_indent(python, indent + 4);
-                        writeln!(python, "parameters=[")?;
+                        write_indent(&mut writer, indent + 4)?;
+                        writeln!(&mut writer, "parameters=[")?;
 
                         for parameter in parameters {
-                            write_indent(python, indent + 5);
+                            write_indent(&mut writer, indent + 5)?;
 
                             match parameter {
                                 serde_json::Value::Number(number) if number.is_i64() => {
                                     let value = number.as_i64().context("value is not an i64")?;
-                                    writeln!(python, "{value},")?;
+                                    writeln!(&mut writer, "{value},")?;
                                 }
                                 _ => bail!("cannot write parameter \"{parameter:?}\""),
                             }
                         }
 
-                        write_indent(python, indent + 4);
-                        writeln!(python, "],")?;
+                        write_indent(&mut writer, indent + 4)?;
+                        writeln!(&mut writer, "],")?;
                     }
                     None => {
-                        write_indent(python, indent + 4);
-                        writeln!(python, "parameters=None,")?;
+                        write_indent(&mut writer, indent + 4)?;
+                        writeln!(&mut writer, "parameters=None,")?;
                     }
                 }
 
-                write_indent(python, indent + 3);
-                writeln!(python, "),")?;
+                write_indent(&mut writer, indent + 3)?;
+                writeln!(&mut writer, "),")?;
             }
 
-            write_indent(python, indent + 2);
-            writeln!(python, "]")?;
+            write_indent(&mut writer, indent + 2)?;
+            writeln!(&mut writer, "]")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "),")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "),")?;
 
-            write_indent(python, indent);
-            writeln!(python, ")")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, ")")?;
         }
         Command::ChangeTransparency { set_transparent } => {
             let set_transparent = stringify_bool(*set_transparent);
 
-            write_indent(python, indent);
+            write_indent(&mut writer, indent)?;
             writeln!(
-                python,
+                &mut writer,
                 "change_transparency(set_transparent={set_transparent})"
             )?
         }
@@ -361,16 +370,16 @@ fn command2py(
         } => {
             let wait = stringify_bool(*wait);
 
-            write_indent(python, indent);
-            writeln!(python, "show_balloon_icon(character_id={character_id}, balloon_id={balloon_id}, wait={wait})")?
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "show_balloon_icon(character_id={character_id}, balloon_id={balloon_id}, wait={wait})")?
         }
         Command::FadeoutScreen => {
-            write_indent(python, indent);
-            writeln!(python, "fadeout_screen()")?
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "fadeout_screen()")?
         }
         Command::FadeinScreen => {
-            write_indent(python, indent);
-            writeln!(python, "fadein_screen()")?
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "fadein_screen()")?
         }
         Command::TintScreen {
             tone,
@@ -379,9 +388,9 @@ fn command2py(
         } => {
             let wait = stringify_bool(*wait);
 
-            write_indent(python, indent);
+            write_indent(&mut writer, indent)?;
             writeln!(
-                python,
+                &mut writer,
                 "tint_screen(tone={tone:?}, duration={duration}, wait={wait})"
             )?
         }
@@ -392,15 +401,15 @@ fn command2py(
         } => {
             let wait = stringify_bool(*wait);
 
-            write_indent(python, indent);
+            write_indent(&mut writer, indent)?;
             writeln!(
-                python,
+                &mut writer,
                 "flash_screen(color={color:?}, duration={duration}, wait={wait})"
             )?
         }
         Command::Wait { duration } => {
-            write_indent(python, indent);
-            writeln!(python, "wait(duration={duration})")?
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "wait(duration={duration})")?
         }
         Command::ShowPicture {
             picture_id,
@@ -423,69 +432,69 @@ fn command2py(
                 MaybeRef::Ref(id) => config.get_variable_name(*id),
             };
 
-            write_indent(python, indent);
-            writeln!(python, "show_picture(")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "show_picture(")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "picture_id={picture_id},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "picture_id={picture_id},")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "picture_name='{picture_name}',")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "picture_name='{picture_name}',")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "origin={origin},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "origin={origin},")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "x={x},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "x={x},")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "y={y},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "y={y},")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "scale_x={scale_x},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "scale_x={scale_x},")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "scale_y={scale_y},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "scale_y={scale_y},")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "opacity={opacity},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "opacity={opacity},")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "blend_mode={blend_mode},")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "blend_mode={blend_mode},")?;
 
-            write_indent(python, indent);
-            writeln!(python, ")")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, ")")?;
         }
         Command::ErasePicture { picture_id } => {
-            write_indent(python, indent);
-            writeln!(python, "erase_picture(picture_id={picture_id})")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "erase_picture(picture_id={picture_id})")?;
         }
         Command::PlaySe { audio } => {
             let audio_name = escape_string(&audio.name);
 
-            write_indent(python, indent);
-            writeln!(python, "play_se(")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "play_se(")?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "audio=AudioFile(")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "audio=AudioFile(")?;
 
-            write_indent(python, indent + 2);
-            writeln!(python, "name='{audio_name}',")?;
+            write_indent(&mut writer, indent + 2)?;
+            writeln!(&mut writer, "name='{audio_name}',")?;
 
-            write_indent(python, indent + 2);
-            writeln!(python, "pan={},", audio.pan)?;
+            write_indent(&mut writer, indent + 2)?;
+            writeln!(&mut writer, "pan={},", audio.pan)?;
 
-            write_indent(python, indent + 2);
-            writeln!(python, "pitch={},", audio.pitch)?;
+            write_indent(&mut writer, indent + 2)?;
+            writeln!(&mut writer, "pitch={},", audio.pitch)?;
 
-            write_indent(python, indent + 2);
-            writeln!(python, "volume={},", audio.volume)?;
+            write_indent(&mut writer, indent + 2)?;
+            writeln!(&mut writer, "volume={},", audio.volume)?;
 
-            write_indent(python, indent + 1);
-            writeln!(python, "),")?;
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "),")?;
 
-            write_indent(python, indent);
-            writeln!(python, ")")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, ")")?;
         }
         Command::ChangeSkill {
             actor_id,
@@ -509,16 +518,16 @@ fn command2py(
             };
             let skill = config.get_skill_name(*skill_id);
 
-            write_indent(python, indent);
-            writeln!(python, "{fn_name}({actor_arg}, skill={skill})")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "{fn_name}({actor_arg}, skill={skill})")?;
         }
         Command::When {
             choice_index,
             choice_name,
         } => {
-            write_indent(python, indent);
+            write_indent(&mut writer, indent)?;
             writeln!(
-                python,
+                &mut writer,
                 "if get_choice_index() == {choice_index}: # {choice_name}"
             )?;
         }
@@ -526,16 +535,16 @@ fn command2py(
             // Trust indents over end commands
         }
         Command::Else => {
-            write_indent(python, indent);
-            writeln!(python, "else:")?;
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "else:")?;
         }
         Command::ConditionalBranchEnd => {
             // Trust indents over end commands
         }
         Command::Unknown { code, parameters } => {
-            write_indent(python, indent);
+            write_indent(&mut writer, indent)?;
             writeln!(
-                python,
+                &mut writer,
                 "# Unknown Command Code {code:?}, parameters: {parameters:?}"
             )?;
         }
@@ -550,10 +559,15 @@ fn stringify_bool(b: bool) -> &'static str {
     }
 }
 
-fn write_indent(string: &mut String, indent: u16) {
+fn write_indent<W>(mut writer: W, indent: u16) -> std::fmt::Result
+where
+    W: Write,
+{
     for _ in 0..indent {
-        string.push('\t');
+        write!(writer, "\t")?;
     }
+
+    Ok(())
 }
 
 fn escape_string(input: &str) -> String {
