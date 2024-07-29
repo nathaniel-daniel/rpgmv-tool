@@ -460,6 +460,7 @@ pub fn parse_event_command_list(
 ) -> anyhow::Result<Vec<(u16, Command)>> {
     let mut ret = Vec::with_capacity(list.len());
 
+    let mut move_command_index = 0;
     for event_command in list.iter() {
         let command_code = CommandCode(event_command.code);
 
@@ -473,6 +474,21 @@ pub fn parse_event_command_list(
                     .to_string();
 
                 lines.push(line);
+
+                continue;
+            }
+            (
+                Some(Command::SetMovementRoute { route, .. }),
+                CommandCode::SET_MOVEMENT_ROUTE_EXTRA,
+            ) if move_command_index < route.list.len() => {
+                ensure!(event_command.parameters.len() == 1);
+                let command: rpgmv_types::MoveCommand =
+                    serde_json::from_value(event_command.parameters[0].clone())
+                        .context("invalid `command` parameter")?;
+
+                ensure!(command == route.list[move_command_index]);
+
+                move_command_index += 1;
 
                 continue;
             }
@@ -946,6 +962,8 @@ pub fn parse_event_command_list(
                 let route: rpgmv_types::MoveRoute =
                     serde_json::from_value(event_command.parameters[1].clone())
                         .context("invalid `route` parameter")?;
+
+                move_command_index = 0;
 
                 Command::SetMovementRoute {
                     character_id,

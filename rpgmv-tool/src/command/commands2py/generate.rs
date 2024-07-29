@@ -321,14 +321,28 @@ where
                         writeln!(&mut writer, "parameters=[")?;
 
                         for parameter in parameters {
-                            write_indent(&mut writer, indent + 5)?;
-
                             match parameter {
                                 serde_json::Value::Number(number) if number.is_i64() => {
                                     let value = number.as_i64().context("value is not an i64")?;
+
+                                    write_indent(&mut writer, indent + 5)?;
                                     writeln!(&mut writer, "{value},")?;
                                 }
-                                _ => bail!("cannot write parameter \"{parameter:?}\""),
+                                serde_json::Value::Object(object) => {
+                                    write_indent(&mut writer, indent + 5)?;
+                                    writeln!(&mut writer, "{{")?;
+
+                                    for (key, value) in object.iter() {
+                                        write_indent(&mut writer, indent + 6)?;
+                                        writeln!(&mut writer, "'{key}': {value},")?;
+                                    }
+
+                                    write_indent(&mut writer, indent + 5)?;
+                                    writeln!(&mut writer, "}},")?;
+                                }
+                                _ => {
+                                    bail!("cannot write move route parameter \"{parameter:?}\"")
+                                }
                             }
                         }
 
