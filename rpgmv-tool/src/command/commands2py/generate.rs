@@ -148,10 +148,13 @@ where
                     character_id,
                     direction,
                 } => {
-                    writeln!(
-                        &mut writer,
-                        "game_character_{character_id}.direction == {direction}:"
-                    )?;
+                    let name = if *character_id < 0 {
+                        "game_player".to_string()
+                    } else {
+                        format!("game_character_{character_id}")
+                    };
+
+                    writeln!(&mut writer, "{name}.direction == {direction}:")?;
                 }
                 ConditionalBranchCommand::Gold { value, check } => {
                     let check = check.as_str();
