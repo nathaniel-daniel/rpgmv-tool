@@ -1,117 +1,21 @@
+mod code;
+
+use self::code::CommandCode;
 use anyhow::bail;
 use anyhow::ensure;
 use anyhow::Context;
 
-/// A command code
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct CommandCode(u32);
-
-impl CommandCode {
-    /// This is likely related to move routes somehow,
-    /// Like how the TEXT_DATA command extends the SHOW_TEXT command.
-    /// However, I can't find the implementation of this instruction.
-    const UNKNOWN_505: Self = Self(505);
-
-    const NOP: Self = Self(0);
-
-    const SHOW_TEXT: Self = Self(101);
-    const SHOW_CHOICES: Self = Self(102);
-
-    const CONDITONAL_BRANCH: Self = Self(111);
-
-    const COMMON_EVENT: Self = Self(117);
-
-    const CONTROL_SWITCHES: Self = Self(121);
-    const CONTROL_VARIABLES: Self = Self(122);
-
-    const CHANGE_ITEMS: Self = Self(126);
-
-    const CHANGE_SAVE_ACCESS: Self = Self(134);
-
-    const TRANSFER_PLAYER: Self = Self(201);
-
-    const SET_MOVEMENT_ROUTE: Self = Self(205);
-
-    const CHANGE_TRANSPARENCY: Self = Self(211);
-    const SHOW_ANIMATION: Self = Self(212);
-    const SHOW_BALLOON_ICON: Self = Self(213);
-
-    const FADEOUT_SCREEN: Self = Self(221);
-    const FADEIN_SCREEN: Self = Self(222);
-    const TINT_SCREEN: Self = Self(223);
-    const FLASH_SCREEN: Self = Self(224);
-
-    const WAIT: Self = Self(230);
-    const SHOW_PICTURE: Self = Self(231);
-    const MOVE_PICTURE: Self = Self(232);
-
-    const ERASE_PICTURE: Self = Self(235);
-
-    const PLAY_SE: Self = Self(250);
-
-    const CHANGE_SKILL: Self = Self(318);
-
-    const TEXT_DATA: Self = Self(401);
-    const WHEN: Self = Self(402);
-
-    /// I think this is an end for the WHEN block.
-    /// I can't be sure as the game doesn't actually care if this exists;
-    /// it just ignores it, only taking into account indents.
-    const WHEN_END: Self = Self(404);
-
-    const ELSE: Self = Self(411);
-    /// I think this is an end for the CONDITONAL_BRANCH block.
-    /// I can't be sure as the game doesn't actually care if this exists;
-    /// it just ignores it, only taking into account indents.
-    const CONDITONAL_BRANCH_END: Self = Self(412);
-}
-
-impl std::fmt::Debug for CommandCode {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match *self {
-            Self::UNKNOWN_505 => write!(f, "UNKNOWN_505"),
-            Self::NOP => write!(f, "NOP"),
-            Self::SHOW_TEXT => write!(f, "SHOW_TEXT"),
-            Self::SHOW_CHOICES => write!(f, "SHOW_CHOICES"),
-            Self::CONDITONAL_BRANCH => write!(f, "CONDITONAL_BRANCH"),
-            Self::COMMON_EVENT => write!(f, "COMMON_EVENT"),
-            Self::CONTROL_SWITCHES => write!(f, "CONTROL_SWITCHES"),
-            Self::CONTROL_VARIABLES => write!(f, "CONTROL_VARIABLES"),
-            Self::CHANGE_ITEMS => write!(f, "CHANGE_ITEMS"),
-            Self::CHANGE_SAVE_ACCESS => write!(f, "CHANGE_SAVE_ACCESS"),
-            Self::TRANSFER_PLAYER => write!(f, "TRANSFER_PLAYER"),
-            Self::SET_MOVEMENT_ROUTE => write!(f, "SET_MOVEMENT_ROUTE"),
-            Self::CHANGE_TRANSPARENCY => write!(f, "CHANGE_TRANSPARENCY"),
-            Self::SHOW_ANIMATION => write!(f, "SHOW_ANIMATION"),
-            Self::SHOW_BALLOON_ICON => write!(f, "SHOW_BALLOON_ICON"),
-            Self::FADEOUT_SCREEN => write!(f, "FADEOUT_SCREEN"),
-            Self::FADEIN_SCREEN => write!(f, "FADEIN_SCREEN"),
-            Self::TINT_SCREEN => write!(f, "TINT_SCREEN"),
-            Self::FLASH_SCREEN => write!(f, "FLASH_SCREEN"),
-            Self::WAIT => write!(f, "WAIT"),
-            Self::SHOW_PICTURE => write!(f, "SHOW_PICTURE"),
-            Self::MOVE_PICTURE => write!(f, "MOVE_PICTURE"),
-            Self::ERASE_PICTURE => write!(f, "ERASE_PICTURE"),
-            Self::PLAY_SE => write!(f, "PLAY_SE"),
-            Self::CHANGE_SKILL => write!(f, "CHANGE_SKILL"),
-            Self::TEXT_DATA => write!(f, "TEXT_DATA"),
-            Self::WHEN => write!(f, "WHEN"),
-            Self::WHEN_END => write!(f, "WHEN_END"),
-            Self::ELSE => write!(f, "ELSE"),
-            Self::CONDITONAL_BRANCH_END => write!(f, "CONDITONAL_BRANCH_END"),
-            _ => write!(f, "Unknown({})", self.0),
-        }
-    }
-}
-
 #[derive(Debug, Copy, Clone)]
-pub enum ConditionalBranchKind {
+enum ConditionalBranchKind {
     Switch = 0,
     Variable = 1,
 
     Actor = 4,
+    Enemy = 5,
 
+    Character = 6,
     Gold = 7,
+    Item = 8,
 
     Script = 12,
 }
@@ -123,7 +27,10 @@ impl ConditionalBranchKind {
             0 => Ok(Self::Switch),
             1 => Ok(Self::Variable),
             4 => Ok(Self::Actor),
+            5 => Ok(Self::Enemy),
+            6 => Ok(Self::Character),
             7 => Ok(Self::Gold),
+            8 => Ok(Self::Item),
             12 => Ok(Self::Script),
             _ => bail!("{value} is not a valid ConditionalBranchKind"),
         }
@@ -137,13 +44,72 @@ impl ConditionalBranchKind {
     */
 }
 
+/// The type of enemy check
+#[derive(Debug, Copy, Clone)]
+enum ConditionalBranchKindEnemyCheck {
+    Appeared = 0,
+    State = 1,
+}
+
+impl ConditionalBranchKindEnemyCheck {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            0 => Ok(Self::Appeared),
+            1 => Ok(Self::State),
+            _ => bail!("{value} is not a valid ConditionalBranchKindEnemyCheck"),
+        }
+    }
+}
+
+/// The type of gold check
+#[derive(Debug, Copy, Clone)]
+pub enum ConditionalBranchKindGoldCheck {
+    Gte = 0,
+    Lte = 1,
+    Lt = 2,
+}
+
+impl ConditionalBranchKindGoldCheck {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            0 => Ok(Self::Gte),
+            1 => Ok(Self::Lte),
+            2 => Ok(Self::Lt),
+            _ => bail!("{value} is not a valid ConditionalBranchKindGoldCheck"),
+        }
+    }
+
+    /// Get this as a string.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Gte => ">=",
+            Self::Lte => "<=",
+            Self::Lt => "<",
+        }
+    }
+}
+
+/// The type of variable compare operation
 #[derive(Debug, Copy, Clone)]
 pub enum ConditionalBranchVariableOperation {
+    /// ==
     EqualTo = 0,
+
+    /// >=
     Gte = 1,
+
+    /// <=
     Lte = 2,
+
+    /// >
     Gt = 3,
+
+    /// <
     Lt = 4,
+
+    /// !=
     Neq = 5,
 }
 
@@ -181,7 +147,7 @@ impl ConditionalBranchVariableOperation {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum ControlVariablesOperation {
+enum ControlVariablesOperation {
     Const = 0,
     Var = 1,
     Random = 2,
@@ -203,12 +169,22 @@ impl ControlVariablesOperation {
     }
 }
 
+/// The type of variable operation.
 #[derive(Debug, Copy, Clone)]
 pub enum OperateVariableOperation {
+    /// =
     Set = 0,
+
+    /// +=
     Add = 1,
+
+    /// -=
     Sub = 2,
+
+    /// *=
     Mul = 3,
+
+    /// /=
     Div = 4,
 }
 
@@ -237,6 +213,85 @@ impl OperateVariableOperation {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+enum GameDataOperandKind {
+    Item = 0,
+    Weapon = 1,
+    Armor = 2,
+    Actor = 3,
+    Enemy = 4,
+    Character = 5,
+    Party = 6,
+    Other = 7,
+}
+
+impl GameDataOperandKind {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            0 => Ok(Self::Item),
+            1 => Ok(Self::Weapon),
+            2 => Ok(Self::Armor),
+            3 => Ok(Self::Actor),
+            4 => Ok(Self::Enemy),
+            5 => Ok(Self::Character),
+            6 => Ok(Self::Party),
+            7 => Ok(Self::Other),
+            _ => bail!("{value} is not a valid GameDataOperandKind"),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+enum GameDataOperandKindOtherCheck {
+    MapId = 0,
+    PartyMembers = 1,
+    Gold = 2,
+    Steps = 3,
+    PlayTime = 4,
+    Timer = 5,
+    SaveCount = 6,
+    BattleCount = 7,
+    WinCount = 8,
+    EscapeCount = 9,
+}
+
+impl GameDataOperandKindOtherCheck {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            0 => Ok(Self::MapId),
+            1 => Ok(Self::PartyMembers),
+            2 => Ok(Self::Gold),
+            3 => Ok(Self::Steps),
+            4 => Ok(Self::PlayTime),
+            5 => Ok(Self::Timer),
+            6 => Ok(Self::SaveCount),
+            7 => Ok(Self::BattleCount),
+            8 => Ok(Self::WinCount),
+            9 => Ok(Self::EscapeCount),
+            _ => bail!("{value} is not a valid GameDataOperandKindOtherCheck"),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum GameDataOperandKindActorCheck {
+    Level = 0,
+    Exp = 1,
+}
+
+impl GameDataOperandKindActorCheck {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            0 => Ok(Self::Level),
+            1 => Ok(Self::Exp),
+            _ => bail!("{value} is not a valid GameDataOperandKindActorCheck"),
+        }
+    }
+}
+
 /// A command
 #[derive(Debug)]
 pub enum Command {
@@ -251,7 +306,7 @@ pub enum Command {
     ShowChoices {
         choices: Vec<String>,
         cancel_type: i32,
-        default_type: u32,
+        default_type: i64,
         position_type: u32,
         background: u32,
     },
@@ -300,7 +355,7 @@ pub enum Command {
     FadeoutScreen,
     FadeinScreen,
     TintScreen {
-        tone: [u8; 4],
+        tone: [i16; 4],
         duration: u32,
         wait: bool,
     },
@@ -358,6 +413,24 @@ pub enum ConditionalBranchCommand {
         rhs_id: MaybeRef<u32>,
         operation: ConditionalBranchVariableOperation,
     },
+    EnemyState {
+        enemy_index: u32,
+        state_id: u32,
+    },
+    Character {
+        character_id: i32,
+        direction: u8,
+    },
+    Gold {
+        value: u32,
+        check: ConditionalBranchKindGoldCheck,
+    },
+    Item {
+        item_id: u32,
+    },
+    Script {
+        value: String,
+    },
 }
 
 #[derive(Debug)]
@@ -365,6 +438,15 @@ pub enum ControlVariablesValue {
     Constant { value: u32 },
     Variable { id: u32 },
     Random { start: u32, stop: u32 },
+    GameData(ControlVariablesValueGameData),
+}
+
+#[derive(Debug)]
+pub enum ControlVariablesValueGameData {
+    NumItems { item_id: u32 },
+    ActorLevel { actor_id: u32 },
+    MapId,
+    Gold,
 }
 
 #[derive(Debug, Copy, Clone, Hash)]
@@ -378,6 +460,7 @@ pub fn parse_event_command_list(
 ) -> anyhow::Result<Vec<(u16, Command)>> {
     let mut ret = Vec::with_capacity(list.len());
 
+    let mut move_command_index = 0;
     for event_command in list.iter() {
         let command_code = CommandCode(event_command.code);
 
@@ -391,6 +474,21 @@ pub fn parse_event_command_list(
                     .to_string();
 
                 lines.push(line);
+
+                continue;
+            }
+            (
+                Some(Command::SetMovementRoute { route, .. }),
+                CommandCode::SET_MOVEMENT_ROUTE_EXTRA,
+            ) if move_command_index < route.list.len() => {
+                ensure!(event_command.parameters.len() == 1);
+                let command: rpgmv_types::MoveCommand =
+                    serde_json::from_value(event_command.parameters[0].clone())
+                        .context("invalid `command` parameter")?;
+
+                ensure!(command == route.list[move_command_index]);
+
+                move_command_index += 1;
 
                 continue;
             }
@@ -430,15 +528,16 @@ pub fn parse_event_command_list(
             (_, CommandCode::SHOW_CHOICES) => {
                 ensure!(event_command.parameters.len() == 5);
 
-                let choices = serde_json::from_value(event_command.parameters[0].clone())?;
+                let choices: Vec<String> =
+                    serde_json::from_value(event_command.parameters[0].clone())
+                        .context("invalid `choices` parameter")?;
                 let cancel_type = event_command.parameters[1]
                     .as_i64()
                     .and_then(|value| i32::try_from(value).ok())
                     .context("`cancel_type` is not an `i32`")?;
                 let default_type = event_command.parameters[2]
                     .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`default_type` is not a `u32`")?;
+                    .context("`default_type` is not an `i64`")?;
                 let position_type = event_command.parameters[3]
                     .as_i64()
                     .and_then(|value| u32::try_from(value).ok())
@@ -513,6 +612,85 @@ pub fn parse_event_command_list(
                             rhs_id,
                             operation,
                         }
+                    }
+                    ConditionalBranchKind::Enemy => {
+                        ensure!(event_command.parameters.len() >= 3);
+                        let enemy_index = event_command.parameters[1]
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
+                            .context("`enemy_index` is not a `u32`")?;
+                        let check = event_command.parameters[2]
+                            .as_i64()
+                            .and_then(|value| u8::try_from(value).ok())
+                            .context("`check` is not a `u8`")?;
+                        let check = ConditionalBranchKindEnemyCheck::from_u8(check)?;
+
+                        match check {
+                            ConditionalBranchKindEnemyCheck::State => {
+                                ensure!(event_command.parameters.len() == 4);
+
+                                let state_id = event_command.parameters[2]
+                                    .as_i64()
+                                    .and_then(|value| u32::try_from(value).ok())
+                                    .context("`check` is not a `u32`")?;
+
+                                ConditionalBranchCommand::EnemyState {
+                                    enemy_index,
+                                    state_id,
+                                }
+                            }
+                            _ => {
+                                bail!("ConditionalBranchKindEnemyCheck {check:?} is not supported")
+                            }
+                        }
+                    }
+                    ConditionalBranchKind::Character => {
+                        ensure!(event_command.parameters.len() == 3);
+                        let character_id = event_command.parameters[1]
+                            .as_i64()
+                            .and_then(|value| i32::try_from(value).ok())
+                            .context("`character_id` is not an `i32`")?;
+                        let direction = event_command.parameters[2]
+                            .as_i64()
+                            .and_then(|value| u8::try_from(value).ok())
+                            .context("`direction` is not a `u8`")?;
+
+                        ConditionalBranchCommand::Character {
+                            character_id,
+                            direction,
+                        }
+                    }
+                    ConditionalBranchKind::Gold => {
+                        ensure!(event_command.parameters.len() == 3);
+                        let value = event_command.parameters[1]
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
+                            .context("`value` is not a `u32`")?;
+                        let check = event_command.parameters[2]
+                            .as_i64()
+                            .and_then(|value| u8::try_from(value).ok())
+                            .context("`check` is not a `u8`")?;
+                        let check = ConditionalBranchKindGoldCheck::from_u8(check)?;
+
+                        ConditionalBranchCommand::Gold { value, check }
+                    }
+                    ConditionalBranchKind::Item => {
+                        ensure!(event_command.parameters.len() == 2);
+                        let item_id = event_command.parameters[1]
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
+                            .context("`item_id` is not a `u32`")?;
+
+                        ConditionalBranchCommand::Item { item_id }
+                    }
+                    ConditionalBranchKind::Script => {
+                        ensure!(event_command.parameters.len() == 2);
+                        let value = event_command.parameters[1]
+                            .as_str()
+                            .context("`value` is not a string")?
+                            .to_string();
+
+                        ConditionalBranchCommand::Script { value }
                     }
                     _ => bail!("ConditionalBranchKind {kind:?} is not supported"),
                 };
@@ -597,6 +775,7 @@ pub fn parse_event_command_list(
                         ControlVariablesValue::Variable { id }
                     }
                     ControlVariablesOperation::Random => {
+                        ensure!(event_command.parameters.len() == 6);
                         let start = event_command.parameters[4]
                             .as_i64()
                             .and_then(|value| u32::try_from(value).ok())
@@ -607,6 +786,67 @@ pub fn parse_event_command_list(
                             .context("`stop` is not a `u32`")?;
 
                         ControlVariablesValue::Random { start, stop }
+                    }
+                    ControlVariablesOperation::GameData => {
+                        ensure!(event_command.parameters.len() == 7);
+                        let kind = event_command.parameters[4]
+                            .as_i64()
+                            .and_then(|value| u8::try_from(value).ok())
+                            .context("`kind` is not a `u8`")?;
+                        let kind = GameDataOperandKind::from_u8(kind)?;
+                        let param1 = event_command.parameters[5]
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
+                            .context("`param1` is not a `u32`")?;
+                        let param2 = event_command.parameters[6]
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
+                            .context("`param2` is not a `u32`")?;
+
+                        let inner = match kind {
+                            GameDataOperandKind::Item => {
+                                let item_id = param1;
+
+                                ControlVariablesValueGameData::NumItems { item_id }
+                            }
+                            GameDataOperandKind::Actor => {
+                                let actor_id = param1;
+                                let check =
+                                    u8::try_from(param2).context("`check` is not a `u8`")?;
+                                let check = GameDataOperandKindActorCheck::from_u8(check)?;
+
+                                match check {
+                                    GameDataOperandKindActorCheck::Level => {
+                                        ControlVariablesValueGameData::ActorLevel { actor_id }
+                                    }
+                                    _ => bail!(
+                                        "GameDataOperandKindActorCheck {check:?} is not supported"
+                                    ),
+                                }
+                            }
+                            GameDataOperandKind::Other => {
+                                let check =
+                                    u8::try_from(param1).context("`check` is not a `u8`")?;
+                                let check = GameDataOperandKindOtherCheck::from_u8(check)?;
+
+                                match check {
+                                    GameDataOperandKindOtherCheck::MapId => {
+                                        ControlVariablesValueGameData::MapId
+                                    }
+                                    GameDataOperandKindOtherCheck::Gold => {
+                                        ControlVariablesValueGameData::Gold
+                                    }
+                                    _ => bail!(
+                                        "GameDataOperandKindOtherCheck {check:?} is not supported"
+                                    ),
+                                }
+                            }
+                            _ => {
+                                bail!("GameDataOperandKind {kind:?} is not supported")
+                            }
+                        };
+
+                        ControlVariablesValue::GameData(inner)
                     }
                     _ => {
                         let name = "ControlVariablesOperation";
@@ -719,7 +959,11 @@ pub fn parse_event_command_list(
                     .as_i64()
                     .and_then(|value| i32::try_from(value).ok())
                     .context("`value` is not an `i32`")?;
-                let route = serde_json::from_value(event_command.parameters[1].clone())?;
+                let route: rpgmv_types::MoveRoute =
+                    serde_json::from_value(event_command.parameters[1].clone())
+                        .context("invalid `route` parameter")?;
+
+                move_command_index = 0;
 
                 Command::SetMovementRoute {
                     character_id,
@@ -767,7 +1011,8 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::TINT_SCREEN) => {
                 ensure!(event_command.parameters.len() == 3);
-                let tone: [u8; 4] = serde_json::from_value(event_command.parameters[0].clone())?;
+                let tone: [i16; 4] = serde_json::from_value(event_command.parameters[0].clone())
+                    .context("invalid `tone` parameter")?;
                 let duration = event_command.parameters[1]
                     .as_i64()
                     .and_then(|value| u32::try_from(value).ok())
@@ -784,7 +1029,8 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::FLASH_SCREEN) => {
                 ensure!(event_command.parameters.len() == 3);
-                let color: [u8; 4] = serde_json::from_value(event_command.parameters[0].clone())?;
+                let color: [u8; 4] = serde_json::from_value(event_command.parameters[0].clone())
+                    .context("invalid `color` parameter")?;
                 let duration = event_command.parameters[1]
                     .as_i64()
                     .and_then(|value| u32::try_from(value).ok())
@@ -883,7 +1129,9 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::PLAY_SE) => {
                 ensure!(event_command.parameters.len() == 1);
-                let audio = serde_json::from_value(event_command.parameters[0].clone())?;
+                let audio: rpgmv_types::AudioFile =
+                    serde_json::from_value(event_command.parameters[0].clone())
+                        .context("invalid `audio` parameter")?;
 
                 Command::PlaySe { audio }
             }
