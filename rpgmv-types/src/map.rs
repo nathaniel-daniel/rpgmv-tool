@@ -1,4 +1,5 @@
 use super::AudioFile;
+use super::Encounter;
 use super::Event;
 
 /// A Map
@@ -37,7 +38,7 @@ pub struct Map {
 
     /// ?
     #[serde(rename = "encounterList")]
-    pub encounter_list: Vec<()>,
+    pub encounter_list: Vec<Encounter>,
 
     /// ?
     #[serde(rename = "encounterStep")]
