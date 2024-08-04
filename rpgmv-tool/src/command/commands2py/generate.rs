@@ -133,6 +133,12 @@ where
 
                     writeln!(&mut writer, "{lhs} {operation} {rhs}:")?;
                 }
+                ConditionalBranchCommand::ActorArmor { actor_id, armor_id } => {
+                    let actor_name = config.get_actor_name(*actor_id);
+                    let armor_name = config.get_armor_name(*armor_id);
+
+                    writeln!(&mut writer, "{actor_name}.has_armor(armor={armor_name}):")?;
+                }
                 ConditionalBranchCommand::EnemyState {
                     enemy_index,
                     state_id,

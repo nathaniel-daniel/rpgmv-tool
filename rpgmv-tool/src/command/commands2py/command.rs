@@ -9,14 +9,16 @@ use anyhow::Context;
 enum ConditionalBranchKind {
     Switch = 0,
     Variable = 1,
-
+    SelfSwitch = 2,
+    Timer = 3,
     Actor = 4,
     Enemy = 5,
-
     Character = 6,
     Gold = 7,
     Item = 8,
-
+    Weapon = 9,
+    Armor = 10,
+    Button = 11,
     Script = 12,
 }
 
@@ -26,11 +28,16 @@ impl ConditionalBranchKind {
         match value {
             0 => Ok(Self::Switch),
             1 => Ok(Self::Variable),
+            2 => Ok(Self::SelfSwitch),
+            3 => Ok(Self::Timer),
             4 => Ok(Self::Actor),
             5 => Ok(Self::Enemy),
             6 => Ok(Self::Character),
             7 => Ok(Self::Gold),
             8 => Ok(Self::Item),
+            9 => Ok(Self::Weapon),
+            10 => Ok(Self::Armor),
+            11 => Ok(Self::Button),
             12 => Ok(Self::Script),
             _ => bail!("{value} is not a valid ConditionalBranchKind"),
         }
@@ -42,6 +49,24 @@ impl ConditionalBranchKind {
         self as u8
     }
     */
+}
+
+/// The type of actor check
+#[derive(Debug, Copy, Clone)]
+pub enum ConditionalBranchKindActorCheck {
+    Weapon = 4,
+    Armor = 5,
+}
+
+impl ConditionalBranchKindActorCheck {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            4 => Ok(Self::Weapon),
+            5 => Ok(Self::Armor),
+            _ => bail!("{value} is not a valid ConditionalBranchKindActorCheck"),
+        }
+    }
 }
 
 /// The type of enemy check
@@ -418,6 +443,10 @@ pub enum ConditionalBranchCommand {
         rhs_id: MaybeRef<u32>,
         operation: ConditionalBranchVariableOperation,
     },
+    ActorArmor {
+        actor_id: u32,
+        armor_id: u32,
+    },
     EnemyState {
         enemy_index: u32,
         state_id: u32,
@@ -616,6 +645,32 @@ pub fn parse_event_command_list(
                             lhs_id,
                             rhs_id,
                             operation,
+                        }
+                    }
+                    ConditionalBranchKind::Actor => {
+                        ensure!(event_command.parameters.len() == 4);
+                        let actor_id = event_command.parameters[1]
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
+                            .context("`actor_id` is not a `u32`")?;
+                        let check = event_command.parameters[2]
+                            .as_i64()
+                            .and_then(|value| u8::try_from(value).ok())
+                            .context("`check` is not a `u8`")?;
+                        let check = ConditionalBranchKindActorCheck::from_u8(check)?;
+
+                        match check {
+                            ConditionalBranchKindActorCheck::Armor => {
+                                let armor_id = event_command.parameters[2]
+                                    .as_i64()
+                                    .and_then(|value| u32::try_from(value).ok())
+                                    .context("`armor_id` is not a `u32`")?;
+
+                                ConditionalBranchCommand::ActorArmor { actor_id, armor_id }
+                            }
+                            _ => {
+                                bail!("ConditionalBranchKindActorCheck {check:?} is not supported")
+                            }
                         }
                     }
                     ConditionalBranchKind::Enemy => {

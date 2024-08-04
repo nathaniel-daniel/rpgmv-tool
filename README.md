@@ -61,13 +61,18 @@ It has the following format:
 
 # A mapping of state ids to names.
 # The command will use the given name instead of generating a name.
-[troops]
+[states]
 # 43 = "blind_state"
 
 # A mapping of troop ids to names.
 # The command will use the given name instead of generating a name.
 [troops]
 # 86 = "enemy_force"
+
+# A mapping of armor ids to names.
+# The command will use the given name instead of generating a name.
+[armors]
+# 32 = "the_best_armor"
 ```
 
 ## License

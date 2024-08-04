@@ -1,5 +1,5 @@
-use super::TroopPage;
 use super::TroopMember;
+use super::TroopPage;
 
 /// A troop
 #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq)]
