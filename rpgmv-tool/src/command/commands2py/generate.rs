@@ -513,6 +513,30 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, ")")?;
         }
+        Command::BattleProcessing {
+            troop_id,
+            can_escape,
+            can_lose,
+        } => {
+            let troop_arg = match troop_id {
+                MaybeRef::Constant(id) => {
+                    let name = config.get_troop_name(*id);
+                    format!("troop={name}")
+                }
+                MaybeRef::Ref(id) => {
+                    let name = config.get_variable_name(*id);
+
+                    format!("troop_id={name}")
+                }
+            };
+            let can_escape = stringify_bool(*can_escape);
+            let can_lose = stringify_bool(*can_lose);
+
+            writeln!(
+                &mut writer,
+                "battle_processing({troop_arg}, can_escape={can_escape}, can_lose={can_lose})"
+            )?;
+        }
         Command::ChangeSkill {
             actor_id,
             is_learn_skill,

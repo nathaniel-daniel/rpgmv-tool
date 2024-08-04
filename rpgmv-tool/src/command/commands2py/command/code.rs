@@ -46,6 +46,8 @@ impl CommandCode {
 
     pub const PLAY_SE: Self = Self(250);
 
+    pub const BATTLE_PROCESSING: Self = Self(301);
+
     pub const CHANGE_SKILL: Self = Self(318);
     pub const CHANGE_EQUIPMENT: Self = Self(319);
 
@@ -100,6 +102,7 @@ impl std::fmt::Debug for CommandCode {
             Self::ERASE_PICTURE => write!(f, "ERASE_PICTURE"),
             Self::PLAY_BGM => write!(f, "PLAY_BGM"),
             Self::PLAY_SE => write!(f, "PLAY_SE"),
+            Self::BATTLE_PROCESSING => write!(f, "BATTLE_PROCESSING"),
             Self::CHANGE_SKILL => write!(f, "CHANGE_SKILL"),
             Self::CHANGE_EQUIPMENT => writeln!(f, "CHANGE_EQUIPMENT"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
