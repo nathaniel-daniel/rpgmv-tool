@@ -33,8 +33,8 @@ pub struct Options {
     )]
     input: PathBuf,
 
-    #[argh(option, long = "event-id", description = "the event id to convert")]
-    event_id: u32,
+    #[argh(option, long = "id", description = "id of the item to convert")]
+    id: u32,
 
     #[argh(option, long = "event-page", description = "the event page to convert")]
     event_page: Option<u16>,
@@ -84,17 +84,17 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
             let mut map: rpgmv_types::Map = serde_json::from_str(&input_str)
                 .with_context(|| format!("failed to parse \"{}\"", options.input.display()))?;
 
-            let mut event = usize::try_from(options.event_id)
+            let mut event = usize::try_from(options.id)
                 .ok()
-                .and_then(|event_id| {
-                    if event_id >= map.events.len() {
+                .and_then(|id| {
+                    if id >= map.events.len() {
                         return None;
                     }
 
-                    map.events.swap_remove(event_id)
+                    map.events.swap_remove(id)
                 })
-                .with_context(|| format!("no event with id {}", options.event_id))?;
-            ensure!(event.id == options.event_id);
+                .with_context(|| format!("no event with id {}", options.id))?;
+            ensure!(event.id == options.id);
 
             let event_page_index = match options.event_page {
                 Some(event_page) => event_page,
@@ -119,7 +119,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
                 serde_json::from_str(&input_str)
                     .with_context(|| format!("failed to parse \"{}\"", options.input.display()))?;
 
-            let event = usize::try_from(options.event_id)
+            let event = usize::try_from(options.id)
                 .ok()
                 .and_then(|event_id| {
                     if event_id >= common_events.len() {
@@ -128,8 +128,8 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
 
                     common_events.swap_remove(event_id)
                 })
-                .with_context(|| format!("no event with id {}", options.event_id))?;
-            ensure!(event.id == options.event_id);
+                .with_context(|| format!("no event with id {}", options.id))?;
+            ensure!(event.id == options.id);
 
             ensure!(
                 options.event_page.is_none(),
@@ -137,6 +137,39 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
             );
 
             event.list
+        }
+        FileKind::Troops => {
+            let mut troops: Vec<Option<rpgmv_types::Troop>> = serde_json::from_str(&input_str)
+                .with_context(|| format!("failed to parse \"{}\"", options.input.display()))?;
+
+            let mut troop = usize::try_from(options.id)
+                .ok()
+                .and_then(|event_id| {
+                    if event_id >= troops.len() {
+                        return None;
+                    }
+
+                    troops.swap_remove(event_id)
+                })
+                .with_context(|| format!("no troop with id {}", options.id))?;
+
+            let event_page_index = match options.event_page {
+                Some(event_page) => event_page,
+                None if troop.pages.len() == 1 => 0,
+                None => {
+                    bail!(
+                        "found multiple event pages. specify which one with the --event-page option"
+                    )
+                }
+            };
+            let event_page_index = usize::from(event_page_index);
+            ensure!(
+                event_page_index < troop.pages.len(),
+                "no event page with index {event_page_index}"
+            );
+            let event_page = troop.pages.swap_remove(event_page_index);
+
+            event_page.list
         }
         FileKind::Dir => {
             bail!("input is a dir. This is currently unsupported.");
@@ -176,6 +209,7 @@ where
 enum FileKind {
     Map,
     CommonEvents,
+    Troops,
     Dir,
 }
 
@@ -211,8 +245,10 @@ impl FileKind {
                 }
             }
 
-            if file_stem == "CommonEvents" {
-                return Ok(Self::CommonEvents);
+            match file_stem {
+                "CommonEvents" => return Ok(Self::CommonEvents),
+                "Troops" => return Ok(Self::Troops),
+                _ => {}
             }
         } else if allow_dir {
             return Ok(Self::Dir);

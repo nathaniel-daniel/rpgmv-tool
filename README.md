@@ -14,15 +14,15 @@ and may not even be syntactically valid.
 The generated Python is purely for inspection.
 The simplest way to use this command is like so:
 ```bash
-rpgmv-tool commands2py -i <path-to-json> --event-id <event-id>
+rpgmv-tool commands2py -i <path-to-json> --id <item-id>
 ```
 
 #### Arguments
 `-i / --input`: The path to the input JSON file. This is required.  
 `-o / --output`: The path to the output file. This is optional. It defaults to `./out.py`.  
 `-c / --config`: The path to the config file. This is optional.  
-`--event-id`: The id of the event to convert. This is required.  
-`--event-page`: The page of the event to extract. This is required iff the input file is a Map.  
+`--id`: The id of the item to convert. This is required.  
+`--event-page`: The page of the event to extract. This is required iff the input file is a Map or Troop.  
 
 #### Config
 This command supports a config file to change the output.
