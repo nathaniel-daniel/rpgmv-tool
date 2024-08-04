@@ -20,6 +20,7 @@ impl CommandCode {
     pub const CHANGE_ITEMS: Self = Self(126);
 
     pub const CHANGE_ARMORS: Self = Self(128);
+    pub const CHANGE_PARTY_MEMBER: Self = Self(129);
 
     pub const CHANGE_SAVE_ACCESS: Self = Self(134);
 
@@ -35,6 +36,7 @@ impl CommandCode {
     pub const FADEIN_SCREEN: Self = Self(222);
     pub const TINT_SCREEN: Self = Self(223);
     pub const FLASH_SCREEN: Self = Self(224);
+    pub const SHAKE_SCREEN: Self = Self(225);
 
     pub const WAIT: Self = Self(230);
     pub const SHOW_PICTURE: Self = Self(231);
@@ -43,13 +45,30 @@ impl CommandCode {
     pub const ERASE_PICTURE: Self = Self(235);
 
     pub const PLAY_BGM: Self = Self(241);
+    pub const FADEOUT_BGM: Self = Self(242);
+    pub const SAVE_BGM: Self = Self(243);
+    pub const RESUME_BGM: Self = Self(244);
 
     pub const PLAY_SE: Self = Self(250);
 
     pub const BATTLE_PROCESSING: Self = Self(301);
 
+    pub const CHANGE_HP: Self = Self(311);
+    pub const CHANGE_MP: Self = Self(312);
+    pub const CHANGE_STATE: Self = Self(313);
+    
+    pub const CHANGE_LEVEL:Self = Self(316);
+    pub const CHANGE_PARAMETER:Self = Self(317);
     pub const CHANGE_SKILL: Self = Self(318);
     pub const CHANGE_EQUIPMENT: Self = Self(319);
+
+    pub const CHANGE_ENEMY_HP: Self = Self(331);
+
+    pub const CHANGE_ENEMY_STATE: Self = Self(333);
+
+    pub const ABORT_BATTLE: Self = Self(340);
+
+    pub const GAME_OVER: Self = Self(353);
 
     pub const SCRIPT: Self = Self(355);
 
@@ -88,6 +107,7 @@ impl std::fmt::Debug for CommandCode {
             Self::CONTROL_SELF_SWITCH => write!(f, "CONTROL_SELF_SWITCH"),
             Self::CHANGE_ITEMS => write!(f, "CHANGE_ITEMS"),
             Self::CHANGE_ARMORS => write!(f, "CHANGE_ARMORS"),
+            Self::CHANGE_PARTY_MEMBER => write!(f, "CHANGE_PARTY_MEMBER"),
             Self::CHANGE_SAVE_ACCESS => write!(f, "CHANGE_SAVE_ACCESS"),
             Self::TRANSFER_PLAYER => write!(f, "TRANSFER_PLAYER"),
             Self::SET_MOVEMENT_ROUTE => write!(f, "SET_MOVEMENT_ROUTE"),
@@ -98,15 +118,28 @@ impl std::fmt::Debug for CommandCode {
             Self::FADEIN_SCREEN => write!(f, "FADEIN_SCREEN"),
             Self::TINT_SCREEN => write!(f, "TINT_SCREEN"),
             Self::FLASH_SCREEN => write!(f, "FLASH_SCREEN"),
+            Self::SHAKE_SCREEN => write!(f, "SHAKE_SCREEN"),
             Self::WAIT => write!(f, "WAIT"),
             Self::SHOW_PICTURE => write!(f, "SHOW_PICTURE"),
             Self::MOVE_PICTURE => write!(f, "MOVE_PICTURE"),
             Self::ERASE_PICTURE => write!(f, "ERASE_PICTURE"),
             Self::PLAY_BGM => write!(f, "PLAY_BGM"),
+            Self::FADEOUT_BGM => write!(f, "FADEOUT_BGM"),
+            Self::SAVE_BGM => write!(f, "SAVE_BGM"),
+            Self::RESUME_BGM => write!(f, "RESUME_BGM"),
             Self::PLAY_SE => write!(f, "PLAY_SE"),
             Self::BATTLE_PROCESSING => write!(f, "BATTLE_PROCESSING"),
+            Self::CHANGE_HP => write!(f, "CHANGE_HP"),
+            Self::CHANGE_MP => write!(f, "CHANGE_MP"),
+            Self::CHANGE_STATE => write!(f, "CHANGE_STATE"),
+            Self::CHANGE_LEVEL => write!(f, "CHANGE_LEVEL"),
+            Self::CHANGE_PARAMETER => write!(f, "CHANGE_PARAMETER"),
             Self::CHANGE_SKILL => write!(f, "CHANGE_SKILL"),
             Self::CHANGE_EQUIPMENT => write!(f, "CHANGE_EQUIPMENT"),
+            Self::CHANGE_ENEMY_HP => write!(f, "CHANGE_ENEMY_HP"),
+            Self::CHANGE_ENEMY_STATE => write!(f, "CHANGE_ENEMY_STATE"),
+            Self::ABORT_BATTLE => write!(f, "ABORT_BATTLE"),
+            Self::GAME_OVER => write!(f, "GAME_OVER"),
             Self::SCRIPT => write!(f, "SCRIPT"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
             Self::WHEN => write!(f, "WHEN"),
