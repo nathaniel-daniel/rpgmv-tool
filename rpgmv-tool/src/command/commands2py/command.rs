@@ -396,8 +396,8 @@ pub enum Command {
         picture_id: u32,
         picture_name: String,
         origin: u32,
-        x: MaybeRef<u32>,
-        y: MaybeRef<u32>,
+        x: MaybeRef<i32>,
+        y: MaybeRef<i32>,
         scale_x: u32,
         scale_y: u32,
         opacity: u8,
@@ -433,6 +433,124 @@ pub enum Command {
         code: CommandCode,
         parameters: Vec<serde_json::Value>,
     },
+}
+
+impl Command {
+    fn parse_transfer_player(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ensure!(event_command.parameters.len() == 6);
+        let is_constant = event_command.parameters[0]
+            .as_i64()
+            .and_then(|value| u8::try_from(value).ok())
+            .context("`is_constant` is not a `u8`")?;
+        ensure!(is_constant <= 1);
+        let is_constant = is_constant == 0;
+        let map_id = event_command.parameters[1]
+            .as_i64()
+            .and_then(|value| u32::try_from(value).ok())
+            .context("`y` is not a `u32`")?;
+        let x = event_command.parameters[2]
+            .as_i64()
+            .and_then(|value| u32::try_from(value).ok())
+            .context("`x` is not a `u32`")?;
+        let y = event_command.parameters[3]
+            .as_i64()
+            .and_then(|value| u32::try_from(value).ok())
+            .context("`y` is not a `u32`")?;
+        let direction = event_command.parameters[3]
+            .as_i64()
+            .and_then(|value| u8::try_from(value).ok())
+            .context("`direction` is not a `u8`")?;
+        let fade_type = event_command.parameters[3]
+            .as_i64()
+            .and_then(|value| u8::try_from(value).ok())
+            .context("`fade_type` is not a `u8`")?;
+
+        let (map_id, x, y) = if is_constant {
+            (
+                MaybeRef::Constant(map_id),
+                MaybeRef::Constant(x),
+                MaybeRef::Constant(y),
+            )
+        } else {
+            (MaybeRef::Ref(map_id), MaybeRef::Ref(x), MaybeRef::Ref(y))
+        };
+
+        Ok(Command::TransferPlayer {
+            map_id,
+            x,
+            y,
+            direction,
+            fade_type,
+        })
+    }
+
+    fn parse_show_picture(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ensure!(event_command.parameters.len() == 10);
+        let picture_id = event_command.parameters[0]
+            .as_i64()
+            .and_then(|value| u32::try_from(value).ok())
+            .context("`picture_id` is not a `u32`")?;
+        let picture_name = event_command.parameters[1]
+            .as_str()
+            .context("`picture_name` is not a string")?
+            .to_string();
+        let origin = event_command.parameters[2]
+            .as_i64()
+            .and_then(|value| u32::try_from(value).ok())
+            .context("`origin` is not a `u32`")?;
+        let is_constant = event_command.parameters[3]
+            .as_i64()
+            .and_then(|value| u8::try_from(value).ok())
+            .context("`origin` is not a `u8`")?;
+        ensure!(is_constant <= 1);
+        let is_constant = is_constant == 0;
+        let x = event_command.parameters[4]
+            .as_i64()
+            .context("`x` is not an `i64`")?;
+        let y = event_command.parameters[5]
+            .as_i64()
+            .context("`y` is not an `i64`")?;
+        let scale_x = event_command.parameters[6]
+            .as_i64()
+            .and_then(|value| u32::try_from(value).ok())
+            .context("`scale_x` is not a `u32`")?;
+        let scale_y = event_command.parameters[7]
+            .as_i64()
+            .and_then(|value| u32::try_from(value).ok())
+            .context("`scale_y` is not a `u32`")?;
+        let opacity = event_command.parameters[8]
+            .as_i64()
+            .and_then(|value| u8::try_from(value).ok())
+            .context("`opacity` is not a `u8`")?;
+        let blend_mode = event_command.parameters[9]
+            .as_i64()
+            .and_then(|value| u8::try_from(value).ok())
+            .context("`opacity` is not a `u8`")?;
+
+        let (x, y) = if is_constant {
+            let x = i32::try_from(x).context("`x` is not an `i32`")?;
+            let y = i32::try_from(y).context("`y` is not an `i32`")?;
+
+            (MaybeRef::Constant(x), MaybeRef::Constant(y))
+        } else {
+            let x = u32::try_from(x).context("`x` is not a `u32`")?;
+            let y = u32::try_from(y).context("`y` is not a `u32`")?;
+
+            (MaybeRef::Ref(x), MaybeRef::Ref(y))
+        };
+
+        Ok(Command::ShowPicture {
+            picture_id,
+            picture_name,
+            origin,
+            x,
+            y,
+            scale_x,
+            scale_y,
+            opacity,
+            blend_mode,
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -969,53 +1087,8 @@ pub fn parse_event_command_list(
 
                 Command::ChangeSaveAccess { disable }
             }
-            (_, CommandCode::TRANSFER_PLAYER) => {
-                ensure!(event_command.parameters.len() == 6);
-                let is_constant = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_constant` is not a `u8`")?;
-                ensure!(is_constant <= 1);
-                let is_constant = is_constant == 0;
-                let map_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`y` is not a `u32`")?;
-                let x = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`x` is not a `u32`")?;
-                let y = event_command.parameters[3]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`y` is not a `u32`")?;
-                let direction = event_command.parameters[3]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`direction` is not a `u8`")?;
-                let fade_type = event_command.parameters[3]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`fade_type` is not a `u8`")?;
-
-                let (map_id, x, y) = if is_constant {
-                    (
-                        MaybeRef::Constant(map_id),
-                        MaybeRef::Constant(x),
-                        MaybeRef::Constant(y),
-                    )
-                } else {
-                    (MaybeRef::Ref(map_id), MaybeRef::Ref(x), MaybeRef::Ref(y))
-                };
-
-                Command::TransferPlayer {
-                    map_id,
-                    x,
-                    y,
-                    direction,
-                    fade_type,
-                }
-            }
+            (_, CommandCode::TRANSFER_PLAYER) => Command::parse_transfer_player(event_command)
+                .context("failed to parse TRANSFER_PLAYER command")?,
             (_, CommandCode::SET_MOVEMENT_ROUTE) => {
                 ensure!(event_command.parameters.len() == 2);
                 let character_id = event_command.parameters[0]
@@ -1117,69 +1190,8 @@ pub fn parse_event_command_list(
 
                 Command::Wait { duration }
             }
-            (_, CommandCode::SHOW_PICTURE) => {
-                ensure!(event_command.parameters.len() == 10);
-                let picture_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`picture_id` is not a `u32`")?;
-                let picture_name = event_command.parameters[1]
-                    .as_str()
-                    .context("`picture_name` is not a string")?
-                    .to_string();
-                let origin = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`origin` is not a `u32`")?;
-                let is_constant = event_command.parameters[3]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`origin` is not a `u8`")?;
-                ensure!(is_constant <= 1);
-                let is_constant = is_constant == 0;
-                let x = event_command.parameters[4]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`x` is not a `u32`")?;
-                let y = event_command.parameters[5]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`y` is not a `u32`")?;
-                let scale_x = event_command.parameters[6]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`scale_x` is not a `u32`")?;
-                let scale_y = event_command.parameters[7]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`scale_y` is not a `u32`")?;
-                let opacity = event_command.parameters[8]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`opacity` is not a `u8`")?;
-                let blend_mode = event_command.parameters[9]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`opacity` is not a `u8`")?;
-
-                let (x, y) = if is_constant {
-                    (MaybeRef::Constant(x), MaybeRef::Constant(y))
-                } else {
-                    (MaybeRef::Ref(x), MaybeRef::Ref(y))
-                };
-
-                Command::ShowPicture {
-                    picture_id,
-                    picture_name,
-                    origin,
-                    x,
-                    y,
-                    scale_x,
-                    scale_y,
-                    opacity,
-                    blend_mode,
-                }
-            }
+            (_, CommandCode::SHOW_PICTURE) => Command::parse_show_picture(event_command)
+                .context("failed to parse SHOW_PICTURE command")?,
             (_, CommandCode::ERASE_PICTURE) => {
                 ensure!(event_command.parameters.len() == 1);
 
