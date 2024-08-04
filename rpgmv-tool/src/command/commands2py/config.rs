@@ -36,6 +36,10 @@ pub struct Config {
     /// States
     #[serde(default, deserialize_with = "deserialize_u32_key_btree_map")]
     pub states: BTreeMap<u32, String>,
+
+    /// Troops
+    #[serde(default, deserialize_with = "deserialize_u32_key_btree_map")]
+    pub troops: BTreeMap<u32, String>,
 }
 
 impl Config {
@@ -103,6 +107,14 @@ impl Config {
             .get(&id)
             .map(|name| name.to_string())
             .unwrap_or_else(|| format!("game_state_{id}"))
+    }
+
+    /// Get a troop name
+    pub fn get_troop_name(&self, id: u32) -> String {
+        self.troops
+            .get(&id)
+            .map(|name| name.to_string())
+            .unwrap_or_else(|| format!("game_troop_{id}"))
     }
 }
 

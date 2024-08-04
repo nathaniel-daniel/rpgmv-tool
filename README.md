@@ -58,6 +58,16 @@ It has the following format:
 # The command will use the given name instead of generating a name.
 [items]
 # 123 = "health_potion"
+
+# A mapping of state ids to names.
+# The command will use the given name instead of generating a name.
+[troops]
+# 43 = "blind_state"
+
+# A mapping of troop ids to names.
+# The command will use the given name instead of generating a name.
+[troops]
+# 86 = "enemy_force"
 ```
 
 ## License

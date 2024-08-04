@@ -384,6 +384,11 @@ pub enum Command {
     PlaySe {
         audio: rpgmv_types::AudioFile,
     },
+    BattleProcessing {
+        troop_id: MaybeRef<u32>,
+        can_escape: bool,
+        can_lose: bool,
+    },
     ChangeSkill {
         actor_id: MaybeRef<u32>,
         is_learn_skill: bool,
@@ -1134,6 +1139,37 @@ pub fn parse_event_command_list(
                         .context("invalid `audio` parameter")?;
 
                 Command::PlaySe { audio }
+            }
+            (_, CommandCode::BATTLE_PROCESSING) => {
+                ensure!(event_command.parameters.len() == 4);
+                let is_constant = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_constant` is not a `u8`")?;
+                ensure!(is_constant <= 1);
+                // TODO: This can be another value, meaning the troop id is random.
+                let is_constant = is_constant == 0;
+                let troop_id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`troop_id` is not a `u32`")?;
+                let troop_id = if is_constant {
+                    MaybeRef::Constant(troop_id)
+                } else {
+                    MaybeRef::Ref(troop_id)
+                };
+                let can_escape = event_command.parameters[2]
+                    .as_bool()
+                    .context("`can_escape` is not a `bool`")?;
+                let can_lose = event_command.parameters[3]
+                    .as_bool()
+                    .context("`can_lose` is not a `bool`")?;
+
+                Command::BattleProcessing {
+                    troop_id,
+                    can_escape,
+                    can_lose,
+                }
             }
             (_, CommandCode::CHANGE_SKILL) => {
                 ensure!(event_command.parameters.len() == 4);
