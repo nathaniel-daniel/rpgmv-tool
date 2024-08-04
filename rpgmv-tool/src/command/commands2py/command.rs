@@ -419,6 +419,9 @@ pub enum Command {
         is_learn_skill: bool,
         skill_id: u32,
     },
+    Script {
+        lines: Vec<String>,
+    },
     When {
         choice_index: u32,
         choice_name: String,
@@ -1259,6 +1262,15 @@ pub fn parse_event_command_list(
                     is_learn_skill,
                     skill_id,
                 }
+            }
+            (_, CommandCode::SCRIPT) => {
+                ensure!(event_command.parameters.len() == 1);
+                let line = event_command.parameters[0]
+                    .as_str()
+                    .context("`line` is not a string")?
+                    .to_string();
+
+                Command::Script { lines: vec![line] }
             }
             (_, CommandCode::WHEN) => {
                 ensure!(event_command.parameters.len() == 2);

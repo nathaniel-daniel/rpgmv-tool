@@ -538,6 +538,7 @@ where
             let can_escape = stringify_bool(*can_escape);
             let can_lose = stringify_bool(*can_lose);
 
+            write_indent(&mut writer, indent)?;
             writeln!(
                 &mut writer,
                 "battle_processing({troop_arg}, can_escape={can_escape}, can_lose={can_lose})"
@@ -567,6 +568,12 @@ where
 
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "{fn_name}({actor_arg}, skill={skill})")?;
+        }
+        Command::Script { lines } => {
+            let data = lines.join("\\n");
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "script(data=\'{data}\')")?;
         }
         Command::When {
             choice_index,
