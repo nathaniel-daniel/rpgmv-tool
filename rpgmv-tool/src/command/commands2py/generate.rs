@@ -133,6 +133,14 @@ where
 
                     writeln!(&mut writer, "{lhs} {operation} {rhs}:")?;
                 }
+                ConditionalBranchCommand::ActorInParty { actor_id } => {
+                    let actor_name = config.get_actor_name(*actor_id);
+
+                    writeln!(
+                        &mut writer,
+                        "game_party.members.contains(actor={actor_name}):"
+                    )?;
+                }
                 ConditionalBranchCommand::ActorArmor { actor_id, armor_id } => {
                     let actor_name = config.get_actor_name(*actor_id);
                     let armor_name = config.get_armor_name(*armor_id);
