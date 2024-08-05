@@ -6,7 +6,7 @@ use super::ControlVariablesValueGameData;
 use super::MaybeRef;
 use anyhow::bail;
 use anyhow::Context;
-use std::fmt::Write;
+use std::io::Write;
 
 pub fn commands2py<W>(
     config: &Config,
@@ -14,7 +14,7 @@ pub fn commands2py<W>(
     mut writer: W,
 ) -> anyhow::Result<()>
 where
-    W: std::fmt::Write,
+    W: Write,
 {
     for (indent, command) in commands.iter() {
         command2py(config, *indent, command, &mut writer)?;
@@ -621,7 +621,7 @@ fn stringify_bool(b: bool) -> &'static str {
     }
 }
 
-fn write_indent<W>(mut writer: W, indent: u16) -> std::fmt::Result
+fn write_indent<W>(mut writer: W, indent: u16) -> std::io::Result<()>
 where
     W: Write,
 {
