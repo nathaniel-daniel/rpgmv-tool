@@ -56,9 +56,9 @@ impl CommandCode {
     pub const CHANGE_HP: Self = Self(311);
     pub const CHANGE_MP: Self = Self(312);
     pub const CHANGE_STATE: Self = Self(313);
-    
-    pub const CHANGE_LEVEL:Self = Self(316);
-    pub const CHANGE_PARAMETER:Self = Self(317);
+
+    pub const CHANGE_LEVEL: Self = Self(316);
+    pub const CHANGE_PARAMETER: Self = Self(317);
     pub const CHANGE_SKILL: Self = Self(318);
     pub const CHANGE_EQUIPMENT: Self = Self(319);
 
