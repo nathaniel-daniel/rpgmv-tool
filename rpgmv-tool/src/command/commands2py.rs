@@ -15,7 +15,6 @@ use anyhow::ensure;
 use anyhow::Context;
 use std::fs::File;
 use std::io::BufWriter;
-use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
