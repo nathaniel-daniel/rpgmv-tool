@@ -500,29 +500,24 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "erase_picture(picture_id={picture_id})")?;
         }
-        Command::PlaySe { audio } => {
-            let audio_name = escape_string(&audio.name);
+        Command::PlayBgm { audio } => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "play_bgm(")?;
 
+            write_indent(&mut writer, indent + 1)?;
+            write!(&mut writer, "audio=")?;
+            write_audio_file(&mut writer, indent + 1, audio)?;
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, ")")?;
+        }
+        Command::PlaySe { audio } => {
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "play_se(")?;
 
             write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "audio=AudioFile(")?;
-
-            write_indent(&mut writer, indent + 2)?;
-            writeln!(&mut writer, "name='{audio_name}',")?;
-
-            write_indent(&mut writer, indent + 2)?;
-            writeln!(&mut writer, "pan={},", audio.pan)?;
-
-            write_indent(&mut writer, indent + 2)?;
-            writeln!(&mut writer, "pitch={},", audio.pitch)?;
-
-            write_indent(&mut writer, indent + 2)?;
-            writeln!(&mut writer, "volume={},", audio.volume)?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "),")?;
+            write!(&mut writer, "audio=")?;
+            write_audio_file(&mut writer, indent + 1, audio)?;
 
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, ")")?;
@@ -634,4 +629,34 @@ where
 
 fn escape_string(input: &str) -> String {
     input.replace('\'', "\\'")
+}
+
+fn write_audio_file<W>(
+    mut writer: W,
+    indent: u16,
+    audio: &rpgmv_types::AudioFile,
+) -> std::io::Result<()>
+where
+    W: Write,
+{
+    let audio_name = escape_string(&audio.name);
+
+    writeln!(&mut writer, "AudioFile(")?;
+
+    write_indent(&mut writer, indent + 1)?;
+    writeln!(&mut writer, "name='{audio_name}',")?;
+
+    write_indent(&mut writer, indent + 1)?;
+    writeln!(&mut writer, "pan={},", audio.pan)?;
+
+    write_indent(&mut writer, indent + 1)?;
+    writeln!(&mut writer, "pitch={},", audio.pitch)?;
+
+    write_indent(&mut writer, indent + 1)?;
+    writeln!(&mut writer, "volume={},", audio.volume)?;
+
+    write_indent(&mut writer, indent)?;
+    writeln!(&mut writer, "),")?;
+
+    Ok(())
 }

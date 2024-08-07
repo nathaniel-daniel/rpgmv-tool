@@ -414,6 +414,9 @@ pub enum Command {
     ErasePicture {
         picture_id: u32,
     },
+    PlayBgm {
+        audio: rpgmv_types::AudioFile,
+    },
     PlaySe {
         audio: rpgmv_types::AudioFile,
     },
@@ -1224,6 +1227,14 @@ pub fn parse_event_command_list(
                     .context("`picture_id` is not a `u32`")?;
 
                 Command::ErasePicture { picture_id }
+            }
+            (_, CommandCode::PLAY_BGM) => {
+                ensure!(event_command.parameters.len() == 1);
+                let audio: rpgmv_types::AudioFile =
+                    serde_json::from_value(event_command.parameters[0].clone())
+                        .context("invalid `audio` parameter")?;
+
+                Command::PlayBgm { audio }
             }
             (_, CommandCode::PLAY_SE) => {
                 ensure!(event_command.parameters.len() == 1);
