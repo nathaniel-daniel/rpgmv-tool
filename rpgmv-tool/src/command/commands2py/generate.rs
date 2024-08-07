@@ -254,6 +254,27 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "gain_item(item={item}, value={sign}{value})")?;
         }
+        Command::ChangePartyMember {
+            actor_id,
+            is_add,
+            initialize,
+        } => {
+            let actor_name = config.get_actor_name(*actor_id);
+            let fn_name = if *is_add {
+                "add_party_member"
+            } else {
+                "remove_party_member"
+            };
+            let initialize = stringify_bool(*initialize);
+
+            write_indent(&mut writer, indent)?;
+            write!(&mut writer, "{fn_name}(actor={actor_name}")?;
+            // The argument is always provided, but ignored by remove ops.
+            if *is_add {
+                write!(&mut writer, ", initialize={initialize}")?;
+            }
+            writeln!(&mut writer, ")")?;
+        }
         Command::ChangeSaveAccess { disable } => {
             let fn_name = if *disable {
                 "disable_saving"
@@ -261,7 +282,7 @@ where
                 "enable_saving"
             };
             write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "{fn_name}()")?
+            writeln!(&mut writer, "{fn_name}()")?;
         }
         Command::TransferPlayer {
             map_id,
