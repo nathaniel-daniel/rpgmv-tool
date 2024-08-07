@@ -397,6 +397,12 @@ pub enum Command {
         duration: u32,
         wait: bool,
     },
+    ShakeScreen {
+        power: u32,
+        speed: u32,
+        duration: u32,
+        wait: bool,
+    },
     Wait {
         duration: u32,
     },
@@ -1206,6 +1212,31 @@ pub fn parse_event_command_list(
 
                 Command::FlashScreen {
                     color,
+                    duration,
+                    wait,
+                }
+            }
+            (_, CommandCode::SHAKE_SCREEN) => {
+                ensure!(event_command.parameters.len() == 4);
+                let power = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`power` is not a `u32`")?;
+                let speed = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`speed` is not a `u32`")?;
+                let duration = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`duration` is not a `u32`")?;
+                let wait = event_command.parameters[3]
+                    .as_bool()
+                    .context("`wait` is not a `bool`")?;
+
+                Command::ShakeScreen {
+                    power,
+                    speed,
                     duration,
                     wait,
                 }

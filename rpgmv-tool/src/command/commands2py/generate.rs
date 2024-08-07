@@ -438,6 +438,20 @@ where
                 "flash_screen(color={color:?}, duration={duration}, wait={wait})"
             )?
         }
+        Command::ShakeScreen {
+            power,
+            speed,
+            duration,
+            wait,
+        } => {
+            let wait = stringify_bool(*wait);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(
+                &mut writer,
+                "shake_screen(power={power}, speed={speed}, duration={duration}, wait={wait})"
+            )?
+        }
         Command::Wait { duration } => {
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "wait(duration={duration})")?
