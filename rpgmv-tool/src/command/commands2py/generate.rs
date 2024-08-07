@@ -239,6 +239,10 @@ where
                 writeln!(&mut writer, "{name} {operation} {value}")?;
             }
         }
+        Command::ControlSelfSwitch { key, value } => {
+            let value = stringify_bool(*value);
+            writeln!(&mut writer, "game_self_switches['{key}'] = {value}")?;
+        }
         Command::ChangeItems {
             item_id,
             is_add,
@@ -254,6 +258,27 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "gain_item(item={item}, value={sign}{value})")?;
         }
+        Command::ChangePartyMember {
+            actor_id,
+            is_add,
+            initialize,
+        } => {
+            let actor_name = config.get_actor_name(*actor_id);
+            let fn_name = if *is_add {
+                "add_party_member"
+            } else {
+                "remove_party_member"
+            };
+            let initialize = stringify_bool(*initialize);
+
+            write_indent(&mut writer, indent)?;
+            write!(&mut writer, "{fn_name}(actor={actor_name}")?;
+            // The argument is always provided, but ignored by remove ops.
+            if *is_add {
+                write!(&mut writer, ", initialize={initialize}")?;
+            }
+            writeln!(&mut writer, ")")?;
+        }
         Command::ChangeSaveAccess { disable } => {
             let fn_name = if *disable {
                 "disable_saving"
@@ -261,7 +286,7 @@ where
                 "enable_saving"
             };
             write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "{fn_name}()")?
+            writeln!(&mut writer, "{fn_name}()")?;
         }
         Command::TransferPlayer {
             map_id,
@@ -404,6 +429,16 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "show_balloon_icon(character_id={character_id}, balloon_id={balloon_id}, wait={wait})")?
         }
+        Command::ChangePlayerFollowers { is_show } => {
+            let fn_name = if *is_show {
+                "show_player_followers"
+            } else {
+                "hide_player_followers"
+            };
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "{fn_name}()")?
+        }
         Command::FadeoutScreen => {
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "fadeout_screen()")?
@@ -436,6 +471,20 @@ where
             writeln!(
                 &mut writer,
                 "flash_screen(color={color:?}, duration={duration}, wait={wait})"
+            )?
+        }
+        Command::ShakeScreen {
+            power,
+            speed,
+            duration,
+            wait,
+        } => {
+            let wait = stringify_bool(*wait);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(
+                &mut writer,
+                "shake_screen(power={power}, speed={speed}, duration={duration}, wait={wait})"
             )?
         }
         Command::Wait { duration } => {
@@ -500,29 +549,28 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "erase_picture(picture_id={picture_id})")?;
         }
-        Command::PlaySe { audio } => {
-            let audio_name = escape_string(&audio.name);
+        Command::PlayBgm { audio } => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "play_bgm(")?;
 
+            write_indent(&mut writer, indent + 1)?;
+            write!(&mut writer, "audio=")?;
+            write_audio_file(&mut writer, indent + 1, audio)?;
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, ")")?;
+        }
+        Command::FadeoutBgm { duration } => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "fadeout_bgm(duration={duration})")?;
+        }
+        Command::PlaySe { audio } => {
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "play_se(")?;
 
             write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "audio=AudioFile(")?;
-
-            write_indent(&mut writer, indent + 2)?;
-            writeln!(&mut writer, "name='{audio_name}',")?;
-
-            write_indent(&mut writer, indent + 2)?;
-            writeln!(&mut writer, "pan={},", audio.pan)?;
-
-            write_indent(&mut writer, indent + 2)?;
-            writeln!(&mut writer, "pitch={},", audio.pitch)?;
-
-            write_indent(&mut writer, indent + 2)?;
-            writeln!(&mut writer, "volume={},", audio.volume)?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "),")?;
+            write!(&mut writer, "audio=")?;
+            write_audio_file(&mut writer, indent + 1, audio)?;
 
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, ")")?;
@@ -634,4 +682,34 @@ where
 
 fn escape_string(input: &str) -> String {
     input.replace('\'', "\\'")
+}
+
+fn write_audio_file<W>(
+    mut writer: W,
+    indent: u16,
+    audio: &rpgmv_types::AudioFile,
+) -> std::io::Result<()>
+where
+    W: Write,
+{
+    let audio_name = escape_string(&audio.name);
+
+    writeln!(&mut writer, "AudioFile(")?;
+
+    write_indent(&mut writer, indent + 1)?;
+    writeln!(&mut writer, "name='{audio_name}',")?;
+
+    write_indent(&mut writer, indent + 1)?;
+    writeln!(&mut writer, "pan={},", audio.pan)?;
+
+    write_indent(&mut writer, indent + 1)?;
+    writeln!(&mut writer, "pitch={},", audio.pitch)?;
+
+    write_indent(&mut writer, indent + 1)?;
+    writeln!(&mut writer, "volume={},", audio.volume)?;
+
+    write_indent(&mut writer, indent)?;
+    writeln!(&mut writer, "),")?;
+
+    Ok(())
 }

@@ -358,10 +358,19 @@ pub enum Command {
         operation: OperateVariableOperation,
         value: ControlVariablesValue,
     },
+    ControlSelfSwitch {
+        key: String,
+        value: bool,
+    },
     ChangeItems {
         item_id: u32,
         is_add: bool,
         value: MaybeRef<u32>,
+    },
+    ChangePartyMember {
+        actor_id: u32,
+        is_add: bool,
+        initialize: bool,
     },
     ChangeSaveAccess {
         disable: bool,
@@ -385,6 +394,9 @@ pub enum Command {
         balloon_id: u32,
         wait: bool,
     },
+    ChangePlayerFollowers {
+        is_show: bool,
+    },
     FadeoutScreen,
     FadeinScreen,
     TintScreen {
@@ -394,6 +406,12 @@ pub enum Command {
     },
     FlashScreen {
         color: [u8; 4],
+        duration: u32,
+        wait: bool,
+    },
+    ShakeScreen {
+        power: u32,
+        speed: u32,
         duration: u32,
         wait: bool,
     },
@@ -413,6 +431,12 @@ pub enum Command {
     },
     ErasePicture {
         picture_id: u32,
+    },
+    PlayBgm {
+        audio: rpgmv_types::AudioFile,
+    },
+    FadeoutBgm {
+        duration: u32,
     },
     PlaySe {
         audio: rpgmv_types::AudioFile,
@@ -1065,6 +1089,21 @@ pub fn parse_event_command_list(
                     value,
                 }
             }
+            (_, CommandCode::CONTROL_SELF_SWITCH) => {
+                 ensure!(event_command.parameters.len() == 2);
+                let key = event_command.parameters[0]
+                    .as_str()
+                    .context("`key` is not a `str`")?
+                    .to_string();
+                let value = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`value` is not a `u8`")?;
+                ensure!(value <= 1);
+                let value = value == 0;
+
+                Command::ControlSelfSwitch { key, value }
+            }
             (_, CommandCode::CHANGE_ITEMS) => {
                 ensure!(event_command.parameters.len() == 4);
                 let item_id = event_command.parameters[0]
@@ -1097,6 +1136,29 @@ pub fn parse_event_command_list(
                     item_id,
                     is_add,
                     value,
+                }
+            }
+            (_, CommandCode::CHANGE_PARTY_MEMBER) => {
+                ensure!(event_command.parameters.len() == 3);
+
+                let actor_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`actor_id` is not a `u32`")?;
+                let is_add = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_add` is not a `u8`")?;
+                ensure!(is_add <= 1);
+                let is_add = is_add == 0;
+                let initialize = event_command.parameters[2]
+                    .as_bool()
+                    .context("`initialize` is not a `bool`")?;
+
+                Command::ChangePartyMember {
+                    actor_id,
+                    is_add,
+                    initialize,
                 }
             }
             (_, CommandCode::CHANGE_SAVE_ACCESS) => {
@@ -1160,6 +1222,18 @@ pub fn parse_event_command_list(
                     wait,
                 }
             }
+            (_, CommandCode::CHANGE_PLAYER_FOLLOWERS) => {
+                ensure!(event_command.parameters.len() == 1);
+
+                let is_show = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_show` is not a `u8`")?;
+                ensure!(is_show <= 1);
+                let is_show = is_show == 0;
+
+                Command::ChangePlayerFollowers { is_show }
+            }
             (_, CommandCode::FADEOUT_SCREEN) => {
                 ensure!(event_command.parameters.is_empty());
                 Command::FadeoutScreen
@@ -1204,6 +1278,31 @@ pub fn parse_event_command_list(
                     wait,
                 }
             }
+            (_, CommandCode::SHAKE_SCREEN) => {
+                ensure!(event_command.parameters.len() == 4);
+                let power = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`power` is not a `u32`")?;
+                let speed = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`speed` is not a `u32`")?;
+                let duration = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`duration` is not a `u32`")?;
+                let wait = event_command.parameters[3]
+                    .as_bool()
+                    .context("`wait` is not a `bool`")?;
+
+                Command::ShakeScreen {
+                    power,
+                    speed,
+                    duration,
+                    wait,
+                }
+            }
             (_, CommandCode::WAIT) => {
                 ensure!(event_command.parameters.len() == 1);
                 let duration = event_command.parameters[0]
@@ -1224,6 +1323,24 @@ pub fn parse_event_command_list(
                     .context("`picture_id` is not a `u32`")?;
 
                 Command::ErasePicture { picture_id }
+            }
+            (_, CommandCode::PLAY_BGM) => {
+                ensure!(event_command.parameters.len() == 1);
+                let audio: rpgmv_types::AudioFile =
+                    serde_json::from_value(event_command.parameters[0].clone())
+                        .context("invalid `audio` parameter")?;
+
+                Command::PlayBgm { audio }
+            }
+            (_, CommandCode::FADEOUT_BGM) => {
+                ensure!(event_command.parameters.len() == 1);
+
+                let duration = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`duration` is not a `u32`")?;
+
+                Command::FadeoutBgm { duration }
             }
             (_, CommandCode::PLAY_SE) => {
                 ensure!(event_command.parameters.len() == 1);
