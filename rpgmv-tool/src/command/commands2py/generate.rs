@@ -239,6 +239,10 @@ where
                 writeln!(&mut writer, "{name} {operation} {value}")?;
             }
         }
+        Command::ControlSelfSwitch { key, value } => {
+            let value = stringify_bool(*value);
+            writeln!(&mut writer, "game_self_switches['{key}'] = {value}")?;
+        }
         Command::ChangeItems {
             item_id,
             is_add,
@@ -424,6 +428,16 @@ where
 
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "show_balloon_icon(character_id={character_id}, balloon_id={balloon_id}, wait={wait})")?
+        }
+        Command::ChangePlayerFollowers { is_show } => {
+            let fn_name = if *is_show {
+                "show_player_followers"
+            } else {
+                "hide_player_followers"
+            };
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "{fn_name}()")?
         }
         Command::FadeoutScreen => {
             write_indent(&mut writer, indent)?;

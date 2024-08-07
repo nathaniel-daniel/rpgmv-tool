@@ -358,6 +358,10 @@ pub enum Command {
         operation: OperateVariableOperation,
         value: ControlVariablesValue,
     },
+    ControlSelfSwitch {
+        key: String,
+        value: bool,
+    },
     ChangeItems {
         item_id: u32,
         is_add: bool,
@@ -389,6 +393,9 @@ pub enum Command {
         character_id: i32,
         balloon_id: u32,
         wait: bool,
+    },
+    ChangePlayerFollowers {
+        is_show: bool,
     },
     FadeoutScreen,
     FadeinScreen,
@@ -1082,6 +1089,20 @@ pub fn parse_event_command_list(
                     value,
                 }
             }
+            (_, CommandCode::CONTROL_SELF_SWITCH) => {
+                let key = event_command.parameters[0]
+                    .as_str()
+                    .context("`key` is not a `str`")?
+                    .to_string();
+                let value = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`value` is not a `u8`")?;
+                ensure!(value <= 1);
+                let value = value == 0;
+
+                Command::ControlSelfSwitch { key, value }
+            }
             (_, CommandCode::CHANGE_ITEMS) => {
                 ensure!(event_command.parameters.len() == 4);
                 let item_id = event_command.parameters[0]
@@ -1199,6 +1220,18 @@ pub fn parse_event_command_list(
                     balloon_id,
                     wait,
                 }
+            }
+            (_, CommandCode::CHANGE_PLAYER_FOLLOWERS) => {
+                ensure!(event_command.parameters.len() == 1);
+
+                let is_show = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_show` is not a `u8`")?;
+                ensure!(is_show <= 1);
+                let is_show = is_show == 0;
+
+                Command::ChangePlayerFollowers { is_show }
             }
             (_, CommandCode::FADEOUT_SCREEN) => {
                 ensure!(event_command.parameters.is_empty());
