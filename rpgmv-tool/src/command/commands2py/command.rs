@@ -1090,6 +1090,7 @@ pub fn parse_event_command_list(
                 }
             }
             (_, CommandCode::CONTROL_SELF_SWITCH) => {
+                 ensure!(event_command.parameters.len() == 2);
                 let key = event_command.parameters[0]
                     .as_str()
                     .context("`key` is not a `str`")?
