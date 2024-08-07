@@ -32,6 +32,8 @@ impl CommandCode {
     pub const SHOW_ANIMATION: Self = Self(212);
     pub const SHOW_BALLOON_ICON: Self = Self(213);
 
+    pub const CHANGE_PLAYER_FOLLOWERS: Self = Self(216);
+
     pub const FADEOUT_SCREEN: Self = Self(221);
     pub const FADEIN_SCREEN: Self = Self(222);
     pub const TINT_SCREEN: Self = Self(223);
@@ -114,6 +116,7 @@ impl std::fmt::Debug for CommandCode {
             Self::CHANGE_TRANSPARENCY => write!(f, "CHANGE_TRANSPARENCY"),
             Self::SHOW_ANIMATION => write!(f, "SHOW_ANIMATION"),
             Self::SHOW_BALLOON_ICON => write!(f, "SHOW_BALLOON_ICON"),
+            Self::CHANGE_PLAYER_FOLLOWERS => write!(f, "CHANGE_PLAYER_FOLLOWERS"),
             Self::FADEOUT_SCREEN => write!(f, "FADEOUT_SCREEN"),
             Self::FADEIN_SCREEN => write!(f, "FADEIN_SCREEN"),
             Self::TINT_SCREEN => write!(f, "TINT_SCREEN"),
