@@ -16,7 +16,8 @@ impl CommandCode {
     pub const CONTROL_SWITCHES: Self = Self(121);
     pub const CONTROL_VARIABLES: Self = Self(122);
     pub const CONTROL_SELF_SWITCH: Self = Self(123);
-
+    pub const CONTROL_TIMER: Self = Self(124);
+    pub const CHANGE_GOLD: Self = Self(125);
     pub const CHANGE_ITEMS: Self = Self(126);
 
     pub const CHANGE_ARMORS: Self = Self(128);
@@ -24,8 +25,12 @@ impl CommandCode {
 
     pub const CHANGE_SAVE_ACCESS: Self = Self(134);
 
+    pub const CHANGE_ENCOUNTER: Self = Self(136);
+
     pub const TRANSFER_PLAYER: Self = Self(201);
 
+    pub const SET_EVENT_LOCATION: Self = Self(203);
+    pub const SCROLL_MAP: Self = Self(204);
     pub const SET_MOVEMENT_ROUTE: Self = Self(205);
 
     pub const CHANGE_TRANSPARENCY: Self = Self(211);
@@ -50,15 +55,19 @@ impl CommandCode {
     pub const FADEOUT_BGM: Self = Self(242);
     pub const SAVE_BGM: Self = Self(243);
     pub const RESUME_BGM: Self = Self(244);
+    pub const PLAY_BGS: Self = Self(245);
+    pub const FADEOUT_BGS: Self = Self(246);
 
     pub const PLAY_SE: Self = Self(250);
 
     pub const BATTLE_PROCESSING: Self = Self(301);
+    pub const SHOP_PROCESSING: Self = Self(302);
 
     pub const CHANGE_HP: Self = Self(311);
     pub const CHANGE_MP: Self = Self(312);
     pub const CHANGE_STATE: Self = Self(313);
-
+    pub const RECOVER_ALL: Self = Self(314);
+    pub const CHANGE_EXP: Self = Self(315);
     pub const CHANGE_LEVEL: Self = Self(316);
     pub const CHANGE_PARAMETER: Self = Self(317);
     pub const CHANGE_SKILL: Self = Self(318);
@@ -70,6 +79,7 @@ impl CommandCode {
 
     pub const ABORT_BATTLE: Self = Self(340);
 
+    pub const OPEN_SAVE_SCREEN: Self = Self(352);
     pub const GAME_OVER: Self = Self(353);
 
     pub const SCRIPT: Self = Self(355);
@@ -94,6 +104,8 @@ impl CommandCode {
     /// Furthermore, I don't know why it's even included;
     /// Its data always duplicates the data of the SET_MOVEMENT_ROUTE command.
     pub const SET_MOVEMENT_ROUTE_EXTRA: Self = Self(505);
+
+    pub const SHOP_PROCESSING_EXTRA: Self = Self(605);
 }
 
 impl std::fmt::Debug for CommandCode {
@@ -107,10 +119,15 @@ impl std::fmt::Debug for CommandCode {
             Self::CONTROL_SWITCHES => write!(f, "CONTROL_SWITCHES"),
             Self::CONTROL_VARIABLES => write!(f, "CONTROL_VARIABLES"),
             Self::CONTROL_SELF_SWITCH => write!(f, "CONTROL_SELF_SWITCH"),
+            Self::CONTROL_TIMER => write!(f, "CONTROL_TIMER"),
+            Self::CHANGE_GOLD => write!(f, "CHANGE_GOLD"),
             Self::CHANGE_ITEMS => write!(f, "CHANGE_ITEMS"),
             Self::CHANGE_ARMORS => write!(f, "CHANGE_ARMORS"),
             Self::CHANGE_PARTY_MEMBER => write!(f, "CHANGE_PARTY_MEMBER"),
             Self::CHANGE_SAVE_ACCESS => write!(f, "CHANGE_SAVE_ACCESS"),
+            Self::CHANGE_ENCOUNTER => write!(f, "CHANGE_ENCOUNTER"),
+            Self::SET_EVENT_LOCATION => write!(f, "SET_EVENT_LOCATION"),
+            Self::SCROLL_MAP => write!(f, "SCROLL_MAP"),
             Self::TRANSFER_PLAYER => write!(f, "TRANSFER_PLAYER"),
             Self::SET_MOVEMENT_ROUTE => write!(f, "SET_MOVEMENT_ROUTE"),
             Self::CHANGE_TRANSPARENCY => write!(f, "CHANGE_TRANSPARENCY"),
@@ -130,11 +147,16 @@ impl std::fmt::Debug for CommandCode {
             Self::FADEOUT_BGM => write!(f, "FADEOUT_BGM"),
             Self::SAVE_BGM => write!(f, "SAVE_BGM"),
             Self::RESUME_BGM => write!(f, "RESUME_BGM"),
+            Self::FADEOUT_BGS => write!(f, "FADEOUT_BGS"),
+            Self::PLAY_BGS => write!(f, "PLAY_BGS"),
             Self::PLAY_SE => write!(f, "PLAY_SE"),
             Self::BATTLE_PROCESSING => write!(f, "BATTLE_PROCESSING"),
+            Self::SHOP_PROCESSING => write!(f, "SHOP_PROCESSING"),
             Self::CHANGE_HP => write!(f, "CHANGE_HP"),
             Self::CHANGE_MP => write!(f, "CHANGE_MP"),
             Self::CHANGE_STATE => write!(f, "CHANGE_STATE"),
+            Self::RECOVER_ALL => write!(f, "RECOVER_ALL"),
+            Self::CHANGE_EXP => write!(f, "CHANGE_EXP"),
             Self::CHANGE_LEVEL => write!(f, "CHANGE_LEVEL"),
             Self::CHANGE_PARAMETER => write!(f, "CHANGE_PARAMETER"),
             Self::CHANGE_SKILL => write!(f, "CHANGE_SKILL"),
@@ -142,6 +164,7 @@ impl std::fmt::Debug for CommandCode {
             Self::CHANGE_ENEMY_HP => write!(f, "CHANGE_ENEMY_HP"),
             Self::CHANGE_ENEMY_STATE => write!(f, "CHANGE_ENEMY_STATE"),
             Self::ABORT_BATTLE => write!(f, "ABORT_BATTLE"),
+            Self::OPEN_SAVE_SCREEN => write!(f, "OPEN_SAVE_SCREEN"),
             Self::GAME_OVER => write!(f, "GAME_OVER"),
             Self::SCRIPT => write!(f, "SCRIPT"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
@@ -150,6 +173,7 @@ impl std::fmt::Debug for CommandCode {
             Self::ELSE => write!(f, "ELSE"),
             Self::CONDITONAL_BRANCH_END => write!(f, "CONDITONAL_BRANCH_END"),
             Self::SET_MOVEMENT_ROUTE_EXTRA => write!(f, "SET_MOVEMENT_ROUTE_EXTRA"),
+            Self::SHOP_PROCESSING_EXTRA => write!(f, "SHOP_PROCESSING_EXTRA"),
             _ => write!(f, "Unknown({})", self.0),
         }
     }
