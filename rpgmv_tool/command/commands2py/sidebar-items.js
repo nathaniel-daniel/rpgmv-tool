@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FileKind","FileSink"],"fn":["exec"],"mod":["command","config","generate"],"struct":["Options"]};
