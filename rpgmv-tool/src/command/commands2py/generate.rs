@@ -110,6 +110,38 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, ")")?;
         }
+        Command::ShowScrollingText {
+            speed,
+            no_fast,
+            lines,
+        } => {
+            let no_fast = stringify_bool(*no_fast);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "show_scrolling_text(")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "speed={speed},")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "no_fast={no_fast},")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "lines=[")?;
+
+            for line in lines {
+                let line = escape_string(line);
+
+                write_indent(&mut writer, indent + 2)?;
+                writeln!(&mut writer, "'{line}',")?;
+            }
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "],")?;
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, ")")?;
+        }
         Command::ConditionalBranch(command) => {
             write_indent(&mut writer, indent)?;
             write!(&mut writer, "if ")?;
