@@ -8,6 +8,11 @@ impl CommandCode {
 
     pub const SHOW_TEXT: Self = Self(101);
     pub const SHOW_CHOICES: Self = Self(102);
+    pub const INPUT_NUMBER: Self = Self(103);
+    pub const SELECT_ITEM: Self = Self(104);
+    pub const SHOW_SCROLLING_TEXT: Self = Self(105);
+
+    pub const COMMENT: Self = Self(108);
 
     pub const CONDITONAL_BRANCH: Self = Self(111);
 
@@ -91,6 +96,7 @@ impl CommandCode {
     /// I can't be sure as the game doesn't actually care if this exists;
     /// it just ignores it, only taking into account indents.
     pub const WHEN_END: Self = Self(404);
+    pub const SHOW_SCROLLING_TEXT_EXTRA: Self = Self(405);
 
     pub const ELSE: Self = Self(411);
     /// I think this is an end for the CONDITONAL_BRANCH block.
@@ -114,6 +120,10 @@ impl std::fmt::Debug for CommandCode {
             Self::NOP => write!(f, "NOP"),
             Self::SHOW_TEXT => write!(f, "SHOW_TEXT"),
             Self::SHOW_CHOICES => write!(f, "SHOW_CHOICES"),
+            Self::INPUT_NUMBER => write!(f, "INPUT_NUMBER"),
+            Self::SELECT_ITEM => write!(f, "SELECT_ITEM"),
+            Self::SHOW_SCROLLING_TEXT => write!(f, "SHOW_SCROLLING_TEXT"),
+            Self::COMMENT => write!(f, "COMMENT"),
             Self::CONDITONAL_BRANCH => write!(f, "CONDITONAL_BRANCH"),
             Self::COMMON_EVENT => write!(f, "COMMON_EVENT"),
             Self::CONTROL_SWITCHES => write!(f, "CONTROL_SWITCHES"),
@@ -170,6 +180,7 @@ impl std::fmt::Debug for CommandCode {
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
             Self::WHEN => write!(f, "WHEN"),
             Self::WHEN_END => write!(f, "WHEN_END"),
+            Self::SHOW_SCROLLING_TEXT_EXTRA => write!(f, "SHOW_SCROLLING_TEXT_EXTRA"),
             Self::ELSE => write!(f, "ELSE"),
             Self::CONDITONAL_BRANCH_END => write!(f, "CONDITONAL_BRANCH_END"),
             Self::SET_MOVEMENT_ROUTE_EXTRA => write!(f, "SET_MOVEMENT_ROUTE_EXTRA"),
