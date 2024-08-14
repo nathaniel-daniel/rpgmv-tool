@@ -343,6 +343,11 @@ pub enum Command {
         position_type: u32,
         background: u32,
     },
+    ShowScrollingText {
+        speed: u32,
+        no_fast: bool,
+        lines: Vec<String>,
+    },
     ConditionalBranch(ConditionalBranchCommand),
     CommonEvent {
         id: u32,
@@ -864,7 +869,21 @@ pub fn parse_event_command_list(
                 ensure!(event_command.parameters.len() == 1);
                 let line = event_command.parameters[0]
                     .as_str()
-                    .context("line is not a string")?
+                    .context("`line` is not a string")?
+                    .to_string();
+
+                lines.push(line);
+
+                continue;
+            }
+            (
+                Some(Command::ShowScrollingText { lines, .. }),
+                CommandCode::SHOW_SCROLLING_TEXT_EXTRA,
+            ) => {
+                ensure!(event_command.parameters.len() == 1);
+                let line = event_command.parameters[0]
+                    .as_str()
+                    .context("`line` is not a string")?
                     .to_string();
 
                 lines.push(line);
@@ -921,6 +940,21 @@ pub fn parse_event_command_list(
                     default_type,
                     position_type,
                     background,
+                }
+            }
+            (_, CommandCode::SHOW_SCROLLING_TEXT) => {
+                let speed = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`speed` is not a `u32`")?;
+                let no_fast = event_command.parameters[1]
+                    .as_bool()
+                    .context("`no_fast` is not a `bool`")?;
+
+                Command::ShowScrollingText {
+                    speed,
+                    no_fast,
+                    lines: Vec::new(),
                 }
             }
             (_, CommandCode::CONDITONAL_BRANCH) => Command::parse_conditional_branch(event_command)
