@@ -464,6 +464,14 @@ pub enum Command {
         is_add_state: bool,
         state_id: u32,
     },
+    ChangeActorImages {
+        actor_id: u32,
+        character_name: String,
+        character_index: u32,
+        face_name: String,
+        face_index: u32,
+        battler_name: String,
+    },
     Script {
         lines: Vec<String>,
     },
@@ -1505,6 +1513,42 @@ pub fn parse_event_command_list(
                     actor_id,
                     is_learn_skill,
                     skill_id,
+                }
+            }
+            (_, CommandCode::CHANGE_ACTOR_IMAGES) => {
+                ensure!(event_command.parameters.len() == 6);
+                let actor_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`actor_id` is not a `u32`")?;
+                let character_name = event_command.parameters[1]
+                    .as_str()
+                    .context("`character_name` is not a str")?
+                    .to_string();
+                let character_index = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`character_index` is not a `u32`")?;
+                let face_name = event_command.parameters[3]
+                    .as_str()
+                    .context("`face_name` is not a str")?
+                    .to_string();
+                let face_index = event_command.parameters[4]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`face_index` is not a `u32`")?;
+                let battler_name = event_command.parameters[5]
+                    .as_str()
+                    .context("`battler_name` is not a str")?
+                    .to_string();
+
+                Command::ChangeActorImages {
+                    actor_id,
+                    character_name,
+                    character_index,
+                    face_name,
+                    face_index,
+                    battler_name,
                 }
             }
             (_, CommandCode::SCRIPT) => {

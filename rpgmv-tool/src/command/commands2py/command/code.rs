@@ -80,6 +80,8 @@ impl CommandCode {
     pub const CHANGE_SKILL: Self = Self(318);
     pub const CHANGE_EQUIPMENT: Self = Self(319);
 
+    pub const CHANGE_ACTOR_IMAGES: Self = Self(322);
+
     pub const CHANGE_ENEMY_HP: Self = Self(331);
 
     pub const CHANGE_ENEMY_STATE: Self = Self(333);

@@ -693,6 +693,43 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "{fn_name}({actor_arg}, skill={skill})")?;
         }
+        Command::ChangeActorImages {
+            actor_id,
+            character_name,
+            character_index,
+            face_name,
+            face_index,
+            battler_name,
+        } => {
+            let actor_name = config.get_actor_name(*actor_id);
+            let character_name = escape_string(character_name);
+            let face_name = escape_string(face_name);
+            let battler_name = escape_string(battler_name);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "change_actor_images(")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "actor={actor_name},")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "character_name='{character_name}',")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "character_index={character_index},")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "face_name='{face_name}',")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "face_index={face_index},")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "battler_name='{battler_name}',")?;
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, ")")?;
+        }
         Command::Script { lines } => {
             let data = lines.join("\\n");
 
