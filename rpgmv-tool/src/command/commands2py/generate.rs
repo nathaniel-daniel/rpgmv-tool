@@ -179,6 +179,12 @@ where
 
                     writeln!(&mut writer, "{actor_name}.has_armor(armor={armor_name}):")?;
                 }
+                ConditionalBranchCommand::ActorState { actor_id, state_id } => {
+                    let actor_name = config.get_actor_name(*actor_id);
+                    let state_name = config.get_armor_name(*state_id);
+
+                    writeln!(&mut writer, "{actor_name}.has_state(state={state_name}):")?;
+                }
                 ConditionalBranchCommand::EnemyState {
                     enemy_index,
                     state_id,
@@ -631,6 +637,32 @@ where
                 &mut writer,
                 "battle_processing({troop_arg}, can_escape={can_escape}, can_lose={can_lose})"
             )?;
+        }
+        Command::ChangeState {
+            actor_id,
+            is_add_state,
+            state_id,
+        } => {
+            let actor_arg = match actor_id {
+                MaybeRef::Constant(actor_id) => {
+                    let name = config.get_actor_name(*actor_id);
+                    format!("actor={name}")
+                }
+                MaybeRef::Ref(variable_id) => {
+                    let name = config.get_variable_name(*variable_id);
+                    format!("actor_id={name}")
+                }
+            };
+
+            let fn_name = if *is_add_state {
+                "add_state"
+            } else {
+                "remove_state"
+            };
+            let state = config.get_state_name(*state_id);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "{fn_name}({actor_arg}, state={state})")?;
         }
         Command::ChangeSkill {
             actor_id,

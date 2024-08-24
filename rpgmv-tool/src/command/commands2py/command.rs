@@ -60,6 +60,7 @@ pub enum ConditionalBranchKindActorCheck {
     Skill = 3,
     Weapon = 4,
     Armor = 5,
+    State = 6,
 }
 
 impl ConditionalBranchKindActorCheck {
@@ -72,6 +73,7 @@ impl ConditionalBranchKindActorCheck {
             3 => Ok(Self::Skill),
             4 => Ok(Self::Weapon),
             5 => Ok(Self::Armor),
+            6 => Ok(Self::State),
             _ => bail!("{value} is not a valid ConditionalBranchKindActorCheck"),
         }
     }
@@ -456,6 +458,11 @@ pub enum Command {
         is_learn_skill: bool,
         skill_id: u32,
     },
+    ChangeState {
+        actor_id: MaybeRef<u32>,
+        is_add_state: bool,
+        state_id: u32,
+    },
     Script {
         lines: Vec<String>,
     },
@@ -586,6 +593,14 @@ impl Command {
                             .context("`armor_id` is not a `u32`")?;
 
                         ConditionalBranchCommand::ActorArmor { actor_id, armor_id }
+                    }
+                    ConditionalBranchKindActorCheck::State => {
+                        ensure!(event_command.parameters.len() == 4);
+                        let state_id = event_command.parameters[3]
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
+                            .context("`state_id` is not a `u32`")?;
+                        ConditionalBranchCommand::ActorState { actor_id, state_id }
                     }
                     _ => {
                         bail!("ConditionalBranchKindActorCheck {check:?} is not supported")
@@ -811,6 +826,10 @@ pub enum ConditionalBranchCommand {
     ActorArmor {
         actor_id: u32,
         armor_id: u32,
+    },
+    ActorState {
+        actor_id: u32,
+        state_id: u32,
     },
     EnemyState {
         enemy_index: u32,
@@ -1413,6 +1432,40 @@ pub fn parse_event_command_list(
                     troop_id,
                     can_escape,
                     can_lose,
+                }
+            }
+            (_, CommandCode::CHANGE_STATE) => {
+                ensure!(event_command.parameters.len() == 4);
+                let is_constant = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_constant` is not a `u8`")?;
+                ensure!(is_constant <= 1);
+                let is_constant = is_constant == 0;
+                let actor_id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`actor_id` is not a `u32`")?;
+                let actor_id = if is_constant {
+                    MaybeRef::Constant(actor_id)
+                } else {
+                    MaybeRef::Ref(actor_id)
+                };
+                let is_add_state = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_add_state` is not a `u8`")?;
+                ensure!(is_add_state <= 1);
+                let is_add_state = is_add_state == 0;
+                let state_id = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`state_id` is not a `u32`")?;
+
+                Command::ChangeState {
+                    actor_id,
+                    is_add_state,
+                    state_id,
                 }
             }
             (_, CommandCode::CHANGE_SKILL) => {
