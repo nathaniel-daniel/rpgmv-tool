@@ -16,6 +16,8 @@ impl CommandCode {
 
     pub const CONDITONAL_BRANCH: Self = Self(111);
 
+    pub const EXIT_EVENT_PROCESSING: Self = Self(115);
+
     pub const COMMON_EVENT: Self = Self(117);
 
     pub const CONTROL_SWITCHES: Self = Self(121);
@@ -67,6 +69,7 @@ impl CommandCode {
 
     pub const BATTLE_PROCESSING: Self = Self(301);
     pub const SHOP_PROCESSING: Self = Self(302);
+    pub const NAME_INPUT_PROCESSING: Self = Self(303);
 
     pub const CHANGE_HP: Self = Self(311);
     pub const CHANGE_MP: Self = Self(312);
@@ -77,6 +80,8 @@ impl CommandCode {
     pub const CHANGE_PARAMETER: Self = Self(317);
     pub const CHANGE_SKILL: Self = Self(318);
     pub const CHANGE_EQUIPMENT: Self = Self(319);
+
+    pub const CHANGE_ACTOR_IMAGES: Self = Self(322);
 
     pub const CHANGE_ENEMY_HP: Self = Self(331);
 
@@ -91,7 +96,7 @@ impl CommandCode {
 
     pub const TEXT_DATA: Self = Self(401);
     pub const WHEN: Self = Self(402);
-
+    pub const WHEN_CANCEL: Self = Self(403);
     /// I think this is an end for the WHEN block.
     /// I can't be sure as the game doesn't actually care if this exists;
     /// it just ignores it, only taking into account indents.
@@ -162,6 +167,7 @@ impl std::fmt::Debug for CommandCode {
             Self::PLAY_SE => write!(f, "PLAY_SE"),
             Self::BATTLE_PROCESSING => write!(f, "BATTLE_PROCESSING"),
             Self::SHOP_PROCESSING => write!(f, "SHOP_PROCESSING"),
+            Self::NAME_INPUT_PROCESSING => write!(f, "NAME_INPUT_PROCESSING"),
             Self::CHANGE_HP => write!(f, "CHANGE_HP"),
             Self::CHANGE_MP => write!(f, "CHANGE_MP"),
             Self::CHANGE_STATE => write!(f, "CHANGE_STATE"),
@@ -179,6 +185,7 @@ impl std::fmt::Debug for CommandCode {
             Self::SCRIPT => write!(f, "SCRIPT"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
             Self::WHEN => write!(f, "WHEN"),
+            Self::WHEN_CANCEL => write!(f, "WHEN_CANCEL"),
             Self::WHEN_END => write!(f, "WHEN_END"),
             Self::SHOW_SCROLLING_TEXT_EXTRA => write!(f, "SHOW_SCROLLING_TEXT_EXTRA"),
             Self::ELSE => write!(f, "ELSE"),

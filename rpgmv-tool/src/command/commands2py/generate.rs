@@ -5,6 +5,7 @@ use super::ControlVariablesValue;
 use super::ControlVariablesValueGameData;
 use super::MaybeRef;
 use anyhow::bail;
+use anyhow::ensure;
 use anyhow::Context;
 use std::io::Write;
 
@@ -142,6 +143,10 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, ")")?;
         }
+        Command::Comment { comment } => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "# {comment}")?;
+        }
         Command::ConditionalBranch(command) => {
             write_indent(&mut writer, indent)?;
             write!(&mut writer, "if ")?;
@@ -178,6 +183,12 @@ where
                     let armor_name = config.get_armor_name(*armor_id);
 
                     writeln!(&mut writer, "{actor_name}.has_armor(armor={armor_name}):")?;
+                }
+                ConditionalBranchCommand::ActorState { actor_id, state_id } => {
+                    let actor_name = config.get_actor_name(*actor_id);
+                    let state_name = config.get_state_name(*state_id);
+
+                    writeln!(&mut writer, "{actor_name}.has_state(state={state_name}):")?;
                 }
                 ConditionalBranchCommand::EnemyState {
                     enemy_index,
@@ -218,6 +229,10 @@ where
                     writeln!(&mut writer, "execute_script('{value}'):")?;
                 }
             }
+        }
+        Command::ExitEventProcessing => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "exit_event_processing()")?;
         }
         Command::CommonEvent { id } => {
             let name = config.get_common_event_name(*id);
@@ -274,6 +289,16 @@ where
         Command::ControlSelfSwitch { key, value } => {
             let value = stringify_bool(*value);
             writeln!(&mut writer, "game_self_switches['{key}'] = {value}")?;
+        }
+        Command::ChangeGold { is_add, value } => {
+            let op = if *is_add { "+=" } else { "-=" };
+            let value = match value {
+                MaybeRef::Constant(value) => value.to_string(),
+                MaybeRef::Ref(id) => config.get_variable_name(*id),
+            };
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "game_party.gold {op} {value}")?;
         }
         Command::ChangeItems {
             item_id,
@@ -596,6 +621,14 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "fadeout_bgm(duration={duration})")?;
         }
+        Command::SaveBgm => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "save_bgm()")?;
+        }
+        Command::ResumeBgm => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "resume_bgm()")?;
+        }
         Command::PlaySe { audio } => {
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "play_se(")?;
@@ -632,6 +665,71 @@ where
                 "battle_processing({troop_arg}, can_escape={can_escape}, can_lose={can_lose})"
             )?;
         }
+        Command::NameInputProcessing { actor_id, max_len } => {
+            let actor = config.get_actor_name(*actor_id);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(
+                &mut writer,
+                "name_input_processing(actor={actor}, max_len={max_len})"
+            )?;
+        }
+        Command::ChangeState {
+            actor_id,
+            is_add_state,
+            state_id,
+        } => {
+            let actor_arg = match actor_id {
+                MaybeRef::Constant(0) => "actors=game_party".to_string(),
+                MaybeRef::Constant(actor_id) => {
+                    let name = config.get_actor_name(*actor_id);
+                    format!("actor={name}")
+                }
+                MaybeRef::Ref(variable_id) => {
+                    let name = config.get_variable_name(*variable_id);
+                    format!("actor_id={name}")
+                }
+            };
+
+            let fn_name = if *is_add_state {
+                "add_state"
+            } else {
+                "remove_state"
+            };
+            let state = config.get_state_name(*state_id);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "{fn_name}({actor_arg}, state={state})")?;
+        }
+        Command::ChangeLevel {
+            actor_id,
+            is_add,
+            value,
+            show_level_up,
+        } => {
+            let actor_arg = match actor_id {
+                MaybeRef::Constant(actor_id) => {
+                    let name = config.get_actor_name(*actor_id);
+                    format!("actor={name}")
+                }
+                MaybeRef::Ref(variable_id) => {
+                    let name = config.get_variable_name(*variable_id);
+                    format!("actor_id={name}")
+                }
+            };
+            let sign = if *is_add { "" } else { "-" };
+            let value = match value {
+                MaybeRef::Constant(value) => value.to_string(),
+                MaybeRef::Ref(id) => config.get_variable_name(*id),
+            };
+            let show_level_up = stringify_bool(*show_level_up);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(
+                &mut writer,
+                "gain_level({actor_arg}, value={sign}{value}, show_level_up={show_level_up})"
+            )?;
+        }
         Command::ChangeSkill {
             actor_id,
             is_learn_skill,
@@ -657,6 +755,43 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "{fn_name}({actor_arg}, skill={skill})")?;
         }
+        Command::ChangeActorImages {
+            actor_id,
+            character_name,
+            character_index,
+            face_name,
+            face_index,
+            battler_name,
+        } => {
+            let actor_name = config.get_actor_name(*actor_id);
+            let character_name = escape_string(character_name);
+            let face_name = escape_string(face_name);
+            let battler_name = escape_string(battler_name);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "change_actor_images(")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "actor={actor_name},")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "character_name='{character_name}',")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "character_index={character_index},")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "face_name='{face_name}',")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "face_index={face_index},")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "battler_name='{battler_name}',")?;
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, ")")?;
+        }
         Command::Script { lines } => {
             let data = lines.join("\\n");
 
@@ -671,6 +806,18 @@ where
             writeln!(
                 &mut writer,
                 "if get_choice_index() == {choice_index}: # {choice_name}"
+            )?;
+        }
+        Command::WhenCancel {
+            choice_index,
+            choice_name,
+        } => {
+            ensure!(choice_name.is_none());
+
+            write_indent(&mut writer, indent)?;
+            writeln!(
+                &mut writer,
+                "if get_choice_index() == -1: # Cancel, index={choice_index}"
             )?;
         }
         Command::WhenEnd => {
