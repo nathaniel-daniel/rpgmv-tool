@@ -662,6 +662,7 @@ where
             state_id,
         } => {
             let actor_arg = match actor_id {
+                MaybeRef::Constant(0) => "actors=game_party".to_string(),
                 MaybeRef::Constant(actor_id) => {
                     let name = config.get_actor_name(*actor_id);
                     format!("actor={name}")
