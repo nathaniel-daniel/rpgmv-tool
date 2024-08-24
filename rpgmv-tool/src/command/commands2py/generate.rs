@@ -812,7 +812,7 @@ where
             choice_index,
             choice_name,
         } => {
-            ensure!(choice_name.is_some());
+            ensure!(choice_name.is_none());
 
             write_indent(&mut writer, indent)?;
             writeln!(
