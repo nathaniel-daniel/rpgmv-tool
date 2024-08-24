@@ -96,7 +96,7 @@ impl CommandCode {
 
     pub const TEXT_DATA: Self = Self(401);
     pub const WHEN: Self = Self(402);
-
+    pub const WHEN_CANCEL: Self = Self(403);
     /// I think this is an end for the WHEN block.
     /// I can't be sure as the game doesn't actually care if this exists;
     /// it just ignores it, only taking into account indents.
@@ -185,6 +185,7 @@ impl std::fmt::Debug for CommandCode {
             Self::SCRIPT => write!(f, "SCRIPT"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
             Self::WHEN => write!(f, "WHEN"),
+            Self::WHEN_CANCEL => write!(f, "WHEN_CANCEL"),
             Self::WHEN_END => write!(f, "WHEN_END"),
             Self::SHOW_SCROLLING_TEXT_EXTRA => write!(f, "SHOW_SCROLLING_TEXT_EXTRA"),
             Self::ELSE => write!(f, "ELSE"),

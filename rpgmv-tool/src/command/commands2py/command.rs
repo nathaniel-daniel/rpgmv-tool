@@ -498,6 +498,10 @@ pub enum Command {
         choice_index: u32,
         choice_name: String,
     },
+    WhenCancel {
+        choice_index: u32,
+        choice_name: Option<String>,
+    },
     WhenEnd,
     Else,
     ConditionalBranchEnd,
@@ -1696,6 +1700,21 @@ pub fn parse_event_command_list(
                     .to_string();
 
                 Command::When {
+                    choice_index,
+                    choice_name,
+                }
+            }
+            (_, CommandCode::WHEN_CANCEL) => {
+                ensure!(event_command.parameters.len() == 2);
+                let choice_index = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`choice_index` is not a `u32`")?;
+                let choice_name: Option<String> =
+                    serde_json::from_value(event_command.parameters[1].clone())
+                        .context("`choice_name` is not a string")?;
+
+                Command::WhenCancel {
                     choice_index,
                     choice_name,
                 }

@@ -5,6 +5,7 @@ use super::ControlVariablesValue;
 use super::ControlVariablesValueGameData;
 use super::MaybeRef;
 use anyhow::bail;
+use anyhow::ensure;
 use anyhow::Context;
 use std::io::Write;
 
@@ -805,6 +806,18 @@ where
             writeln!(
                 &mut writer,
                 "if get_choice_index() == {choice_index}: # {choice_name}"
+            )?;
+        }
+        Command::WhenCancel {
+            choice_index,
+            choice_name,
+        } => {
+            ensure!(choice_name.is_some());
+
+            write_indent(&mut writer, indent)?;
+            writeln!(
+                &mut writer,
+                "if get_choice_index() == -1: # Cancel, index={choice_index}"
             )?;
         }
         Command::WhenEnd => {
