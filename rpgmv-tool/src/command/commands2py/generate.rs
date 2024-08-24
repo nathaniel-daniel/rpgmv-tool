@@ -656,6 +656,15 @@ where
                 "battle_processing({troop_arg}, can_escape={can_escape}, can_lose={can_lose})"
             )?;
         }
+        Command::NameInputProcessing { actor_id, max_len } => {
+            let actor = config.get_actor_name(*actor_id);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(
+                &mut writer,
+                "name_input_processing(actor={actor}, max_len={max_len})"
+            )?;
+        }
         Command::ChangeState {
             actor_id,
             is_add_state,

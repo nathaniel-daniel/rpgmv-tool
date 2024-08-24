@@ -461,6 +461,10 @@ pub enum Command {
         can_escape: bool,
         can_lose: bool,
     },
+    NameInputProcessing {
+        actor_id: u32,
+        max_len: u32,
+    },
     ChangeLevel {
         actor_id: MaybeRef<u32>,
         is_add: bool,
@@ -1493,6 +1497,19 @@ pub fn parse_event_command_list(
                     can_escape,
                     can_lose,
                 }
+            }
+            (_, CommandCode::NAME_INPUT_PROCESSING) => {
+                ensure!(event_command.parameters.len() == 2);
+                let actor_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`actor_id` is not a `u32`")?;
+                let max_len = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`max_len` is not a `u32`")?;
+
+                Command::NameInputProcessing { actor_id, max_len }
             }
             (_, CommandCode::CHANGE_STATE) => {
                 ensure!(event_command.parameters.len() == 4);

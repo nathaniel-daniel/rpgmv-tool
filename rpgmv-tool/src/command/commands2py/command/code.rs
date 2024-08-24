@@ -69,6 +69,7 @@ impl CommandCode {
 
     pub const BATTLE_PROCESSING: Self = Self(301);
     pub const SHOP_PROCESSING: Self = Self(302);
+    pub const NAME_INPUT_PROCESSING: Self = Self(303);
 
     pub const CHANGE_HP: Self = Self(311);
     pub const CHANGE_MP: Self = Self(312);
@@ -166,6 +167,7 @@ impl std::fmt::Debug for CommandCode {
             Self::PLAY_SE => write!(f, "PLAY_SE"),
             Self::BATTLE_PROCESSING => write!(f, "BATTLE_PROCESSING"),
             Self::SHOP_PROCESSING => write!(f, "SHOP_PROCESSING"),
+            Self::NAME_INPUT_PROCESSING => write!(f, "NAME_INPUT_PROCESSING"),
             Self::CHANGE_HP => write!(f, "CHANGE_HP"),
             Self::CHANGE_MP => write!(f, "CHANGE_MP"),
             Self::CHANGE_STATE => write!(f, "CHANGE_STATE"),
