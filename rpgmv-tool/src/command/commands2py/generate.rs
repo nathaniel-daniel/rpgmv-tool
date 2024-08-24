@@ -185,7 +185,7 @@ where
                 }
                 ConditionalBranchCommand::ActorState { actor_id, state_id } => {
                     let actor_name = config.get_actor_name(*actor_id);
-                    let state_name = config.get_armor_name(*state_id);
+                    let state_name = config.get_state_name(*state_id);
 
                     writeln!(&mut writer, "{actor_name}.has_state(state={state_name}):")?;
                 }
