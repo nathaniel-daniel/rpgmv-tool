@@ -350,6 +350,9 @@ pub enum Command {
         no_fast: bool,
         lines: Vec<String>,
     },
+    Comment {
+        comment: String,
+    },
     ConditionalBranch(ConditionalBranchCommand),
     ExitEventProcessing,
     CommonEvent {
@@ -984,6 +987,14 @@ pub fn parse_event_command_list(
                     no_fast,
                     lines: Vec::new(),
                 }
+            }
+            (_, CommandCode::COMMENT) => {
+                ensure!(event_command.parameters.len() == 1);
+                let comment = event_command.parameters[0]
+                    .as_str()
+                    .context("`comment` is not a str")?
+                    .to_string();
+                Command::Comment { comment }
             }
             (_, CommandCode::CONDITONAL_BRANCH) => Command::parse_conditional_branch(event_command)
                 .context("failed to parse CONDITONAL_BRANCH command")?,
