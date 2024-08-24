@@ -620,6 +620,14 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "fadeout_bgm(duration={duration})")?;
         }
+        Command::SaveBgm => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "save_bgm()")?;
+        }
+        Command::ResumeBgm => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "resume_bgm()")?;
+        }
         Command::PlaySe { audio } => {
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "play_se(")?;

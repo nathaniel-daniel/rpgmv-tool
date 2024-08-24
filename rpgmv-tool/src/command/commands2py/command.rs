@@ -453,6 +453,8 @@ pub enum Command {
     FadeoutBgm {
         duration: u32,
     },
+    SaveBgm,
+    ResumeBgm,
     PlaySe {
         audio: rpgmv_types::AudioFile,
     },
@@ -1458,6 +1460,14 @@ pub fn parse_event_command_list(
                     .context("`duration` is not a `u32`")?;
 
                 Command::FadeoutBgm { duration }
+            }
+            (_, CommandCode::SAVE_BGM) => {
+                ensure!(event_command.parameters.is_empty());
+                Command::SaveBgm
+            }
+            (_, CommandCode::RESUME_BGM) => {
+                ensure!(event_command.parameters.is_empty());
+                Command::ResumeBgm
             }
             (_, CommandCode::PLAY_SE) => {
                 ensure!(event_command.parameters.len() == 1);
