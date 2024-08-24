@@ -289,6 +289,16 @@ where
             let value = stringify_bool(*value);
             writeln!(&mut writer, "game_self_switches['{key}'] = {value}")?;
         }
+        Command::ChangeGold { is_add, value } => {
+            let op = if *is_add { "+=" } else { "-=" };
+            let value = match value {
+                MaybeRef::Constant(value) => value.to_string(),
+                MaybeRef::Ref(id) => config.get_variable_name(*id),
+            };
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "game_party.gold {op} {value}")?;
+        }
         Command::ChangeItems {
             item_id,
             is_add,
@@ -671,6 +681,35 @@ where
 
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "{fn_name}({actor_arg}, state={state})")?;
+        }
+        Command::ChangeLevel {
+            actor_id,
+            is_add,
+            value,
+            show_level_up,
+        } => {
+            let actor_arg = match actor_id {
+                MaybeRef::Constant(actor_id) => {
+                    let name = config.get_actor_name(*actor_id);
+                    format!("actor={name}")
+                }
+                MaybeRef::Ref(variable_id) => {
+                    let name = config.get_variable_name(*variable_id);
+                    format!("actor_id={name}")
+                }
+            };
+            let sign = if *is_add { "" } else { "-" };
+            let value = match value {
+                MaybeRef::Constant(value) => value.to_string(),
+                MaybeRef::Ref(id) => config.get_variable_name(*id),
+            };
+            let show_level_up = stringify_bool(*show_level_up);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(
+                &mut writer,
+                "gain_level({actor_arg}, value={sign}{value}, show_level_up={show_level_up})"
+            )?;
         }
         Command::ChangeSkill {
             actor_id,

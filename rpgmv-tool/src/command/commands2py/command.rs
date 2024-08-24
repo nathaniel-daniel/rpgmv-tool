@@ -373,6 +373,10 @@ pub enum Command {
         key: String,
         value: bool,
     },
+    ChangeGold {
+        is_add: bool,
+        value: MaybeRef<u32>,
+    },
     ChangeItems {
         item_id: u32,
         is_add: bool,
@@ -456,6 +460,12 @@ pub enum Command {
         troop_id: MaybeRef<u32>,
         can_escape: bool,
         can_lose: bool,
+    },
+    ChangeLevel {
+        actor_id: MaybeRef<u32>,
+        is_add: bool,
+        value: MaybeRef<u32>,
+        show_level_up: bool,
     },
     ChangeSkill {
         actor_id: MaybeRef<u32>,
@@ -1181,6 +1191,32 @@ pub fn parse_event_command_list(
 
                 Command::ControlSelfSwitch { key, value }
             }
+            (_, CommandCode::CHANGE_GOLD) => {
+                ensure!(event_command.parameters.len() == 3);
+                let is_add = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_add` is not a `u8`")?;
+                ensure!(is_add <= 1);
+                let is_add = is_add == 0;
+                let is_constant = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_constant` is not a `u8`")?;
+                ensure!(is_constant <= 1);
+                let is_constant = is_constant == 0;
+                let value = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`value` is not a `u32`")?;
+                let value = if is_constant {
+                    MaybeRef::Constant(value)
+                } else {
+                    MaybeRef::Ref(value)
+                };
+
+                Command::ChangeGold { is_add, value }
+            }
             (_, CommandCode::CHANGE_ITEMS) => {
                 ensure!(event_command.parameters.len() == 4);
                 let item_id = event_command.parameters[0]
@@ -1490,6 +1526,56 @@ pub fn parse_event_command_list(
                     actor_id,
                     is_add_state,
                     state_id,
+                }
+            }
+            (_, CommandCode::CHANGE_LEVEL) => {
+                ensure!(event_command.parameters.len() == 6);
+
+                let is_actor_constant = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_actor_constant` is not a `u8`")?;
+                ensure!(is_actor_constant <= 1);
+                let is_actor_constant = is_actor_constant == 0;
+                let actor_id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`actor_id` is not a `u32`")?;
+                let actor_id = if is_actor_constant {
+                    MaybeRef::Constant(actor_id)
+                } else {
+                    MaybeRef::Ref(actor_id)
+                };
+                let is_add = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_add` is not a `u8`")?;
+                ensure!(is_add <= 1);
+                let is_add = is_add == 0;
+                let is_constant = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_constant` is not a `u8`")?;
+                ensure!(is_constant <= 1);
+                let is_constant = is_constant == 0;
+                let value = event_command.parameters[4]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`value` is not a `u32`")?;
+                let value = if is_constant {
+                    MaybeRef::Constant(value)
+                } else {
+                    MaybeRef::Ref(value)
+                };
+                let show_level_up = event_command.parameters[5]
+                    .as_bool()
+                    .context("`show_level_up` is not a `bool`")?;
+
+                Command::ChangeLevel {
+                    actor_id,
+                    is_add,
+                    value,
+                    show_level_up,
                 }
             }
             (_, CommandCode::CHANGE_SKILL) => {
