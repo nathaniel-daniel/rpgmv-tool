@@ -16,6 +16,8 @@ impl CommandCode {
 
     pub const CONDITONAL_BRANCH: Self = Self(111);
 
+    pub const EXIT_EVENT_PROCESSING: Self = Self(115);
+
     pub const COMMON_EVENT: Self = Self(117);
 
     pub const CONTROL_SWITCHES: Self = Self(121);

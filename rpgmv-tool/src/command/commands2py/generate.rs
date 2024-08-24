@@ -225,6 +225,10 @@ where
                 }
             }
         }
+        Command::ExitEventProcessing => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "exit_event_processing()")?;
+        }
         Command::CommonEvent { id } => {
             let name = config.get_common_event_name(*id);
 

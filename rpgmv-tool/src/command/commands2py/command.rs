@@ -351,6 +351,7 @@ pub enum Command {
         lines: Vec<String>,
     },
     ConditionalBranch(ConditionalBranchCommand),
+    ExitEventProcessing,
     CommonEvent {
         id: u32,
     },
@@ -978,6 +979,10 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::CONDITONAL_BRANCH) => Command::parse_conditional_branch(event_command)
                 .context("failed to parse CONDITONAL_BRANCH command")?,
+            (_, CommandCode::EXIT_EVENT_PROCESSING) => {
+                ensure!(event_command.parameters.is_empty());
+                Command::ExitEventProcessing
+            }
             (_, CommandCode::COMMON_EVENT) => {
                 ensure!(event_command.parameters.len() == 1);
                 let id = event_command.parameters[0]
