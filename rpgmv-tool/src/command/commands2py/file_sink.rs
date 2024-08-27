@@ -22,25 +22,26 @@ impl FileSink {
     where
         P: AsRef<Path>,
     {
+        let path = path.as_ref();
+        ensure!(
+            overwrite || !path.try_exists()?,
+            "output path \"{}\" already exists. Use the --overwrite flag to overwrite",
+            path.display()
+        );
+
         if dry_run {
             Ok(FileSink::new_empty())
         } else {
-            FileSink::new_file(path, overwrite)
+            FileSink::new_file(path)
         }
     }
 
     /// Create a new file variant.
-    pub fn new_file<P>(path: P, overwrite: bool) -> anyhow::Result<Self>
+    fn new_file<P>(path: P) -> anyhow::Result<Self>
     where
         P: AsRef<Path>,
     {
         let path = path.as_ref();
-        ensure!(
-            overwrite || !path.try_exists()?,
-            "output path \"{}\" already exists. Use the --overwrite flag to overwrite.",
-            path.display()
-        );
-
         let path_temp = nd_util::with_push_extension(path, "tmp");
         let file = File::create(&path_temp)
             .with_context(|| format!("failed to open \"{}\"", path_temp.display()))?;
@@ -54,7 +55,7 @@ impl FileSink {
     }
 
     /// Create a new empty variant.
-    pub fn new_empty() -> Self {
+    fn new_empty() -> Self {
         Self::Empty
     }
 
