@@ -17,6 +17,7 @@ use anyhow::ensure;
 use anyhow::Context;
 use std::path::Path;
 use std::path::PathBuf;
+use std::time::SystemTime;
 
 #[derive(Debug, argh::FromArgs)]
 #[argh(
@@ -68,15 +69,42 @@ pub struct Options {
         description = "whether to overwrite the output, if it exists"
     )]
     overwrite: bool,
+
+    #[argh(
+        switch,
+        long = "use-mtimes",
+        description = "check mtimes to skip assets that don't need to be converted again"
+    )]
+    use_mtimes: bool,
 }
 
 pub fn exec(options: Options) -> anyhow::Result<()> {
-    /*
-    let current_exe = std::env::current_exe().context("failed to get current exe")?;
-    let current_exe_modified = std::fs::metadata(current_exe)
-        .context("failed to get metadata for current exe")?
-        .modified();
-    */
+    ensure!(
+        options.overwrite || !options.use_mtimes,
+        "the --use-mtimes flag must be used with the --overwrite flag"
+    );
+
+    let largest_mtime = if options.use_mtimes {
+        let current_exe = std::env::current_exe().context("failed to get current exe")?;
+        let current_exe_mtime = std::fs::metadata(current_exe)
+            .context("failed to get metadata for current exe")?
+            .modified()?;
+
+        let mut largest_mtime = current_exe_mtime;
+
+        if let Some(config) = options.config.as_ref() {
+            let config_mtime = std::fs::metadata(config)
+                .context("failed to get file metadata for config")?
+                .modified()?;
+            if largest_mtime < config_mtime {
+                largest_mtime = config_mtime;
+            }
+        }
+
+        Some(largest_mtime)
+    } else {
+        None
+    };
 
     let config = match options.config {
         Some(config) => Config::from_path(&config)
@@ -110,6 +138,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
             options.dry_run,
             options.overwrite,
             &config,
+            largest_mtime,
             output,
         )?;
     } else {
@@ -120,10 +149,11 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
 
         dump_file(
             input_file_kind,
-            &config,
+            largest_mtime,
             DumpFileOptions {
                 input: &options.input,
 
+                config: &config,
                 id,
                 event_page: options.event_page,
 
@@ -142,6 +172,7 @@ fn dump_dir(
     dry_run: bool,
     overwrite: bool,
     config: &Config,
+    largest_mtime: Option<SystemTime>,
     output: &Path,
 ) -> anyhow::Result<()> {
     ensure!(
@@ -216,10 +247,11 @@ fn dump_dir(
 
                         dump_file(
                             input_file_kind,
-                            config,
+                            largest_mtime,
                             DumpFileOptions {
                                 input: &input,
 
+                                config,
                                 id: event_id_u32,
                                 event_page: Some(page_index_u16),
 
@@ -264,10 +296,11 @@ fn dump_dir(
 
                     dump_file(
                         input_file_kind,
-                        config,
+                        largest_mtime,
                         DumpFileOptions {
                             input: &input,
 
+                            config,
                             id: common_event_id_u32,
                             event_page: None,
 
@@ -315,10 +348,11 @@ fn dump_dir(
 
                         dump_file(
                             input_file_kind,
-                            config,
+                            largest_mtime,
                             DumpFileOptions {
                                 input: &input,
 
+                                config,
                                 id: troop_id_u32,
                                 event_page: Some(page_index_u16),
 
@@ -343,6 +377,7 @@ fn dump_dir(
 struct DumpFileOptions<'a> {
     input: &'a Path,
 
+    config: &'a Config,
     id: u32,
     event_page: Option<u16>,
 
@@ -353,11 +388,33 @@ struct DumpFileOptions<'a> {
 
 fn dump_file(
     input_file_kind: FileKind,
-    config: &Config,
+    last_mtime: Option<SystemTime>,
     options: DumpFileOptions<'_>,
 ) -> anyhow::Result<()> {
     let input_str = std::fs::read_to_string(options.input)
         .with_context(|| format!("failed to read \"{}\"", options.input.display()))?;
+    let input_mtime = std::fs::metadata(options.input)
+        .with_context(|| format!("failed to get metadata for \"{}\"", options.input.display()))?
+        .modified()?;
+    let output_mtime = match std::fs::metadata(options.output) {
+        Ok(metadata) => Some(metadata.modified()?),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => {
+            return Err(error).with_context(|| {
+                format!("failed to get metadata for \"{}\"", options.input.display())
+            })?;
+        }
+    };
+    if options.overwrite {
+        if let (Some(last_mtime), Some(output_mtime)) = (last_mtime, output_mtime) {
+            let last_mtime = std::cmp::max(last_mtime, input_mtime);
+
+            if last_mtime < output_mtime {
+                return Ok(());
+            }
+        }
+    }
+
     let event_commands = match input_file_kind {
         FileKind::Map => {
             let mut map: rpgmv_types::Map = serde_json::from_str(&input_str)
@@ -459,7 +516,7 @@ fn dump_file(
         parse_event_command_list(&event_commands).context("failed to parse event command list")?;
     let mut file_sink = FileSink::new(options.output, options.dry_run, options.overwrite)?;
 
-    commands2py(config, &commands, &mut file_sink)?;
+    commands2py(options.config, &commands, &mut file_sink)?;
 
     file_sink.finish()?;
 
