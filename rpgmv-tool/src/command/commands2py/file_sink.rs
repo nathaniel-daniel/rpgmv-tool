@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use anyhow::Context;
 use std::fs::File;
 use std::io::BufWriter;
@@ -16,12 +17,30 @@ pub enum FileSink {
 }
 
 impl FileSink {
+    /// Make a new [`FileSink`].
+    pub fn new<P>(path: P, dry_run: bool, overwrite: bool) -> anyhow::Result<Self>
+    where
+        P: AsRef<Path>,
+    {
+        if dry_run {
+            Ok(FileSink::new_empty())
+        } else {
+            FileSink::new_file(path, overwrite)
+        }
+    }
+
     /// Create a new file variant.
-    pub fn new_file<P>(path: P) -> anyhow::Result<Self>
+    pub fn new_file<P>(path: P, overwrite: bool) -> anyhow::Result<Self>
     where
         P: AsRef<Path>,
     {
         let path = path.as_ref();
+        ensure!(
+            !(!overwrite && path.try_exists()?),
+            "output path \"{}\" already exists. Use the --overwrite flag to overwrite.",
+            path.display()
+        );
+
         let path_temp = nd_util::with_push_extension(path, "tmp");
         let file = File::create(&path_temp)
             .with_context(|| format!("failed to open \"{}\"", path_temp.display()))?;

@@ -62,9 +62,23 @@ pub struct Options {
         default = "PathBuf::from(\"out.py\")"
     )]
     output: PathBuf,
+
+    #[argh(
+        switch,
+        long = "overwrite",
+        description = "whether to overwrite the output, if it exists"
+    )]
+    overwrite: bool,
 }
 
 pub fn exec(options: Options) -> anyhow::Result<()> {
+    /*
+    let current_exe = std::env::current_exe().context("failed to get current exe")?;
+    let current_exe_modified = std::fs::metadata(current_exe)
+        .context("failed to get metadata for current exe")?
+        .modified();
+    */
+
     let config = match options.config {
         Some(config) => Config::from_path(&config)
             .with_context(|| format!("failed to load config from \"{}\"", config.display()))?,
@@ -78,35 +92,48 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
         )
     })?;
     dump_file(
-        &options.input,
         input_file_kind,
-        options.id,
-        options.event_page,
-        options.dry_run,
         &config,
-        &options.output,
+        DumpFileOptions {
+            input: &options.input,
+
+            id: options.id,
+            event_page: options.event_page,
+
+            output: &options.output,
+            dry_run: options.dry_run,
+            overwrite: options.overwrite,
+        },
     )?;
 
     Ok(())
 }
 
-fn dump_file(
-    input: &Path,
-    input_file_kind: FileKind,
+#[derive(Debug)]
+struct DumpFileOptions<'a> {
+    input: &'a Path,
+
     id: u32,
     event_page: Option<u16>,
+
+    output: &'a Path,
     dry_run: bool,
+    overwrite: bool,
+}
+
+fn dump_file(
+    input_file_kind: FileKind,
     config: &Config,
-    output: &Path,
+    options: DumpFileOptions<'_>,
 ) -> anyhow::Result<()> {
-    let input_str = std::fs::read_to_string(input)
-        .with_context(|| format!("failed to read \"{}\"", input.display()))?;
+    let input_str = std::fs::read_to_string(options.input)
+        .with_context(|| format!("failed to read \"{}\"", options.input.display()))?;
     let event_commands = match input_file_kind {
         FileKind::Map => {
             let mut map: rpgmv_types::Map = serde_json::from_str(&input_str)
-                .with_context(|| format!("failed to parse \"{}\"", input.display()))?;
+                .with_context(|| format!("failed to parse \"{}\"", options.input.display()))?;
 
-            let mut event = usize::try_from(id)
+            let mut event = usize::try_from(options.id)
                 .ok()
                 .and_then(|id| {
                     if id >= map.events.len() {
@@ -115,10 +142,10 @@ fn dump_file(
 
                     map.events.swap_remove(id)
                 })
-                .with_context(|| format!("no event with id {id}"))?;
-            ensure!(event.id == id);
+                .with_context(|| format!("no event with id {}", options.id))?;
+            ensure!(event.id == options.id);
 
-            let event_page_index = match event_page {
+            let event_page_index = match options.event_page {
                 Some(event_page) => event_page,
                 None if event.pages.len() == 1 => 0,
                 None => {
@@ -139,9 +166,9 @@ fn dump_file(
         FileKind::CommonEvents => {
             let mut common_events: Vec<Option<rpgmv_types::CommonEvent>> =
                 serde_json::from_str(&input_str)
-                    .with_context(|| format!("failed to parse \"{}\"", input.display()))?;
+                    .with_context(|| format!("failed to parse \"{}\"", options.input.display()))?;
 
-            let event = usize::try_from(id)
+            let event = usize::try_from(options.id)
                 .ok()
                 .and_then(|event_id| {
                     if event_id >= common_events.len() {
@@ -150,11 +177,11 @@ fn dump_file(
 
                     common_events.swap_remove(event_id)
                 })
-                .with_context(|| format!("no event with id {id}"))?;
-            ensure!(event.id == id);
+                .with_context(|| format!("no event with id {}", options.id))?;
+            ensure!(event.id == options.id);
 
             ensure!(
-                event_page.is_none(),
+                options.event_page.is_none(),
                 "common events do not have pages, remove the --event-page option"
             );
 
@@ -162,9 +189,9 @@ fn dump_file(
         }
         FileKind::Troops => {
             let mut troops: Vec<Option<rpgmv_types::Troop>> = serde_json::from_str(&input_str)
-                .with_context(|| format!("failed to parse \"{}\"", input.display()))?;
+                .with_context(|| format!("failed to parse \"{}\"", options.input.display()))?;
 
-            let mut troop = usize::try_from(id)
+            let mut troop = usize::try_from(options.id)
                 .ok()
                 .and_then(|event_id| {
                     if event_id >= troops.len() {
@@ -173,9 +200,9 @@ fn dump_file(
 
                     troops.swap_remove(event_id)
                 })
-                .with_context(|| format!("no troop with id {id}"))?;
+                .with_context(|| format!("no troop with id {}", options.id))?;
 
-            let event_page_index = match event_page {
+            let event_page_index = match options.event_page {
                 Some(event_page) => event_page,
                 None if troop.pages.len() == 1 => 0,
                 None => {
@@ -200,11 +227,7 @@ fn dump_file(
 
     let commands =
         parse_event_command_list(&event_commands).context("failed to parse event command list")?;
-    let mut file_sink = if dry_run {
-        FileSink::new_empty()
-    } else {
-        FileSink::new_file(output)?
-    };
+    let mut file_sink = FileSink::new(options.output, options.dry_run, options.overwrite)?;
 
     commands2py(config, &commands, &mut file_sink)?;
 
