@@ -96,9 +96,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
             let config_mtime = std::fs::metadata(config)
                 .context("failed to get file metadata for config")?
                 .modified()?;
-            if largest_mtime < config_mtime {
-                largest_mtime = config_mtime;
-            }
+            largest_mtime = std::cmp::max(largest_mtime, config_mtime);
         }
 
         Some(largest_mtime)
