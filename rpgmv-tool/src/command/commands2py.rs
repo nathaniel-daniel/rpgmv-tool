@@ -1,5 +1,6 @@
 mod command;
 mod config;
+mod file_sink;
 mod generate;
 
 use self::command::parse_event_command_list;
@@ -9,14 +10,14 @@ use self::command::ControlVariablesValue;
 use self::command::ControlVariablesValueGameData;
 use self::command::MaybeRef;
 use self::config::Config;
+use self::file_sink::FileSink;
 use self::generate::commands2py;
 use anyhow::bail;
 use anyhow::ensure;
 use anyhow::Context;
-use std::fs::File;
-use std::io::BufWriter;
 use std::path::Path;
 use std::path::PathBuf;
+use std::time::SystemTime;
 
 #[derive(Debug, argh::FromArgs)]
 #[argh(
@@ -34,7 +35,7 @@ pub struct Options {
     input: PathBuf,
 
     #[argh(option, long = "id", description = "id of the item to convert")]
-    id: u32,
+    id: Option<u32>,
 
     #[argh(option, long = "event-page", description = "the event page to convert")]
     event_page: Option<u16>,
@@ -58,27 +59,360 @@ pub struct Options {
         option,
         long = "output",
         short = 'o',
-        description = "the path to the output file",
-        default = "PathBuf::from(\"out.py\")"
+        description = "the path to the output file"
     )]
-    output: PathBuf,
+    output: Option<PathBuf>,
+
+    #[argh(
+        switch,
+        long = "overwrite",
+        description = "whether to overwrite the output, if it exists"
+    )]
+    overwrite: bool,
+
+    #[argh(
+        switch,
+        long = "use-mtimes",
+        description = "check mtimes to skip assets that don't need to be converted again"
+    )]
+    use_mtimes: bool,
 }
 
 pub fn exec(options: Options) -> anyhow::Result<()> {
+    ensure!(
+        options.overwrite || !options.use_mtimes,
+        "the --use-mtimes flag must be used with the --overwrite flag"
+    );
+
+    let largest_mtime = if options.use_mtimes {
+        let current_exe = std::env::current_exe().context("failed to get current exe")?;
+        let current_exe_mtime = std::fs::metadata(current_exe)
+            .context("failed to get metadata for current exe")?
+            .modified()?;
+
+        let mut largest_mtime = current_exe_mtime;
+
+        if let Some(config) = options.config.as_ref() {
+            let config_mtime = std::fs::metadata(config)
+                .context("failed to get file metadata for config")?
+                .modified()?;
+            largest_mtime = std::cmp::max(largest_mtime, config_mtime);
+        }
+
+        Some(largest_mtime)
+    } else {
+        None
+    };
+
     let config = match options.config {
         Some(config) => Config::from_path(&config)
             .with_context(|| format!("failed to load config from \"{}\"", config.display()))?,
         None => Config::default(),
     };
 
-    let input_file_kind = FileKind::new(&options.input, true).with_context(|| {
-        format!(
-            "failed to determine file kind for \"{}\"",
-            options.input.display()
-        )
-    })?;
-    let input_str = std::fs::read_to_string(&options.input)
+    let input_file_kind = FileKind::new(&options.input, true)
+        .map(|kind| kind.context("unknown file type"))
+        .and_then(std::convert::identity)
+        .with_context(|| {
+            format!(
+                "failed to determine file kind for \"{}\"",
+                options.input.display()
+            )
+        })?;
+
+    if input_file_kind.is_dir() {
+        let output = options.output.as_deref().unwrap_or("out".as_ref());
+        ensure!(
+            options.id.is_none(),
+            "the --id flag is unsupported for directories"
+        );
+        ensure!(
+            options.event_page.is_none(),
+            "the --event-page flag is unsupported for directories"
+        );
+
+        dump_dir(
+            &options.input,
+            options.dry_run,
+            options.overwrite,
+            &config,
+            largest_mtime,
+            output,
+        )?;
+    } else {
+        let id = options
+            .id
+            .context("the item id must be specified with the --id option")?;
+        let output = options.output.as_deref().unwrap_or("out.py".as_ref());
+
+        dump_file(
+            input_file_kind,
+            largest_mtime,
+            DumpFileOptions {
+                input: &options.input,
+
+                config: &config,
+                id,
+                event_page: options.event_page,
+
+                output,
+                dry_run: options.dry_run,
+                overwrite: options.overwrite,
+            },
+        )?;
+    }
+
+    Ok(())
+}
+
+fn dump_dir(
+    input: &Path,
+    dry_run: bool,
+    overwrite: bool,
+    config: &Config,
+    largest_mtime: Option<SystemTime>,
+    output: &Path,
+) -> anyhow::Result<()> {
+    ensure!(
+        overwrite || !output.try_exists()?,
+        "output path \"{}\" already exists. Use the --overwrite flag to overwrite",
+        output.display()
+    );
+    if !dry_run {
+        try_create_dir(output).context("failed to create output dir")?;
+    }
+
+    for dir_entry in std::fs::read_dir(input)? {
+        let dir_entry = dir_entry?;
+        let file_type = dir_entry.file_type()?;
+
+        if file_type.is_dir() {
+            continue;
+        }
+
+        let input = dir_entry.path();
+        let input_file_kind = FileKind::new(&input, false).with_context(|| {
+            format!("failed to determine file kind for \"{}\"", input.display())
+        })?;
+        let input_str = std::fs::read_to_string(&input)
+            .with_context(|| format!("failed to read \"{}\"", input.display()))?;
+
+        let mut output = output.to_path_buf();
+        let input_file_kind = match input_file_kind {
+            Some(input_file_kind) => input_file_kind,
+            None => continue,
+        };
+        match input_file_kind {
+            FileKind::Map => {
+                output.push("maps");
+
+                let file_stem = input
+                    .file_stem()
+                    .context("missing file stem")?
+                    .to_str()
+                    .context("map name is not valid unicode")?;
+                let map_id = extract_map_id(file_stem)?.context("missing map id")?;
+
+                output.push(format!("{map_id:03}"));
+
+                let map: rpgmv_types::Map = serde_json::from_str(&input_str)
+                    .with_context(|| format!("failed to parse \"{}\"", input.display()))?;
+
+                for (event_id, event) in map.events.iter().enumerate() {
+                    let event = match event {
+                        Some(event) => event,
+                        None => continue,
+                    };
+                    let event_id_u32 = u32::try_from(event_id)?;
+
+                    for (page_index, page) in event.pages.iter().enumerate() {
+                        if page.list.iter().all(|command| command.code == 0) {
+                            continue;
+                        }
+                        let page_index_u16 = u16::try_from(page_index)?;
+
+                        let file_name =
+                            format!("event_{event_id_u32:02}_page_{page_index_u16:02}.py");
+                        let output = output.join(file_name);
+
+                        if !dry_run {
+                            if let Some(parent) = output.parent() {
+                                std::fs::create_dir_all(parent).with_context(|| {
+                                    format!("failed to create dir at\"{}\"", parent.display())
+                                })?;
+                            }
+                        }
+
+                        dump_file(
+                            input_file_kind,
+                            largest_mtime,
+                            DumpFileOptions {
+                                input: &input,
+
+                                config,
+                                id: event_id_u32,
+                                event_page: Some(page_index_u16),
+
+                                output: &output,
+                                dry_run,
+                                overwrite,
+                            },
+                        )?;
+                    }
+                }
+            }
+            FileKind::CommonEvents => {
+                output.push("common-events");
+
+                let common_events: Vec<Option<rpgmv_types::CommonEvent>> =
+                    serde_json::from_str(&input_str)
+                        .with_context(|| format!("failed to parse \"{}\"", input.display()))?;
+
+                for (common_event_id, common_event) in common_events.iter().enumerate() {
+                    let common_event = match common_event {
+                        Some(common_event) => common_event,
+                        None => {
+                            continue;
+                        }
+                    };
+                    let common_event_id_u32 = u32::try_from(common_event_id)?;
+
+                    let event_name = config
+                        .common_events
+                        .get(&common_event_id_u32)
+                        .unwrap_or(&common_event.name);
+                    let output_file_name = format!("{common_event_id_u32:02}_{event_name}.py");
+                    let output = output.join(output_file_name);
+
+                    if !dry_run {
+                        if let Some(parent) = output.parent() {
+                            std::fs::create_dir_all(parent).with_context(|| {
+                                format!("failed to create dir at\"{}\"", parent.display())
+                            })?;
+                        }
+                    }
+
+                    dump_file(
+                        input_file_kind,
+                        largest_mtime,
+                        DumpFileOptions {
+                            input: &input,
+
+                            config,
+                            id: common_event_id_u32,
+                            event_page: None,
+
+                            output: &output,
+                            dry_run,
+                            overwrite,
+                        },
+                    )?;
+                }
+            }
+            FileKind::Troops => {
+                output.push("troops");
+
+                let troops: Vec<Option<rpgmv_types::Troop>> = serde_json::from_str(&input_str)
+                    .with_context(|| format!("failed to parse \"{}\"", input.display()))?;
+
+                for (troop_id, troop) in troops.iter().enumerate() {
+                    let troop = match troop {
+                        Some(troop) => troop,
+                        None => {
+                            continue;
+                        }
+                    };
+                    let troop_id_u32 = u32::try_from(troop_id)?;
+                    let troop_name = troop.name.replace('*', "＊");
+
+                    for (page_index, page) in troop.pages.iter().enumerate() {
+                        let page_index_u16 = u16::try_from(page_index)?;
+
+                        if page.list.iter().all(|command| command.code == 0) {
+                            continue;
+                        }
+
+                        let output_file_name =
+                            format!("{troop_id_u32:02}_page_{page_index:02}_{troop_name}.py");
+                        let output = output.join(output_file_name);
+
+                        if !dry_run {
+                            if let Some(parent) = output.parent() {
+                                std::fs::create_dir_all(parent).with_context(|| {
+                                    format!("failed to create dir at\"{}\"", parent.display())
+                                })?;
+                            }
+                        }
+
+                        dump_file(
+                            input_file_kind,
+                            largest_mtime,
+                            DumpFileOptions {
+                                input: &input,
+
+                                config,
+                                id: troop_id_u32,
+                                event_page: Some(page_index_u16),
+
+                                output: &output,
+                                dry_run,
+                                overwrite,
+                            },
+                        )?;
+                    }
+                }
+            }
+            FileKind::Dir => {
+                bail!("input is a dir");
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[derive(Debug)]
+struct DumpFileOptions<'a> {
+    input: &'a Path,
+
+    config: &'a Config,
+    id: u32,
+    event_page: Option<u16>,
+
+    output: &'a Path,
+    dry_run: bool,
+    overwrite: bool,
+}
+
+fn dump_file(
+    input_file_kind: FileKind,
+    last_mtime: Option<SystemTime>,
+    options: DumpFileOptions<'_>,
+) -> anyhow::Result<()> {
+    let input_str = std::fs::read_to_string(options.input)
         .with_context(|| format!("failed to read \"{}\"", options.input.display()))?;
+    let input_mtime = std::fs::metadata(options.input)
+        .with_context(|| format!("failed to get metadata for \"{}\"", options.input.display()))?
+        .modified()?;
+    let output_mtime = match std::fs::metadata(options.output) {
+        Ok(metadata) => Some(metadata.modified()?),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => {
+            return Err(error).with_context(|| {
+                format!("failed to get metadata for \"{}\"", options.input.display())
+            })?;
+        }
+    };
+    if options.overwrite {
+        if let (Some(last_mtime), Some(output_mtime)) = (last_mtime, output_mtime) {
+            let last_mtime = std::cmp::max(last_mtime, input_mtime);
+
+            if last_mtime < output_mtime {
+                return Ok(());
+            }
+        }
+    }
+
     let event_commands = match input_file_kind {
         FileKind::Map => {
             let mut map: rpgmv_types::Map = serde_json::from_str(&input_str)
@@ -172,93 +506,19 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
             event_page.list
         }
         FileKind::Dir => {
-            bail!("input is a dir. This is currently unsupported.");
+            bail!("input is a dir");
         }
     };
 
     let commands =
         parse_event_command_list(&event_commands).context("failed to parse event command list")?;
-    let mut file_sink = if options.dry_run {
-        FileSink::new_empty()
-    } else {
-        FileSink::new_file(&options.output)?
-    };
+    let mut file_sink = FileSink::new(options.output, options.dry_run, options.overwrite)?;
 
-    commands2py(&config, &commands, &mut file_sink)?;
+    commands2py(options.config, &commands, &mut file_sink)?;
 
     file_sink.finish()?;
 
     Ok(())
-}
-
-#[derive(Debug)]
-pub enum FileSink {
-    File {
-        path: PathBuf,
-        path_temp: PathBuf,
-        file: BufWriter<File>,
-    },
-    Empty,
-}
-
-impl FileSink {
-    /// Create a new file variant.
-    pub fn new_file<P>(path: P) -> anyhow::Result<Self>
-    where
-        P: AsRef<Path>,
-    {
-        let path = path.as_ref();
-        let path_temp = nd_util::with_push_extension(path, "tmp");
-        let file = File::create(&path_temp)
-            .with_context(|| format!("failed to open \"{}\"", path_temp.display()))?;
-        let file = BufWriter::new(file);
-
-        Ok(Self::File {
-            path: path.to_path_buf(),
-            path_temp,
-            file,
-        })
-    }
-
-    /// Create a new empty variant.
-    pub fn new_empty() -> Self {
-        Self::Empty
-    }
-
-    /// Finish using this file sink, writing the result.
-    pub fn finish(self) -> anyhow::Result<()> {
-        match self {
-            Self::File {
-                path,
-                path_temp,
-                file,
-            } => {
-                let file = file.into_inner()?;
-                file.sync_all()?;
-
-                std::fs::rename(&path_temp, path)?;
-
-                Ok(())
-            }
-            Self::Empty => Ok(()),
-        }
-    }
-}
-
-impl std::io::Write for FileSink {
-    fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
-        match self {
-            Self::File { file, .. } => file.write(buffer),
-            Self::Empty => Ok(buffer.len()),
-        }
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        match self {
-            Self::File { file, .. } => file.flush(),
-            Self::Empty => Ok(()),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -271,7 +531,7 @@ enum FileKind {
 
 impl FileKind {
     /// Try to extract a file kind from a path.
-    pub fn new(path: &Path, allow_dir: bool) -> anyhow::Result<Self> {
+    pub fn new(path: &Path, allow_dir: bool) -> anyhow::Result<Option<Self>> {
         let metadata = match path.metadata() {
             Ok(metadata) => metadata,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -295,21 +555,57 @@ impl FileKind {
                 .context("file name has no extension")?;
             ensure!(extension == "json", "file must be json");
 
-            if let Some(n) = file_stem.strip_prefix("Map") {
-                if n.chars().all(|c| c.is_ascii_alphanumeric()) {
-                    return Ok(Self::Map);
-                }
+            if extract_map_id(file_stem)?.is_some() {
+                return Ok(Some(Self::Map));
             }
 
             match file_stem {
-                "CommonEvents" => return Ok(Self::CommonEvents),
-                "Troops" => return Ok(Self::Troops),
+                "CommonEvents" => return Ok(Some(Self::CommonEvents)),
+                "Troops" => return Ok(Some(Self::Troops)),
                 _ => {}
             }
         } else if allow_dir {
-            return Ok(Self::Dir);
+            return Ok(Some(Self::Dir));
         }
 
-        bail!("unknown file type")
+        Ok(None)
+    }
+
+    /// Returns `true` if this is a dir.
+    pub fn is_dir(self) -> bool {
+        matches!(self, Self::Dir)
+    }
+}
+
+/// Extracts the map number from a file name.
+///
+/// # Returns
+/// Returns `None` if this is not a map.
+fn extract_map_id(file_stem: &str) -> anyhow::Result<Option<u16>> {
+    let n = match file_stem.strip_prefix("Map") {
+        Some(n) => n,
+        None => return Ok(None),
+    };
+
+    if !n.chars().all(|c| c.is_ascii_digit()) {
+        return Ok(None);
+    }
+
+    let n: u16 = n.parse().context("failed to parse map number")?;
+
+    Ok(Some(n))
+}
+
+/// Try to create a dir.
+///
+/// Returns false if the dir already exists.
+fn try_create_dir<P>(path: P) -> std::io::Result<bool>
+where
+    P: AsRef<Path>,
+{
+    match std::fs::create_dir(path) {
+        Ok(()) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Ok(false),
+        Err(error) => Err(error),
     }
 }
