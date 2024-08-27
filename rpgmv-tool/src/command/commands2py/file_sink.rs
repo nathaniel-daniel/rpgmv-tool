@@ -36,7 +36,7 @@ impl FileSink {
     {
         let path = path.as_ref();
         ensure!(
-            !(!overwrite && path.try_exists()?),
+            overwrite || !path.try_exists()?,
             "output path \"{}\" already exists. Use the --overwrite flag to overwrite.",
             path.display()
         );
