@@ -1,5 +1,6 @@
 mod command;
 mod config;
+mod file_sink;
 mod generate;
 
 use self::command::parse_event_command_list;
@@ -9,12 +10,11 @@ use self::command::ControlVariablesValue;
 use self::command::ControlVariablesValueGameData;
 use self::command::MaybeRef;
 use self::config::Config;
+use self::file_sink::FileSink;
 use self::generate::commands2py;
 use anyhow::bail;
 use anyhow::ensure;
 use anyhow::Context;
-use std::fs::File;
-use std::io::BufWriter;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -77,14 +77,36 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
             options.input.display()
         )
     })?;
-    let input_str = std::fs::read_to_string(&options.input)
-        .with_context(|| format!("failed to read \"{}\"", options.input.display()))?;
+    dump_file(
+        &options.input,
+        input_file_kind,
+        options.id,
+        options.event_page,
+        options.dry_run,
+        &config,
+        &options.output,
+    )?;
+
+    Ok(())
+}
+
+fn dump_file(
+    input: &Path,
+    input_file_kind: FileKind,
+    id: u32,
+    event_page: Option<u16>,
+    dry_run: bool,
+    config: &Config,
+    output: &Path,
+) -> anyhow::Result<()> {
+    let input_str = std::fs::read_to_string(input)
+        .with_context(|| format!("failed to read \"{}\"", input.display()))?;
     let event_commands = match input_file_kind {
         FileKind::Map => {
             let mut map: rpgmv_types::Map = serde_json::from_str(&input_str)
-                .with_context(|| format!("failed to parse \"{}\"", options.input.display()))?;
+                .with_context(|| format!("failed to parse \"{}\"", input.display()))?;
 
-            let mut event = usize::try_from(options.id)
+            let mut event = usize::try_from(id)
                 .ok()
                 .and_then(|id| {
                     if id >= map.events.len() {
@@ -93,10 +115,10 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
 
                     map.events.swap_remove(id)
                 })
-                .with_context(|| format!("no event with id {}", options.id))?;
-            ensure!(event.id == options.id);
+                .with_context(|| format!("no event with id {id}"))?;
+            ensure!(event.id == id);
 
-            let event_page_index = match options.event_page {
+            let event_page_index = match event_page {
                 Some(event_page) => event_page,
                 None if event.pages.len() == 1 => 0,
                 None => {
@@ -117,9 +139,9 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
         FileKind::CommonEvents => {
             let mut common_events: Vec<Option<rpgmv_types::CommonEvent>> =
                 serde_json::from_str(&input_str)
-                    .with_context(|| format!("failed to parse \"{}\"", options.input.display()))?;
+                    .with_context(|| format!("failed to parse \"{}\"", input.display()))?;
 
-            let event = usize::try_from(options.id)
+            let event = usize::try_from(id)
                 .ok()
                 .and_then(|event_id| {
                     if event_id >= common_events.len() {
@@ -128,11 +150,11 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
 
                     common_events.swap_remove(event_id)
                 })
-                .with_context(|| format!("no event with id {}", options.id))?;
-            ensure!(event.id == options.id);
+                .with_context(|| format!("no event with id {id}"))?;
+            ensure!(event.id == id);
 
             ensure!(
-                options.event_page.is_none(),
+                event_page.is_none(),
                 "common events do not have pages, remove the --event-page option"
             );
 
@@ -140,9 +162,9 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
         }
         FileKind::Troops => {
             let mut troops: Vec<Option<rpgmv_types::Troop>> = serde_json::from_str(&input_str)
-                .with_context(|| format!("failed to parse \"{}\"", options.input.display()))?;
+                .with_context(|| format!("failed to parse \"{}\"", input.display()))?;
 
-            let mut troop = usize::try_from(options.id)
+            let mut troop = usize::try_from(id)
                 .ok()
                 .and_then(|event_id| {
                     if event_id >= troops.len() {
@@ -151,9 +173,9 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
 
                     troops.swap_remove(event_id)
                 })
-                .with_context(|| format!("no troop with id {}", options.id))?;
+                .with_context(|| format!("no troop with id {id}"))?;
 
-            let event_page_index = match options.event_page {
+            let event_page_index = match event_page {
                 Some(event_page) => event_page,
                 None if troop.pages.len() == 1 => 0,
                 None => {
@@ -172,93 +194,23 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
             event_page.list
         }
         FileKind::Dir => {
-            bail!("input is a dir. This is currently unsupported.");
+            bail!("input is a dir");
         }
     };
 
     let commands =
         parse_event_command_list(&event_commands).context("failed to parse event command list")?;
-    let mut file_sink = if options.dry_run {
+    let mut file_sink = if dry_run {
         FileSink::new_empty()
     } else {
-        FileSink::new_file(&options.output)?
+        FileSink::new_file(output)?
     };
 
-    commands2py(&config, &commands, &mut file_sink)?;
+    commands2py(config, &commands, &mut file_sink)?;
 
     file_sink.finish()?;
 
     Ok(())
-}
-
-#[derive(Debug)]
-pub enum FileSink {
-    File {
-        path: PathBuf,
-        path_temp: PathBuf,
-        file: BufWriter<File>,
-    },
-    Empty,
-}
-
-impl FileSink {
-    /// Create a new file variant.
-    pub fn new_file<P>(path: P) -> anyhow::Result<Self>
-    where
-        P: AsRef<Path>,
-    {
-        let path = path.as_ref();
-        let path_temp = nd_util::with_push_extension(path, "tmp");
-        let file = File::create(&path_temp)
-            .with_context(|| format!("failed to open \"{}\"", path_temp.display()))?;
-        let file = BufWriter::new(file);
-
-        Ok(Self::File {
-            path: path.to_path_buf(),
-            path_temp,
-            file,
-        })
-    }
-
-    /// Create a new empty variant.
-    pub fn new_empty() -> Self {
-        Self::Empty
-    }
-
-    /// Finish using this file sink, writing the result.
-    pub fn finish(self) -> anyhow::Result<()> {
-        match self {
-            Self::File {
-                path,
-                path_temp,
-                file,
-            } => {
-                let file = file.into_inner()?;
-                file.sync_all()?;
-
-                std::fs::rename(&path_temp, path)?;
-
-                Ok(())
-            }
-            Self::Empty => Ok(()),
-        }
-    }
-}
-
-impl std::io::Write for FileSink {
-    fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
-        match self {
-            Self::File { file, .. } => file.write(buffer),
-            Self::Empty => Ok(buffer.len()),
-        }
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        match self {
-            Self::File { file, .. } => file.flush(),
-            Self::Empty => Ok(()),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
