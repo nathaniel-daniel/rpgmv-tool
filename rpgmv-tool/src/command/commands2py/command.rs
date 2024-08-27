@@ -415,6 +415,132 @@ impl Command {
         })
     }
 
+    fn parse_control_variables(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ensure!(event_command.parameters.len() >= 4);
+        let start_variable_id = event_command.parameters[0]
+            .as_i64()
+            .and_then(|value| u32::try_from(value).ok())
+            .context("`start_variable_id` is not a `u32`")?;
+        let end_variable_id = event_command.parameters[1]
+            .as_i64()
+            .and_then(|value| u32::try_from(value).ok())
+            .context("`end_variable_id` is not a `u32`")?;
+        let operate_variable_operation = event_command.parameters[2]
+            .as_i64()
+            .and_then(|value| u8::try_from(value).ok())
+            .context("`control_variables_operation` is not a `u8`")?;
+        let operate_variable_operation =
+            OperateVariableOperation::from_u8(operate_variable_operation)?;
+        let control_variables_operation = event_command.parameters[3]
+            .as_i64()
+            .and_then(|value| u8::try_from(value).ok())
+            .context("`control_variables_operation` is not a `u8`")?;
+        let control_variables_operation =
+            ControlVariablesOperation::from_u8(control_variables_operation)?;
+
+        let value = match control_variables_operation {
+            ControlVariablesOperation::Const => {
+                ensure!(event_command.parameters.len() == 5);
+
+                let value = event_command.parameters[4]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`value` is not a `u32`")?;
+
+                ControlVariablesValue::Constant { value }
+            }
+            ControlVariablesOperation::Var => {
+                ensure!(event_command.parameters.len() == 5);
+
+                let id = event_command.parameters[4]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`id` is not a `u32`")?;
+
+                ControlVariablesValue::Variable { id }
+            }
+            ControlVariablesOperation::Random => {
+                ensure!(event_command.parameters.len() == 6);
+                let start = event_command.parameters[4]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`start` is not a `u32`")?;
+                let stop = event_command.parameters[5]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`stop` is not a `u32`")?;
+
+                ControlVariablesValue::Random { start, stop }
+            }
+            ControlVariablesOperation::GameData => {
+                ensure!(event_command.parameters.len() == 7);
+                let kind = event_command.parameters[4]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`kind` is not a `u8`")?;
+                let kind = GameDataOperandKind::from_u8(kind)?;
+                let param1 = event_command.parameters[5]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`param1` is not a `u32`")?;
+                let param2 = event_command.parameters[6]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`param2` is not a `u32`")?;
+
+                let inner = match kind {
+                    GameDataOperandKind::Item => {
+                        let item_id = param1;
+
+                        ControlVariablesValueGameData::NumItems { item_id }
+                    }
+                    GameDataOperandKind::Actor => {
+                        let actor_id = param1;
+                        let check = u8::try_from(param2).context("`check` is not a `u8`")?;
+                        let check = GameDataOperandKindActorCheck::from_u8(check)?;
+
+                        match check {
+                            GameDataOperandKindActorCheck::Level => {
+                                ControlVariablesValueGameData::ActorLevel { actor_id }
+                            }
+                            _ => bail!("GameDataOperandKindActorCheck {check:?} is not supported"),
+                        }
+                    }
+                    GameDataOperandKind::Other => {
+                        let check = u8::try_from(param1).context("`check` is not a `u8`")?;
+                        let check = GameDataOperandKindOtherCheck::from_u8(check)?;
+
+                        match check {
+                            GameDataOperandKindOtherCheck::MapId => {
+                                ControlVariablesValueGameData::MapId
+                            }
+                            GameDataOperandKindOtherCheck::Gold => {
+                                ControlVariablesValueGameData::Gold
+                            }
+                            _ => bail!("GameDataOperandKindOtherCheck {check:?} is not supported"),
+                        }
+                    }
+                    _ => {
+                        bail!("GameDataOperandKind {kind:?} is not supported")
+                    }
+                };
+
+                ControlVariablesValue::GameData(inner)
+            }
+            _ => {
+                let name = "ControlVariablesOperation";
+                bail!("{name} {control_variables_operation:?} is not supported")
+            }
+        };
+
+        Ok(Command::ControlVariables {
+            start_variable_id,
+            end_variable_id,
+            operation: operate_variable_operation,
+            value,
+        })
+    }
+
     fn parse_show_picture(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         ensure!(event_command.parameters.len() == 10);
         let picture_id = event_command.parameters[0]
@@ -656,137 +782,8 @@ pub fn parse_event_command_list(
                     value,
                 }
             }
-            (_, CommandCode::CONTROL_VARIABLES) => {
-                ensure!(event_command.parameters.len() >= 4);
-                let start_variable_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`start_variable_id` is not a `u32`")?;
-                let end_variable_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`end_variable_id` is not a `u32`")?;
-                let operate_variable_operation = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`control_variables_operation` is not a `u8`")?;
-                let operate_variable_operation =
-                    OperateVariableOperation::from_u8(operate_variable_operation)?;
-                let control_variables_operation = event_command.parameters[3]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`control_variables_operation` is not a `u8`")?;
-                let control_variables_operation =
-                    ControlVariablesOperation::from_u8(control_variables_operation)?;
-
-                let value = match control_variables_operation {
-                    ControlVariablesOperation::Const => {
-                        ensure!(event_command.parameters.len() == 5);
-
-                        let value = event_command.parameters[4]
-                            .as_i64()
-                            .and_then(|value| u32::try_from(value).ok())
-                            .context("`value` is not a `u32`")?;
-
-                        ControlVariablesValue::Constant { value }
-                    }
-                    ControlVariablesOperation::Var => {
-                        ensure!(event_command.parameters.len() == 5);
-
-                        let id = event_command.parameters[4]
-                            .as_i64()
-                            .and_then(|value| u32::try_from(value).ok())
-                            .context("`id` is not a `u32`")?;
-
-                        ControlVariablesValue::Variable { id }
-                    }
-                    ControlVariablesOperation::Random => {
-                        ensure!(event_command.parameters.len() == 6);
-                        let start = event_command.parameters[4]
-                            .as_i64()
-                            .and_then(|value| u32::try_from(value).ok())
-                            .context("`start` is not a `u32`")?;
-                        let stop = event_command.parameters[5]
-                            .as_i64()
-                            .and_then(|value| u32::try_from(value).ok())
-                            .context("`stop` is not a `u32`")?;
-
-                        ControlVariablesValue::Random { start, stop }
-                    }
-                    ControlVariablesOperation::GameData => {
-                        ensure!(event_command.parameters.len() == 7);
-                        let kind = event_command.parameters[4]
-                            .as_i64()
-                            .and_then(|value| u8::try_from(value).ok())
-                            .context("`kind` is not a `u8`")?;
-                        let kind = GameDataOperandKind::from_u8(kind)?;
-                        let param1 = event_command.parameters[5]
-                            .as_i64()
-                            .and_then(|value| u32::try_from(value).ok())
-                            .context("`param1` is not a `u32`")?;
-                        let param2 = event_command.parameters[6]
-                            .as_i64()
-                            .and_then(|value| u32::try_from(value).ok())
-                            .context("`param2` is not a `u32`")?;
-
-                        let inner = match kind {
-                            GameDataOperandKind::Item => {
-                                let item_id = param1;
-
-                                ControlVariablesValueGameData::NumItems { item_id }
-                            }
-                            GameDataOperandKind::Actor => {
-                                let actor_id = param1;
-                                let check =
-                                    u8::try_from(param2).context("`check` is not a `u8`")?;
-                                let check = GameDataOperandKindActorCheck::from_u8(check)?;
-
-                                match check {
-                                    GameDataOperandKindActorCheck::Level => {
-                                        ControlVariablesValueGameData::ActorLevel { actor_id }
-                                    }
-                                    _ => bail!(
-                                        "GameDataOperandKindActorCheck {check:?} is not supported"
-                                    ),
-                                }
-                            }
-                            GameDataOperandKind::Other => {
-                                let check =
-                                    u8::try_from(param1).context("`check` is not a `u8`")?;
-                                let check = GameDataOperandKindOtherCheck::from_u8(check)?;
-
-                                match check {
-                                    GameDataOperandKindOtherCheck::MapId => {
-                                        ControlVariablesValueGameData::MapId
-                                    }
-                                    GameDataOperandKindOtherCheck::Gold => {
-                                        ControlVariablesValueGameData::Gold
-                                    }
-                                    _ => bail!(
-                                        "GameDataOperandKindOtherCheck {check:?} is not supported"
-                                    ),
-                                }
-                            }
-                            _ => {
-                                bail!("GameDataOperandKind {kind:?} is not supported")
-                            }
-                        };
-
-                        ControlVariablesValue::GameData(inner)
-                    }
-                    _ => {
-                        let name = "ControlVariablesOperation";
-                        bail!("{name} {control_variables_operation:?} is not supported")
-                    }
-                };
-
-                Command::ControlVariables {
-                    start_variable_id,
-                    end_variable_id,
-                    operation: operate_variable_operation,
-                    value,
-                }
-            }
+            (_, CommandCode::CONTROL_VARIABLES) => Command::parse_control_variables(event_command)
+                .context("failed to parse CONTROL_VARIABLES command")?,
             (_, CommandCode::CONTROL_SELF_SWITCH) => {
                 ensure!(event_command.parameters.len() == 2);
                 let key = event_command.parameters[0]
