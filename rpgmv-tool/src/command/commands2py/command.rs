@@ -444,8 +444,8 @@ impl Command {
 
                 let value = event_command.parameters[4]
                     .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`value` is not a `u32`")?;
+                    .and_then(|value| i32::try_from(value).ok())
+                    .context("`value` is not an `i32`")?;
 
                 ControlVariablesValue::Constant { value }
             }
@@ -612,7 +612,7 @@ impl Command {
 
 #[derive(Debug)]
 pub enum ControlVariablesValue {
-    Constant { value: u32 },
+    Constant { value: i32 },
     Variable { id: u32 },
     Random { start: u32, stop: u32 },
     GameData(ControlVariablesValueGameData),
