@@ -463,12 +463,12 @@ impl Command {
                 ensure!(event_command.parameters.len() == 6);
                 let start = event_command.parameters[4]
                     .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`start` is not a `u32`")?;
+                    .and_then(|value| i32::try_from(value).ok())
+                    .context("`start` is not an `i32`")?;
                 let stop = event_command.parameters[5]
                     .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`stop` is not a `u32`")?;
+                    .and_then(|value| i32::try_from(value).ok())
+                    .context("`stop` is not an `i32`")?;
 
                 ControlVariablesValue::Random { start, stop }
             }
@@ -614,7 +614,7 @@ impl Command {
 pub enum ControlVariablesValue {
     Constant { value: i32 },
     Variable { id: u32 },
-    Random { start: u32, stop: u32 },
+    Random { start: i32, stop: i32 },
     GameData(ControlVariablesValueGameData),
 }
 
