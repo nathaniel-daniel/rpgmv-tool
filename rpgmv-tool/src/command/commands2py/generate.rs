@@ -427,6 +427,10 @@ where
                                     write_indent(&mut writer, indent + 5)?;
                                     writeln!(&mut writer, "{value},")?;
                                 }
+                                serde_json::Value::String(value) => {
+                                    write_indent(&mut writer, indent + 5)?;
+                                    writeln!(&mut writer, "{value},")?;
+                                }
                                 serde_json::Value::Object(object) => {
                                     write_indent(&mut writer, indent + 5)?;
                                     writeln!(&mut writer, "{{")?;
