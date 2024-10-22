@@ -178,6 +178,12 @@ where
                         "game_party.members.contains(actor={actor_name}):"
                     )?;
                 }
+                ConditionalBranchCommand::ActorSkill { actor_id, skill_id } => {
+                    let actor_name = config.get_actor_name(*actor_id);
+                    let skill_name = config.get_skill_name(*skill_id);
+
+                    writeln!(&mut writer, "{actor_name}.has_skill(skill={skill_name}):")?;
+                }
                 ConditionalBranchCommand::ActorArmor { actor_id, armor_id } => {
                     let actor_name = config.get_actor_name(*actor_id);
                     let armor_name = config.get_armor_name(*armor_id);

@@ -258,6 +258,16 @@ impl Command {
                         ensure!(event_command.parameters.len() == 3);
                         ConditionalBranchCommand::ActorInParty { actor_id }
                     }
+                    ConditionalBranchKindActorCheck::Skill => {
+                        ensure!(event_command.parameters.len() == 4);
+
+                        let skill_id = event_command.parameters[3]
+                            .as_i64()
+                            .and_then(|value| u32::try_from(value).ok())
+                            .context("`skill_id` is not a `u32`")?;
+
+                        ConditionalBranchCommand::ActorSkill { actor_id, skill_id }
+                    }
                     ConditionalBranchKindActorCheck::Armor => {
                         ensure!(event_command.parameters.len() == 4);
 
@@ -380,6 +390,10 @@ pub enum ConditionalBranchCommand {
     },
     ActorInParty {
         actor_id: u32,
+    },
+    ActorSkill {
+        actor_id: u32,
+        skill_id: u32,
     },
     ActorArmor {
         actor_id: u32,
