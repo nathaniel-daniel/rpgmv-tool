@@ -434,8 +434,9 @@ where
                                     writeln!(&mut writer, "{value},")?;
                                 }
                                 serde_json::Value::String(value) => {
+                                    let value = escape_string(value);
                                     write_indent(&mut writer, indent + 5)?;
-                                    writeln!(&mut writer, "{value},")?;
+                                    writeln!(&mut writer, "'{value}',")?;
                                 }
                                 serde_json::Value::Object(object) => {
                                     write_indent(&mut writer, indent + 5)?;

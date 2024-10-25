@@ -43,6 +43,7 @@ impl CommandCode {
     pub const CHANGE_TRANSPARENCY: Self = Self(211);
     pub const SHOW_ANIMATION: Self = Self(212);
     pub const SHOW_BALLOON_ICON: Self = Self(213);
+    pub const ERASE_EVENT: Self = Self(214);
 
     pub const CHANGE_PLAYER_FOLLOWERS: Self = Self(216);
 
