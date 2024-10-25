@@ -1,0 +1,1 @@
+window.ALL_CRATES = ["rpgmv_tool","rpgmv_types","rpgmvp"];
