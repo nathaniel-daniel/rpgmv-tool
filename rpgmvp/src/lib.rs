@@ -27,9 +27,6 @@ pub enum Error {
 
     #[error("the provided buffer is too small")]
     BufferTooSmall,
-
-    #[error("the reader cannot extract the key as it has already moved past it")]
-    PastKey,
 }
 
 #[cfg(test)]
@@ -60,7 +57,7 @@ mod test {
         let mut writer = Writer::new(&mut encrypted, key);
         writer.write_header().expect("failed to write header");
         writer.write_all(&decrypted).expect("failed to write body");
-        dbg!(ENCRYPTED.len(), encrypted.len());
+
         assert!(ENCRYPTED == encrypted);
     }
 }
