@@ -17,6 +17,13 @@ The simplest way to use this command is like so:
 rpgmv-tool commands2py -i <path-to-json> --id <item-id>
 ```
 
+### encrypt-png
+This is a tool that can encrypt pngs into the "rpgmvp" format.
+It can be used like so:
+```bash
+rpgmv-tool encrypt-png -i <path/to/png/file.png> -o <path/to/new/file.rpgmvp> -k <key as hex>
+```
+
 #### Arguments
 `-i / --input`: The path to the input JSON file. This is required.  
 `-o / --output`: The path to the output file. This is optional. It defaults to `./out.py`.  

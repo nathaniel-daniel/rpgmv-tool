@@ -125,7 +125,9 @@ fn decrypt_single_file(input: &Path, output: &Path) -> anyhow::Result<()> {
     let file = BufReader::new(file);
     let mut reader = rpgmvp::Reader::new(file);
     reader.read_header().context("invalid header")?;
-    reader.extract_key().context("failed to extract key")?;
+    let key = reader.extract_key().context("failed to extract key")?;
+    let key_hex = base16ct::lower::encode_string(&key);
+    println!("Key for \"{}\": {}", input.display(), key_hex);
 
     let output_tmp = nd_util::with_push_extension(output, "tmp");
     let mut writer = File::create(&output_tmp)
