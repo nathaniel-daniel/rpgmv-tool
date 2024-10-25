@@ -320,6 +320,12 @@ pub enum Command {
     Script {
         lines: Vec<String>,
     },
+    // We create these names based on how they are annotated in the RPGMaker code.
+    // We want to follow this naming.
+    #[expect(clippy::enum_variant_names)]
+    PluginCommand {
+        params: Vec<String>,
+    },
     When {
         choice_index: u32,
         choice_name: String,
@@ -444,8 +450,8 @@ impl Command {
 
                 let value = event_command.parameters[4]
                     .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`value` is not a `u32`")?;
+                    .and_then(|value| i32::try_from(value).ok())
+                    .context("`value` is not an `i32`")?;
 
                 ControlVariablesValue::Constant { value }
             }
@@ -463,12 +469,12 @@ impl Command {
                 ensure!(event_command.parameters.len() == 6);
                 let start = event_command.parameters[4]
                     .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`start` is not a `u32`")?;
+                    .and_then(|value| i32::try_from(value).ok())
+                    .context("`start` is not an `i32`")?;
                 let stop = event_command.parameters[5]
                     .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`stop` is not a `u32`")?;
+                    .and_then(|value| i32::try_from(value).ok())
+                    .context("`stop` is not an `i32`")?;
 
                 ControlVariablesValue::Random { start, stop }
             }
@@ -612,9 +618,9 @@ impl Command {
 
 #[derive(Debug)]
 pub enum ControlVariablesValue {
-    Constant { value: u32 },
+    Constant { value: i32 },
     Variable { id: u32 },
-    Random { start: u32, stop: u32 },
+    Random { start: i32, stop: i32 },
     GameData(ControlVariablesValueGameData),
 }
 
@@ -1285,6 +1291,16 @@ pub fn parse_event_command_list(
                     .to_string();
 
                 Command::Script { lines: vec![line] }
+            }
+            (_, CommandCode::PLUGIN_COMMAND) => {
+                ensure!(event_command.parameters.len() == 1);
+                let params = event_command.parameters[0]
+                    .as_str()
+                    .context("`params` is not a string")?;
+
+                Command::PluginCommand {
+                    params: params.split(' ').map(|value| value.to_string()).collect(),
+                }
             }
             (_, CommandCode::WHEN) => {
                 ensure!(event_command.parameters.len() == 2);

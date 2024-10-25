@@ -178,6 +178,12 @@ where
                         "game_party.members.contains(actor={actor_name}):"
                     )?;
                 }
+                ConditionalBranchCommand::ActorSkill { actor_id, skill_id } => {
+                    let actor_name = config.get_actor_name(*actor_id);
+                    let skill_name = config.get_skill_name(*skill_id);
+
+                    writeln!(&mut writer, "{actor_name}.has_skill(skill={skill_name}):")?;
+                }
                 ConditionalBranchCommand::ActorArmor { actor_id, armor_id } => {
                     let actor_name = config.get_actor_name(*actor_id);
                     let armor_name = config.get_armor_name(*armor_id);
@@ -426,6 +432,11 @@ where
 
                                     write_indent(&mut writer, indent + 5)?;
                                     writeln!(&mut writer, "{value},")?;
+                                }
+                                serde_json::Value::String(value) => {
+                                    let value = escape_string(value);
+                                    write_indent(&mut writer, indent + 5)?;
+                                    writeln!(&mut writer, "'{value}',")?;
                                 }
                                 serde_json::Value::Object(object) => {
                                     write_indent(&mut writer, indent + 5)?;
@@ -797,6 +808,18 @@ where
 
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "script(data=\'{data}\')")?;
+        }
+        Command::PluginCommand { params } => {
+            write_indent(&mut writer, indent)?;
+            write!(&mut writer, "plugin_command(")?;
+            for (i, param) in params.iter().enumerate() {
+                if i != 0 {
+                    write!(&mut writer, ", ")?;
+                }
+                let param = escape_string(param);
+                write!(&mut writer, "'{param}'")?;
+            }
+            writeln!(&mut writer, ")")?;
         }
         Command::When {
             choice_index,
