@@ -320,6 +320,12 @@ pub enum Command {
     Script {
         lines: Vec<String>,
     },
+    // We create these names based on how they are annotated in the RPGMaker code.
+    // We want to follow this naming.
+    #[expect(clippy::enum_variant_names)]
+    PluginCommand {
+        params: Vec<String>,
+    },
     When {
         choice_index: u32,
         choice_name: String,
@@ -1285,6 +1291,16 @@ pub fn parse_event_command_list(
                     .to_string();
 
                 Command::Script { lines: vec![line] }
+            }
+            (_, CommandCode::PLUGIN_COMMAND) => {
+                ensure!(event_command.parameters.len() == 1);
+                let params = event_command.parameters[0]
+                    .as_str()
+                    .context("`params` is not a string")?;
+
+                Command::PluginCommand {
+                    params: params.split(' ').map(|value| value.to_string()).collect(),
+                }
             }
             (_, CommandCode::WHEN) => {
                 ensure!(event_command.parameters.len() == 2);

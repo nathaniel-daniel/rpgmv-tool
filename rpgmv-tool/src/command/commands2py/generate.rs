@@ -809,6 +809,18 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "script(data=\'{data}\')")?;
         }
+        Command::PluginCommand { params } => {
+            write_indent(&mut writer, indent)?;
+            write!(&mut writer, "plugin_command(")?;
+            for (i, param) in params.iter().enumerate() {
+                if i != 0 {
+                    write!(&mut writer, ", ")?;
+                }
+                let param = escape_string(param);
+                write!(&mut writer, "'{param}'")?;
+            }
+            writeln!(&mut writer, ")")?;
+        }
         Command::When {
             choice_index,
             choice_name,

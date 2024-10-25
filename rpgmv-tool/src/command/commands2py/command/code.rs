@@ -94,6 +94,7 @@ impl CommandCode {
     pub const GAME_OVER: Self = Self(353);
 
     pub const SCRIPT: Self = Self(355);
+    pub const PLUGIN_COMMAND: Self = Self(356);
 
     pub const TEXT_DATA: Self = Self(401);
     pub const WHEN: Self = Self(402);
@@ -149,6 +150,7 @@ impl std::fmt::Debug for CommandCode {
             Self::CHANGE_TRANSPARENCY => write!(f, "CHANGE_TRANSPARENCY"),
             Self::SHOW_ANIMATION => write!(f, "SHOW_ANIMATION"),
             Self::SHOW_BALLOON_ICON => write!(f, "SHOW_BALLOON_ICON"),
+            Self::ERASE_EVENT => write!(f, "ERASE_EVENT"),
             Self::CHANGE_PLAYER_FOLLOWERS => write!(f, "CHANGE_PLAYER_FOLLOWERS"),
             Self::FADEOUT_SCREEN => write!(f, "FADEOUT_SCREEN"),
             Self::FADEIN_SCREEN => write!(f, "FADEIN_SCREEN"),
@@ -184,6 +186,7 @@ impl std::fmt::Debug for CommandCode {
             Self::OPEN_SAVE_SCREEN => write!(f, "OPEN_SAVE_SCREEN"),
             Self::GAME_OVER => write!(f, "GAME_OVER"),
             Self::SCRIPT => write!(f, "SCRIPT"),
+            Self::PLUGIN_COMMAND => write!(f, "PLUGIN_COMMAND"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
             Self::WHEN => write!(f, "WHEN"),
             Self::WHEN_CANCEL => write!(f, "WHEN_CANCEL"),
