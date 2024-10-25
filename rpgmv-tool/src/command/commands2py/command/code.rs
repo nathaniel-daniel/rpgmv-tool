@@ -19,6 +19,8 @@ impl CommandCode {
     pub const EXIT_EVENT_PROCESSING: Self = Self(115);
 
     pub const COMMON_EVENT: Self = Self(117);
+    pub const LABEL: Self = Self(118);
+    pub const JUMP_TO_LABEL: Self = Self(119);
 
     pub const CONTROL_SWITCHES: Self = Self(121);
     pub const CONTROL_VARIABLES: Self = Self(122);
@@ -133,6 +135,8 @@ impl std::fmt::Debug for CommandCode {
             Self::COMMENT => write!(f, "COMMENT"),
             Self::CONDITONAL_BRANCH => write!(f, "CONDITONAL_BRANCH"),
             Self::COMMON_EVENT => write!(f, "COMMON_EVENT"),
+            Self::LABEL => write!(f, "LABEL"),
+            Self::JUMP_TO_LABEL => write!(f, "JUMP_TO_LABEL"),
             Self::CONTROL_SWITCHES => write!(f, "CONTROL_SWITCHES"),
             Self::CONTROL_VARIABLES => write!(f, "CONTROL_VARIABLES"),
             Self::CONTROL_SELF_SWITCH => write!(f, "CONTROL_SELF_SWITCH"),
