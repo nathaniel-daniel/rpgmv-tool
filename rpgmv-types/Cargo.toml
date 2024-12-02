@@ -5,8 +5,8 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-serde = { version = "1.0.214", features = [ "derive" ] }
-serde_json = "1.0.132"
+serde = { version = "1.0.215", features = [ "derive" ] }
+serde_json = "1.0.133"
 
 [dev-dependencies]
 
