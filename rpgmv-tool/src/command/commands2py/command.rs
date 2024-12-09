@@ -528,6 +528,9 @@ impl Command {
                             GameDataOperandKindOtherCheck::Gold => {
                                 ControlVariablesValueGameData::Gold
                             }
+                            GameDataOperandKindOtherCheck::Steps => {
+                                ControlVariablesValueGameData::Steps
+                            }
                             _ => bail!("GameDataOperandKindOtherCheck {check:?} is not supported"),
                         }
                     }
@@ -635,6 +638,7 @@ pub enum ControlVariablesValueGameData {
     ActorLevel { actor_id: u32 },
     MapId,
     Gold,
+    Steps,
 }
 
 #[derive(Debug, Copy, Clone, Hash)]
@@ -1135,7 +1139,7 @@ pub fn parse_event_command_list(
                 Command::NameInputProcessing { actor_id, max_len }
             }
             (_, CommandCode::CHANGE_MP) => {
-                ensure!(event_command.parameters.len() == 6);
+                ensure!(event_command.parameters.len() == 5);
 
                 let is_actor_constant = event_command.parameters[0]
                     .as_i64()

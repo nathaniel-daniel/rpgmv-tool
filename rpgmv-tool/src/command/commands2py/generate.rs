@@ -283,6 +283,7 @@ where
                         format!("{name}.level")
                     }
                     ControlVariablesValueGameData::Gold => "game_party.gold".to_string(),
+                    ControlVariablesValueGameData::Steps => "game_party.steps".to_string(),
                     _ => bail!("ControlVariablesValueGameData {game_data:?} is not supported"),
                 },
             };
