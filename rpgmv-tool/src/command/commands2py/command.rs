@@ -140,6 +140,8 @@ impl GameDataOperandKindOtherCheck {
 pub enum GameDataOperandKindActorCheck {
     Level = 0,
     Exp = 1,
+    Hp = 2,
+    Mp = 3,
 }
 
 impl GameDataOperandKindActorCheck {
@@ -148,6 +150,8 @@ impl GameDataOperandKindActorCheck {
         match value {
             0 => Ok(Self::Level),
             1 => Ok(Self::Exp),
+            2 => Ok(Self::Hp),
+            3 => Ok(Self::Mp),
             _ => bail!("{value} is not a valid GameDataOperandKindActorCheck"),
         }
     }
@@ -514,6 +518,9 @@ impl Command {
                             GameDataOperandKindActorCheck::Level => {
                                 ControlVariablesValueGameData::ActorLevel { actor_id }
                             }
+                            GameDataOperandKindActorCheck::Mp => {
+                                ControlVariablesValueGameData::ActorMp { actor_id }
+                            }
                             _ => bail!("GameDataOperandKindActorCheck {check:?} is not supported"),
                         }
                     }
@@ -636,6 +643,7 @@ pub enum ControlVariablesValue {
 pub enum ControlVariablesValueGameData {
     NumItems { item_id: u32 },
     ActorLevel { actor_id: u32 },
+    ActorMp { actor_id: u32 },
     MapId,
     Gold,
     Steps,
