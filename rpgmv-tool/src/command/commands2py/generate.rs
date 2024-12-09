@@ -685,6 +685,30 @@ where
                 "name_input_processing(actor={actor}, max_len={max_len})"
             )?;
         }
+        Command::ChangeMp {
+            actor_id,
+            is_add,
+            value,
+        } => {
+            let actor_arg = match actor_id {
+                MaybeRef::Constant(actor_id) => {
+                    let name = config.get_actor_name(*actor_id);
+                    format!("actor={name}")
+                }
+                MaybeRef::Ref(variable_id) => {
+                    let name = config.get_variable_name(*variable_id);
+                    format!("actor_id={name}")
+                }
+            };
+            let sign = if *is_add { "" } else { "-" };
+            let value = match value {
+                MaybeRef::Constant(value) => value.to_string(),
+                MaybeRef::Ref(id) => config.get_variable_name(*id),
+            };
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "gain_mp({actor_arg}, value={sign}{value})")?;
+        }
         Command::ChangeState {
             actor_id,
             is_add_state,
