@@ -170,6 +170,11 @@ where
 
                     writeln!(&mut writer, "{lhs} {operation} {rhs}:")?;
                 }
+                ConditionalBranchCommand::SelfSwitch { name, check_true } => {
+                    let name = escape_string(name);
+                    let check_true_str = if *check_true { "" } else { "not " };
+                    writeln!(&mut writer, "{check_true_str}game_self_switches.get(map_id=self.map_id, event_id=self.event_id, name='{name}'):")?;
+                }
                 ConditionalBranchCommand::ActorInParty { actor_id } => {
                     let actor_name = config.get_actor_name(*actor_id);
 
