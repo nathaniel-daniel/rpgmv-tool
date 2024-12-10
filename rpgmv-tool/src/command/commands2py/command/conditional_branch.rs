@@ -242,9 +242,9 @@ impl Command {
                 }
             }
             ConditionalBranchKind::SelfSwitch => {
-                ensure!(event_command.parameters.len() == 2);
+                ensure!(event_command.parameters.len() == 3);
 
-                let name = event_command.parameters[0]
+                let name = event_command.parameters[1]
                     .as_str()
                     .context("`name` is not a `String`")?
                     .to_string();
