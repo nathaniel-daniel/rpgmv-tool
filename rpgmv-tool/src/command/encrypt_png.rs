@@ -2,8 +2,8 @@ use anyhow::Context;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::BufWriter;
-use std::path::PathBuf;
 use std::io::Write;
+use std::path::PathBuf;
 
 #[derive(Debug, argh::FromArgs)]
 #[argh(subcommand, name = "encrypt-png", description = "encrypt a png")]

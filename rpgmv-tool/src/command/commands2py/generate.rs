@@ -282,7 +282,12 @@ where
                         let name = config.get_actor_name(*actor_id);
                         format!("{name}.level")
                     }
+                    ControlVariablesValueGameData::ActorMp { actor_id } => {
+                        let name = config.get_actor_name(*actor_id);
+                        format!("{name}.mp")
+                    }
                     ControlVariablesValueGameData::Gold => "game_party.gold".to_string(),
+                    ControlVariablesValueGameData::Steps => "game_party.steps".to_string(),
                     _ => bail!("ControlVariablesValueGameData {game_data:?} is not supported"),
                 },
             };
@@ -640,6 +645,17 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "resume_bgm()")?;
         }
+        Command::PlayBgs { audio } => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "play_bgs(")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            write!(&mut writer, "audio=")?;
+            write_audio_file(&mut writer, indent + 1, audio)?;
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, ")")?;
+        }
         Command::PlaySe { audio } => {
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "play_se(")?;
@@ -684,6 +700,30 @@ where
                 &mut writer,
                 "name_input_processing(actor={actor}, max_len={max_len})"
             )?;
+        }
+        Command::ChangeMp {
+            actor_id,
+            is_add,
+            value,
+        } => {
+            let actor_arg = match actor_id {
+                MaybeRef::Constant(actor_id) => {
+                    let name = config.get_actor_name(*actor_id);
+                    format!("actor={name}")
+                }
+                MaybeRef::Ref(variable_id) => {
+                    let name = config.get_variable_name(*variable_id);
+                    format!("actor_id={name}")
+                }
+            };
+            let sign = if *is_add { "" } else { "-" };
+            let value = match value {
+                MaybeRef::Constant(value) => value.to_string(),
+                MaybeRef::Ref(id) => config.get_variable_name(*id),
+            };
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "gain_mp({actor_arg}, value={sign}{value})")?;
         }
         Command::ChangeState {
             actor_id,
