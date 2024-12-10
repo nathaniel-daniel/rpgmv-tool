@@ -645,6 +645,17 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "resume_bgm()")?;
         }
+        Command::PlayBgs { audio } => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "play_bgs(")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            write!(&mut writer, "audio=")?;
+            write_audio_file(&mut writer, indent + 1, audio)?;
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, ")")?;
+        }
         Command::PlaySe { audio } => {
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "play_se(")?;

@@ -285,6 +285,9 @@ pub enum Command {
     },
     SaveBgm,
     ResumeBgm,
+    PlayBgs {
+        audio: rpgmv_types::AudioFile,
+    },
     PlaySe {
         audio: rpgmv_types::AudioFile,
     },
@@ -1089,6 +1092,14 @@ pub fn parse_event_command_list(
             (_, CommandCode::SAVE_BGM) => {
                 ensure!(event_command.parameters.is_empty());
                 Command::SaveBgm
+            }
+            (_, CommandCode::PLAY_BGS) => {
+                ensure!(event_command.parameters.len() == 1);
+                let audio: rpgmv_types::AudioFile =
+                    serde_json::from_value(event_command.parameters[0].clone())
+                        .context("invalid `audio` parameter")?;
+
+                Command::PlayBgs { audio }
             }
             (_, CommandCode::RESUME_BGM) => {
                 ensure!(event_command.parameters.is_empty());
