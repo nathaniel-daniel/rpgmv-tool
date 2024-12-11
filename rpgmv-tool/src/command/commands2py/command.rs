@@ -218,6 +218,12 @@ pub enum Command {
         is_add: bool,
         value: MaybeRef<u32>,
     },
+    ChangeArmors {
+        armor_id: u32,
+        is_add: bool,
+        value: MaybeRef<u32>,
+        include_equipped: bool,
+    },
     ChangePartyMember {
         actor_id: u32,
         is_add: bool,
@@ -920,6 +926,44 @@ pub fn parse_event_command_list(
                     item_id,
                     is_add,
                     value,
+                }
+            }
+            (_, CommandCode::CHANGE_ARMORS) => {
+                ensure!(event_command.parameters.len() == 5);
+                let armor_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`armor_id` is not a `u32`")?;
+                let is_add = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_add` is not a `u8`")?;
+                ensure!(is_add <= 1);
+                let is_add = is_add == 0;
+                let is_constant = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_constant` is not a `u8`")?;
+                ensure!(is_constant <= 1);
+                let is_constant = is_constant == 0;
+                let value = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`value` is not a `u32`")?;
+                let value = if is_constant {
+                    MaybeRef::Constant(value)
+                } else {
+                    MaybeRef::Ref(value)
+                };
+                let include_equipped = event_command.parameters[4]
+                    .as_bool()
+                    .context("`include_equipped` is not a `bool`")?;
+
+                Command::ChangeArmors {
+                    armor_id,
+                    is_add,
+                    value,
+                    include_equipped,
                 }
             }
             (_, CommandCode::CHANGE_PARTY_MEMBER) => {

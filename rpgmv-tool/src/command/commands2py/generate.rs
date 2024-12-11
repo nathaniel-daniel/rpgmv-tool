@@ -343,6 +343,23 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "gain_item(item={item}, value={sign}{value})")?;
         }
+        Command::ChangeArmors {
+            armor_id,
+            is_add,
+            value,
+            include_equipped,
+        } => {
+            let armor = config.get_armor_name(*armor_id);
+            let sign = if *is_add { "" } else { "-" };
+            let value = match value {
+                MaybeRef::Constant(value) => value.to_string(),
+                MaybeRef::Ref(id) => config.get_variable_name(*id),
+            };
+            let include_equipped = stringify_bool(*include_equipped);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "gain_armor(item={armor}, value={sign}{value}, include_equipped={include_equipped})")?;
+        }
         Command::ChangePartyMember {
             actor_id,
             is_add,
