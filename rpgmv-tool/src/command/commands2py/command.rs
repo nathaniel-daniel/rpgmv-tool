@@ -352,6 +352,7 @@ pub enum Command {
         face_index: u32,
         battler_name: String,
     },
+    AbortBattle,
     ReturnToTitleScreen,
     Script {
         lines: Vec<String>,
@@ -1510,6 +1511,11 @@ pub fn parse_event_command_list(
                     face_index,
                     battler_name,
                 }
+            }
+            (_, CommandCode::ABORT_BATTLE) => {
+                ensure!(event_command.parameters.is_empty());
+
+                Command::AbortBattle
             }
             (_, CommandCode::RETURN_TO_TITLE_SCREEN) => {
                 ensure!(event_command.parameters.is_empty());

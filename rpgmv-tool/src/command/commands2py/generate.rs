@@ -917,6 +917,10 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, ")")?;
         }
+        Command::AbortBattle => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "abort_battle()")?;
+        }
         Command::ReturnToTitleScreen => {
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "return_to_title_screen()")?;
