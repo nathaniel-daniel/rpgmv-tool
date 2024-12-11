@@ -914,6 +914,9 @@ where
         Command::ConditionalBranchEnd => {
             // Trust indents over end commands
         }
+        Command::BattleResultEnd => {
+            // Trust indents over end commands
+        }
         Command::Unknown { code, parameters } => {
             write_indent(&mut writer, indent)?;
             writeln!(

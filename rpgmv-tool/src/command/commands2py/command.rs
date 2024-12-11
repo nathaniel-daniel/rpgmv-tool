@@ -356,6 +356,7 @@ pub enum Command {
     WhenEnd,
     Else,
     ConditionalBranchEnd,
+    BattleResultEnd,
     Unknown {
         code: CommandCode,
         parameters: Vec<serde_json::Value>,
@@ -1450,6 +1451,10 @@ pub fn parse_event_command_list(
             (_, CommandCode::CONDITONAL_BRANCH_END) => {
                 ensure!(event_command.parameters.is_empty());
                 Command::ConditionalBranchEnd
+            }
+            (_, CommandCode::BATTLE_RESULT_END) => {
+                ensure!(event_command.parameters.is_empty());
+                Command::BattleResultEnd
             }
             (_, _) => Command::Unknown {
                 code: command_code,
