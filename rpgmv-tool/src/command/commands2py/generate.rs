@@ -303,6 +303,12 @@ where
                         let name = config.get_actor_name(*actor_id);
                         format!("{name}.mp")
                     }
+                    ControlVariablesValueGameData::CharacterMapX { character_id } => {
+                        format!("game.get_character(id={character_id}).map_x")
+                    }
+                    ControlVariablesValueGameData::CharacterMapY { character_id } => {
+                        format!("game.get_character(id={character_id}).map_y")
+                    }
                     ControlVariablesValueGameData::Gold => "game_party.gold".to_string(),
                     ControlVariablesValueGameData::Steps => "game_party.steps".to_string(),
                     _ => bail!("ControlVariablesValueGameData {game_data:?} is not supported"),

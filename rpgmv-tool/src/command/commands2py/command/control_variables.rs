@@ -153,6 +153,29 @@ impl GameDataOperandKindActorCheck {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum GameDataOperandKindCharacterCheck {
+    MapX = 0,
+    MapY = 1,
+    Direction = 2,
+    ScreenX = 3,
+    ScreenY = 4,
+}
+
+impl GameDataOperandKindCharacterCheck {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            0 => Ok(Self::MapX),
+            1 => Ok(Self::MapY),
+            2 => Ok(Self::Direction),
+            3 => Ok(Self::ScreenX),
+            4 => Ok(Self::ScreenY),
+            _ => bail!("{value} is not a valid GameDataOperandKindCharacterCheck"),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ControlVariablesValue {
     Constant { value: i32 },
@@ -166,6 +189,8 @@ pub enum ControlVariablesValueGameData {
     NumItems { item_id: u32 },
     ActorLevel { actor_id: u32 },
     ActorMp { actor_id: u32 },
+    CharacterMapX { character_id: i32 },
+    CharacterMapY { character_id: i32 },
     MapId,
     Gold,
     Steps,
@@ -240,8 +265,8 @@ impl Command {
                 let kind = GameDataOperandKind::from_u8(kind)?;
                 let param1 = event_command.parameters[5]
                     .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`param1` is not a `u32`")?;
+                    .and_then(|value| i32::try_from(value).ok())
+                    .context("`param1` is not an `i32`")?;
                 let param2 = event_command.parameters[6]
                     .as_i64()
                     .and_then(|value| u32::try_from(value).ok())
@@ -249,12 +274,13 @@ impl Command {
 
                 let inner = match kind {
                     GameDataOperandKind::Item => {
-                        let item_id = param1;
+                        let item_id = u32::try_from(param1).context("`item_id` is not a `u32`")?;
 
                         ControlVariablesValueGameData::NumItems { item_id }
                     }
                     GameDataOperandKind::Actor => {
-                        let actor_id = param1;
+                        let actor_id =
+                            u32::try_from(param1).context("`actor_id` is not a `u32`")?;
                         let check = u8::try_from(param2).context("`check` is not a `u8`")?;
                         let check = GameDataOperandKindActorCheck::from_u8(check)?;
 
@@ -266,6 +292,23 @@ impl Command {
                                 ControlVariablesValueGameData::ActorMp { actor_id }
                             }
                             _ => bail!("GameDataOperandKindActorCheck {check:?} is not supported"),
+                        }
+                    }
+                    GameDataOperandKind::Character => {
+                        let character_id = param1;
+                        let check = u8::try_from(param2).context("`check` is not a `u8`")?;
+                        let check = GameDataOperandKindCharacterCheck::from_u8(check)?;
+
+                        match check {
+                            GameDataOperandKindCharacterCheck::MapX => {
+                                ControlVariablesValueGameData::CharacterMapX { character_id }
+                            }
+                            GameDataOperandKindCharacterCheck::MapY => {
+                                ControlVariablesValueGameData::CharacterMapY { character_id }
+                            }
+                            _ => bail!(
+                                "GameDataOperandKindCharacterCheck {check:?} is not supported"
+                            ),
                         }
                     }
                     GameDataOperandKind::Other => {
