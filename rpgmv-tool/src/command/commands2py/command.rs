@@ -358,6 +358,12 @@ pub enum Command {
         face_index: u32,
         battler_name: String,
     },
+    ForceAction {
+        is_enemy: bool,
+        id: u32,
+        skill_id: u32,
+        target_index: u32,
+    },
     AbortBattle,
     ReturnToTitleScreen,
     Script {
@@ -1566,6 +1572,34 @@ pub fn parse_event_command_list(
                     face_name,
                     face_index,
                     battler_name,
+                }
+            }
+            (_, CommandCode::FORCE_ACTION) => {
+                ensure!(event_command.parameters.len() == 4);
+                let is_enemy = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`enemy` is not a `u8`")?;
+                ensure!(is_enemy <= 1);
+                let is_enemy = is_enemy == 0;
+                let id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`id` is not a `u32`")?;
+                let skill_id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`skill_id` is not a `u32`")?;
+                let target_index = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`target_index` is not a `u32`")?;
+
+                Command::ForceAction {
+                    is_enemy,
+                    id,
+                    skill_id,
+                    target_index,
                 }
             }
             (_, CommandCode::ABORT_BATTLE) => {

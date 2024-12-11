@@ -946,6 +946,26 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, ")")?;
         }
+        Command::ForceAction {
+            is_enemy,
+            id,
+            skill_id,
+            target_index,
+        } => {
+            let arg_0 = if *is_enemy {
+                format!("enemy_index={id}")
+            } else {
+                let actor = config.get_actor_name(*id);
+                format!("actor={actor}")
+            };
+            let skill = config.get_skill_name(*skill_id);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(
+                &mut writer,
+                "force_action({arg_0}, skill={skill}, target_index={target_index})"
+            )?;
+        }
         Command::AbortBattle => {
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "abort_battle()")?;
