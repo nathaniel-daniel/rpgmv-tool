@@ -318,6 +318,12 @@ pub enum Command {
         actor_id: u32,
         max_len: u32,
     },
+    ChangeHp {
+        actor_id: MaybeRef<u32>,
+        is_add: bool,
+        value: MaybeRef<u32>,
+        allow_death: bool,
+    },
     ChangeMp {
         actor_id: MaybeRef<u32>,
         is_add: bool,
@@ -1289,6 +1295,56 @@ pub fn parse_event_command_list(
                     .context("`max_len` is not a `u32`")?;
 
                 Command::NameInputProcessing { actor_id, max_len }
+            }
+            (_, CommandCode::CHANGE_HP) => {
+                ensure!(event_command.parameters.len() == 6);
+
+                let is_actor_constant = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_actor_constant` is not a `u8`")?;
+                ensure!(is_actor_constant <= 1);
+                let is_actor_constant = is_actor_constant == 0;
+                let actor_id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`actor_id` is not a `u32`")?;
+                let actor_id = if is_actor_constant {
+                    MaybeRef::Constant(actor_id)
+                } else {
+                    MaybeRef::Ref(actor_id)
+                };
+                let is_add = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_add` is not a `u8`")?;
+                ensure!(is_add <= 1);
+                let is_add = is_add == 0;
+                let is_constant = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_constant` is not a `u8`")?;
+                ensure!(is_constant <= 1);
+                let is_constant = is_constant == 0;
+                let value = event_command.parameters[4]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`value` is not a `u32`")?;
+                let value = if is_constant {
+                    MaybeRef::Constant(value)
+                } else {
+                    MaybeRef::Ref(value)
+                };
+                let allow_death = event_command.parameters[5]
+                    .as_bool()
+                    .context("`allow_death` is not a `u32`")?;
+
+                Command::ChangeHp {
+                    actor_id,
+                    is_add,
+                    value,
+                    allow_death,
+                }
             }
             (_, CommandCode::CHANGE_MP) => {
                 ensure!(event_command.parameters.len() == 5);

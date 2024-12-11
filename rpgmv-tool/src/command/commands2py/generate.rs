@@ -760,6 +760,35 @@ where
                 "name_input_processing(actor={actor}, max_len={max_len})"
             )?;
         }
+        Command::ChangeHp {
+            actor_id,
+            is_add,
+            value,
+            allow_death,
+        } => {
+            let actor_arg = match actor_id {
+                MaybeRef::Constant(actor_id) => {
+                    let name = config.get_actor_name(*actor_id);
+                    format!("actor={name}")
+                }
+                MaybeRef::Ref(variable_id) => {
+                    let name = config.get_variable_name(*variable_id);
+                    format!("actor_id={name}")
+                }
+            };
+            let sign = if *is_add { "" } else { "-" };
+            let value = match value {
+                MaybeRef::Constant(value) => value.to_string(),
+                MaybeRef::Ref(id) => config.get_variable_name(*id),
+            };
+            let allow_death = stringify_bool(*allow_death);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(
+                &mut writer,
+                "gain_hp({actor_arg}, value={sign}{value}, allow_death={allow_death})"
+            )?;
+        }
         Command::ChangeMp {
             actor_id,
             is_add,
