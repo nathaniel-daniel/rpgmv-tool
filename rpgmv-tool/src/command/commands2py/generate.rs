@@ -914,6 +914,15 @@ where
         Command::ConditionalBranchEnd => {
             // Trust indents over end commands
         }
+        Command::IfWin => {
+            writeln!(&mut writer, "if game_battle_result.is_win():")?;
+        }
+        Command::IfEscape => {
+            writeln!(&mut writer, "if game_battle_result.is_escape():")?;
+        }
+        Command::IfLose => {
+            writeln!(&mut writer, "if game_battle_result.is_lose():")?;
+        }
         Command::BattleResultEnd => {
             // Trust indents over end commands
         }

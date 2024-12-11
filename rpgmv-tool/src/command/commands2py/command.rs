@@ -356,6 +356,9 @@ pub enum Command {
     WhenEnd,
     Else,
     ConditionalBranchEnd,
+    IfWin,
+    IfEscape,
+    IfLose,
     BattleResultEnd,
     Unknown {
         code: CommandCode,
@@ -1451,6 +1454,18 @@ pub fn parse_event_command_list(
             (_, CommandCode::CONDITONAL_BRANCH_END) => {
                 ensure!(event_command.parameters.is_empty());
                 Command::ConditionalBranchEnd
+            }
+            (_, CommandCode::IF_WIN) => {
+                ensure!(event_command.parameters.is_empty());
+                Command::IfWin
+            }
+            (_, CommandCode::IF_ESCAPE) => {
+                ensure!(event_command.parameters.is_empty());
+                Command::IfEscape
+            }
+            (_, CommandCode::IF_LOSE) => {
+                ensure!(event_command.parameters.is_empty());
+                Command::IfLose
             }
             (_, CommandCode::BATTLE_RESULT_END) => {
                 ensure!(event_command.parameters.is_empty());
