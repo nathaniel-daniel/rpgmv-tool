@@ -848,6 +848,10 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, ")")?;
         }
+        Command::ReturnToTitleScreen => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "return_to_title_screen()")?;
+        }
         Command::Script { lines } => {
             let data = lines.join("\\n");
 

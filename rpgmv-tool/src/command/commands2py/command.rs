@@ -329,6 +329,7 @@ pub enum Command {
         face_index: u32,
         battler_name: String,
     },
+    ReturnToTitleScreen,
     Script {
         lines: Vec<String>,
     },
@@ -1356,6 +1357,11 @@ pub fn parse_event_command_list(
                     face_index,
                     battler_name,
                 }
+            }
+            (_, CommandCode::RETURN_TO_TITLE_SCREEN) => {
+                ensure!(event_command.parameters.is_empty());
+
+                Command::ReturnToTitleScreen
             }
             (_, CommandCode::SCRIPT) => {
                 ensure!(event_command.parameters.len() == 1);

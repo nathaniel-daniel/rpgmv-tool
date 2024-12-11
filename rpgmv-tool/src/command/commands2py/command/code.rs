@@ -95,6 +95,7 @@ impl CommandCode {
     pub const OPEN_SAVE_SCREEN: Self = Self(352);
     pub const GAME_OVER: Self = Self(353);
 
+    pub const RETURN_TO_TITLE_SCREEN: Self = Self(354);
     pub const SCRIPT: Self = Self(355);
     pub const PLUGIN_COMMAND: Self = Self(356);
 
@@ -189,6 +190,7 @@ impl std::fmt::Debug for CommandCode {
             Self::ABORT_BATTLE => write!(f, "ABORT_BATTLE"),
             Self::OPEN_SAVE_SCREEN => write!(f, "OPEN_SAVE_SCREEN"),
             Self::GAME_OVER => write!(f, "GAME_OVER"),
+            Self::RETURN_TO_TITLE_SCREEN => write!(f, "RETURN_TO_TITLE_SCREEN"),
             Self::SCRIPT => write!(f, "SCRIPT"),
             Self::PLUGIN_COMMAND => write!(f, "PLUGIN_COMMAND"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
