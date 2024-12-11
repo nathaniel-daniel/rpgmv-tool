@@ -226,6 +226,12 @@ pub enum Command {
     ChangeSaveAccess {
         disable: bool,
     },
+    SetEventLocation {
+        character_id: i32,
+        x: MaybeRef<u32>,
+        y: MaybeRef<u32>,
+        direction: Option<u8>,
+    },
     TransferPlayer {
         map_id: MaybeRef<u32>,
         x: MaybeRef<u32>,
@@ -949,6 +955,52 @@ pub fn parse_event_command_list(
                 let disable = disable == 0;
 
                 Command::ChangeSaveAccess { disable }
+            }
+            (_, CommandCode::SET_EVENT_LOCATION) => {
+                ensure!(event_command.parameters.len() == 5);
+
+                let character_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| i32::try_from(value).ok())
+                    .context("`value` is not an `i32`")?;
+                let is_constant = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_constant` is not a `u8`")?;
+                ensure!(
+                    is_constant <= 1,
+                    "a non 0 or 1 `is_constant` value is currently unsupported"
+                );
+                let is_constant = is_constant == 0;
+                let x = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`x` is not a `u32`")?;
+                let y = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`x` is not a `u32`")?;
+                let (x, y) = if is_constant {
+                    (MaybeRef::Constant(x), MaybeRef::Constant(y))
+                } else {
+                    (MaybeRef::Ref(x), MaybeRef::Ref(y))
+                };
+                let direction = event_command.parameters[4]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`direction` is not a `u8`")?;
+                let direction = if direction == 0 {
+                    None
+                } else {
+                    Some(direction)
+                };
+
+                Command::SetEventLocation {
+                    character_id,
+                    x,
+                    y,
+                    direction,
+                }
             }
             (_, CommandCode::TRANSFER_PLAYER) => Command::parse_transfer_player(event_command)
                 .context("failed to parse TRANSFER_PLAYER command")?,

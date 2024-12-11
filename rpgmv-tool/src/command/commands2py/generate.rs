@@ -373,6 +373,31 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "{fn_name}()")?;
         }
+        Command::SetEventLocation {
+            character_id,
+            x,
+            y,
+            direction,
+        } => {
+            let x = match x {
+                MaybeRef::Constant(x) => x.to_string(),
+                MaybeRef::Ref(x) => config.get_variable_name(*x),
+            };
+            let y = match y {
+                MaybeRef::Constant(y) => y.to_string(),
+                MaybeRef::Ref(y) => config.get_variable_name(*y),
+            };
+
+            write_indent(&mut writer, indent)?;
+            write!(
+                &mut writer,
+                "set_event_location(character_id={character_id}, x={x}, y={y}"
+            )?;
+            if let Some(direction) = direction {
+                write!(&mut writer, ", direction={direction}")?;
+            }
+            writeln!(&mut writer, ")")?;
+        }
         Command::TransferPlayer {
             map_id,
             x,
