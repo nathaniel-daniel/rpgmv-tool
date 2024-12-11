@@ -44,6 +44,10 @@ pub struct Config {
     /// Armors
     #[serde(default, deserialize_with = "deserialize_u32_key_btree_map")]
     pub armors: BTreeMap<u32, String>,
+
+    /// Classes
+    #[serde(default, deserialize_with = "deserialize_u32_key_btree_map")]
+    pub classes: BTreeMap<u32, String>,
 }
 
 impl Config {
@@ -127,6 +131,14 @@ impl Config {
             .get(&id)
             .map(|name| name.to_string())
             .unwrap_or_else(|| format!("game_armor_{id}"))
+    }
+
+    /// Get a class name
+    pub fn get_class_name(&self, id: u32) -> String {
+        self.classes
+            .get(&id)
+            .map(|name| name.to_string())
+            .unwrap_or_else(|| format!("game_class_{id}"))
     }
 }
 

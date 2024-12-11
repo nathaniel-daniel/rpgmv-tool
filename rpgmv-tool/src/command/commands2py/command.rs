@@ -339,6 +339,11 @@ pub enum Command {
         is_learn_skill: bool,
         skill_id: u32,
     },
+    ChangeClass {
+        actor_id: u32,
+        class_id: u32,
+        keep_exp: bool,
+    },
     ChangeActorImages {
         actor_id: u32,
         character_name: String,
@@ -1448,8 +1453,30 @@ pub fn parse_event_command_list(
                     skill_id,
                 }
             }
+            (_, CommandCode::CHANGE_CLASS) => {
+                ensure!(event_command.parameters.len() == 3);
+
+                let actor_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`actor_id` is not a `u32`")?;
+                let class_id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`class_id` is not a `u32`")?;
+                let keep_exp = event_command.parameters[2]
+                    .as_bool()
+                    .context("`keep_exp` is not a `bool`")?;
+
+                Command::ChangeClass {
+                    actor_id,
+                    class_id,
+                    keep_exp,
+                }
+            }
             (_, CommandCode::CHANGE_ACTOR_IMAGES) => {
-                ensure!(event_command.parameters.len() == 6);
+                ensure!(event_command.parameters.len() == 3);
+
                 let actor_id = event_command.parameters[0]
                     .as_i64()
                     .and_then(|value| u32::try_from(value).ok())

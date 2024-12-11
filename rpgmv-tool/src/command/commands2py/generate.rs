@@ -865,6 +865,21 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "{fn_name}({actor_arg}, skill={skill})")?;
         }
+        Command::ChangeClass {
+            actor_id,
+            class_id,
+            keep_exp,
+        } => {
+            let actor = config.get_actor_name(*actor_id);
+            let class = config.get_class_name(*class_id);
+            let keep_exp = stringify_bool(*keep_exp);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(
+                &mut writer,
+                "change_class(actor={actor}, class={class}, keep_exp={keep_exp})"
+            )?;
+        }
         Command::ChangeActorImages {
             actor_id,
             character_name,
