@@ -251,6 +251,18 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "{name}()")?;
         }
+        Command::Label { name } => {
+            let name = escape_string(name);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "set_label('{name}')")?;
+        }
+        Command::JumpToLabel { name } => {
+            let name = escape_string(name);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "jump_to_label('{name}')")?;
+        }
         Command::ControlSwitches {
             start_id,
             end_id,

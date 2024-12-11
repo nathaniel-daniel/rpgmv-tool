@@ -188,6 +188,12 @@ pub enum Command {
     CommonEvent {
         id: u32,
     },
+    Label {
+        name: String,
+    },
+    JumpToLabel {
+        name: String,
+    },
     ControlSwitches {
         start_id: u32,
         end_id: u32,
@@ -784,6 +790,26 @@ pub fn parse_event_command_list(
                     .context("`id` is not a `u32`")?;
 
                 Command::CommonEvent { id }
+            }
+            (_, CommandCode::LABEL) => {
+                ensure!(event_command.parameters.len() == 1);
+
+                let name = event_command.parameters[0]
+                    .as_str()
+                    .context("`name` is not a `String`")?
+                    .to_string();
+
+                Command::Label { name }
+            }
+            (_, CommandCode::JUMP_TO_LABEL) => {
+                ensure!(event_command.parameters.len() == 1);
+
+                let name = event_command.parameters[0]
+                    .as_str()
+                    .context("`name` is not a `String`")?
+                    .to_string();
+
+                Command::JumpToLabel { name }
             }
             (_, CommandCode::CONTROL_SWITCHES) => {
                 ensure!(event_command.parameters.len() == 3);
