@@ -140,6 +140,8 @@ impl GameDataOperandKindOtherCheck {
 pub enum GameDataOperandKindActorCheck {
     Level = 0,
     Exp = 1,
+    Hp = 2,
+    Mp = 3,
 }
 
 impl GameDataOperandKindActorCheck {
@@ -148,6 +150,8 @@ impl GameDataOperandKindActorCheck {
         match value {
             0 => Ok(Self::Level),
             1 => Ok(Self::Exp),
+            2 => Ok(Self::Hp),
+            3 => Ok(Self::Mp),
             _ => bail!("{value} is not a valid GameDataOperandKindActorCheck"),
         }
     }
@@ -184,6 +188,12 @@ pub enum Command {
     CommonEvent {
         id: u32,
     },
+    Label {
+        name: String,
+    },
+    JumpToLabel {
+        name: String,
+    },
     ControlSwitches {
         start_id: u32,
         end_id: u32,
@@ -208,6 +218,12 @@ pub enum Command {
         is_add: bool,
         value: MaybeRef<u32>,
     },
+    ChangeArmors {
+        armor_id: u32,
+        is_add: bool,
+        value: MaybeRef<u32>,
+        include_equipped: bool,
+    },
     ChangePartyMember {
         actor_id: u32,
         is_add: bool,
@@ -215,6 +231,12 @@ pub enum Command {
     },
     ChangeSaveAccess {
         disable: bool,
+    },
+    SetEventLocation {
+        character_id: i32,
+        x: MaybeRef<u32>,
+        y: MaybeRef<u32>,
+        direction: Option<u8>,
     },
     TransferPlayer {
         map_id: MaybeRef<u32>,
@@ -281,6 +303,9 @@ pub enum Command {
     },
     SaveBgm,
     ResumeBgm,
+    PlayBgs {
+        audio: rpgmv_types::AudioFile,
+    },
     PlaySe {
         audio: rpgmv_types::AudioFile,
     },
@@ -293,6 +318,22 @@ pub enum Command {
         actor_id: u32,
         max_len: u32,
     },
+    ChangeHp {
+        actor_id: MaybeRef<u32>,
+        is_add: bool,
+        value: MaybeRef<u32>,
+        allow_death: bool,
+    },
+    ChangeMp {
+        actor_id: MaybeRef<u32>,
+        is_add: bool,
+        value: MaybeRef<u32>,
+    },
+    ChangeState {
+        actor_id: MaybeRef<u32>,
+        is_add_state: bool,
+        state_id: u32,
+    },
     ChangeLevel {
         actor_id: MaybeRef<u32>,
         is_add: bool,
@@ -304,10 +345,10 @@ pub enum Command {
         is_learn_skill: bool,
         skill_id: u32,
     },
-    ChangeState {
-        actor_id: MaybeRef<u32>,
-        is_add_state: bool,
-        state_id: u32,
+    ChangeClass {
+        actor_id: u32,
+        class_id: u32,
+        keep_exp: bool,
     },
     ChangeActorImages {
         actor_id: u32,
@@ -317,6 +358,14 @@ pub enum Command {
         face_index: u32,
         battler_name: String,
     },
+    ForceAction {
+        is_enemy: bool,
+        id: u32,
+        skill_id: u32,
+        target_index: u32,
+    },
+    AbortBattle,
+    ReturnToTitleScreen,
     Script {
         lines: Vec<String>,
     },
@@ -337,6 +386,10 @@ pub enum Command {
     WhenEnd,
     Else,
     ConditionalBranchEnd,
+    IfWin,
+    IfEscape,
+    IfLose,
+    BattleResultEnd,
     Unknown {
         code: CommandCode,
         parameters: Vec<serde_json::Value>,
@@ -509,6 +562,9 @@ impl Command {
                             GameDataOperandKindActorCheck::Level => {
                                 ControlVariablesValueGameData::ActorLevel { actor_id }
                             }
+                            GameDataOperandKindActorCheck::Mp => {
+                                ControlVariablesValueGameData::ActorMp { actor_id }
+                            }
                             _ => bail!("GameDataOperandKindActorCheck {check:?} is not supported"),
                         }
                     }
@@ -522,6 +578,9 @@ impl Command {
                             }
                             GameDataOperandKindOtherCheck::Gold => {
                                 ControlVariablesValueGameData::Gold
+                            }
+                            GameDataOperandKindOtherCheck::Steps => {
+                                ControlVariablesValueGameData::Steps
                             }
                             _ => bail!("GameDataOperandKindOtherCheck {check:?} is not supported"),
                         }
@@ -628,8 +687,10 @@ pub enum ControlVariablesValue {
 pub enum ControlVariablesValueGameData {
     NumItems { item_id: u32 },
     ActorLevel { actor_id: u32 },
+    ActorMp { actor_id: u32 },
     MapId,
     Gold,
+    Steps,
 }
 
 #[derive(Debug, Copy, Clone, Hash)]
@@ -764,6 +825,26 @@ pub fn parse_event_command_list(
 
                 Command::CommonEvent { id }
             }
+            (_, CommandCode::LABEL) => {
+                ensure!(event_command.parameters.len() == 1);
+
+                let name = event_command.parameters[0]
+                    .as_str()
+                    .context("`name` is not a `String`")?
+                    .to_string();
+
+                Command::Label { name }
+            }
+            (_, CommandCode::JUMP_TO_LABEL) => {
+                ensure!(event_command.parameters.len() == 1);
+
+                let name = event_command.parameters[0]
+                    .as_str()
+                    .context("`name` is not a `String`")?
+                    .to_string();
+
+                Command::JumpToLabel { name }
+            }
             (_, CommandCode::CONTROL_SWITCHES) => {
                 ensure!(event_command.parameters.len() == 3);
 
@@ -865,6 +946,44 @@ pub fn parse_event_command_list(
                     value,
                 }
             }
+            (_, CommandCode::CHANGE_ARMORS) => {
+                ensure!(event_command.parameters.len() == 5);
+                let armor_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`armor_id` is not a `u32`")?;
+                let is_add = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_add` is not a `u8`")?;
+                ensure!(is_add <= 1);
+                let is_add = is_add == 0;
+                let is_constant = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_constant` is not a `u8`")?;
+                ensure!(is_constant <= 1);
+                let is_constant = is_constant == 0;
+                let value = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`value` is not a `u32`")?;
+                let value = if is_constant {
+                    MaybeRef::Constant(value)
+                } else {
+                    MaybeRef::Ref(value)
+                };
+                let include_equipped = event_command.parameters[4]
+                    .as_bool()
+                    .context("`include_equipped` is not a `bool`")?;
+
+                Command::ChangeArmors {
+                    armor_id,
+                    is_add,
+                    value,
+                    include_equipped,
+                }
+            }
             (_, CommandCode::CHANGE_PARTY_MEMBER) => {
                 ensure!(event_command.parameters.len() == 3);
 
@@ -898,6 +1017,52 @@ pub fn parse_event_command_list(
                 let disable = disable == 0;
 
                 Command::ChangeSaveAccess { disable }
+            }
+            (_, CommandCode::SET_EVENT_LOCATION) => {
+                ensure!(event_command.parameters.len() == 5);
+
+                let character_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| i32::try_from(value).ok())
+                    .context("`value` is not an `i32`")?;
+                let is_constant = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_constant` is not a `u8`")?;
+                ensure!(
+                    is_constant <= 1,
+                    "a non 0 or 1 `is_constant` value is currently unsupported"
+                );
+                let is_constant = is_constant == 0;
+                let x = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`x` is not a `u32`")?;
+                let y = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`x` is not a `u32`")?;
+                let (x, y) = if is_constant {
+                    (MaybeRef::Constant(x), MaybeRef::Constant(y))
+                } else {
+                    (MaybeRef::Ref(x), MaybeRef::Ref(y))
+                };
+                let direction = event_command.parameters[4]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`direction` is not a `u8`")?;
+                let direction = if direction == 0 {
+                    None
+                } else {
+                    Some(direction)
+                };
+
+                Command::SetEventLocation {
+                    character_id,
+                    x,
+                    y,
+                    direction,
+                }
             }
             (_, CommandCode::TRANSFER_PLAYER) => Command::parse_transfer_player(event_command)
                 .context("failed to parse TRANSFER_PLAYER command")?,
@@ -1073,6 +1238,14 @@ pub fn parse_event_command_list(
                 ensure!(event_command.parameters.is_empty());
                 Command::SaveBgm
             }
+            (_, CommandCode::PLAY_BGS) => {
+                ensure!(event_command.parameters.len() == 1);
+                let audio: rpgmv_types::AudioFile =
+                    serde_json::from_value(event_command.parameters[0].clone())
+                        .context("invalid `audio` parameter")?;
+
+                Command::PlayBgs { audio }
+            }
             (_, CommandCode::RESUME_BGM) => {
                 ensure!(event_command.parameters.is_empty());
                 Command::ResumeBgm
@@ -1128,6 +1301,102 @@ pub fn parse_event_command_list(
                     .context("`max_len` is not a `u32`")?;
 
                 Command::NameInputProcessing { actor_id, max_len }
+            }
+            (_, CommandCode::CHANGE_HP) => {
+                ensure!(event_command.parameters.len() == 6);
+
+                let is_actor_constant = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_actor_constant` is not a `u8`")?;
+                ensure!(is_actor_constant <= 1);
+                let is_actor_constant = is_actor_constant == 0;
+                let actor_id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`actor_id` is not a `u32`")?;
+                let actor_id = if is_actor_constant {
+                    MaybeRef::Constant(actor_id)
+                } else {
+                    MaybeRef::Ref(actor_id)
+                };
+                let is_add = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_add` is not a `u8`")?;
+                ensure!(is_add <= 1);
+                let is_add = is_add == 0;
+                let is_constant = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_constant` is not a `u8`")?;
+                ensure!(is_constant <= 1);
+                let is_constant = is_constant == 0;
+                let value = event_command.parameters[4]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`value` is not a `u32`")?;
+                let value = if is_constant {
+                    MaybeRef::Constant(value)
+                } else {
+                    MaybeRef::Ref(value)
+                };
+                let allow_death = event_command.parameters[5]
+                    .as_bool()
+                    .context("`allow_death` is not a `u32`")?;
+
+                Command::ChangeHp {
+                    actor_id,
+                    is_add,
+                    value,
+                    allow_death,
+                }
+            }
+            (_, CommandCode::CHANGE_MP) => {
+                ensure!(event_command.parameters.len() == 5);
+
+                let is_actor_constant = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_actor_constant` is not a `u8`")?;
+                ensure!(is_actor_constant <= 1);
+                let is_actor_constant = is_actor_constant == 0;
+                let actor_id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`actor_id` is not a `u32`")?;
+                let actor_id = if is_actor_constant {
+                    MaybeRef::Constant(actor_id)
+                } else {
+                    MaybeRef::Ref(actor_id)
+                };
+                let is_add = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_add` is not a `u8`")?;
+                ensure!(is_add <= 1);
+                let is_add = is_add == 0;
+                let is_constant = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_constant` is not a `u8`")?;
+                ensure!(is_constant <= 1);
+                let is_constant = is_constant == 0;
+                let value = event_command.parameters[4]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`value` is not a `u32`")?;
+                let value = if is_constant {
+                    MaybeRef::Constant(value)
+                } else {
+                    MaybeRef::Ref(value)
+                };
+
+                Command::ChangeMp {
+                    actor_id,
+                    is_add,
+                    value,
+                }
             }
             (_, CommandCode::CHANGE_STATE) => {
                 ensure!(event_command.parameters.len() == 4);
@@ -1247,8 +1516,30 @@ pub fn parse_event_command_list(
                     skill_id,
                 }
             }
+            (_, CommandCode::CHANGE_CLASS) => {
+                ensure!(event_command.parameters.len() == 3);
+
+                let actor_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`actor_id` is not a `u32`")?;
+                let class_id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`class_id` is not a `u32`")?;
+                let keep_exp = event_command.parameters[2]
+                    .as_bool()
+                    .context("`keep_exp` is not a `bool`")?;
+
+                Command::ChangeClass {
+                    actor_id,
+                    class_id,
+                    keep_exp,
+                }
+            }
             (_, CommandCode::CHANGE_ACTOR_IMAGES) => {
                 ensure!(event_command.parameters.len() == 6);
+
                 let actor_id = event_command.parameters[0]
                     .as_i64()
                     .and_then(|value| u32::try_from(value).ok())
@@ -1282,6 +1573,44 @@ pub fn parse_event_command_list(
                     face_index,
                     battler_name,
                 }
+            }
+            (_, CommandCode::FORCE_ACTION) => {
+                ensure!(event_command.parameters.len() == 4);
+                let is_enemy = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`enemy` is not a `u8`")?;
+                ensure!(is_enemy <= 1);
+                let is_enemy = is_enemy == 0;
+                let id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`id` is not a `u32`")?;
+                let skill_id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`skill_id` is not a `u32`")?;
+                let target_index = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`target_index` is not a `u32`")?;
+
+                Command::ForceAction {
+                    is_enemy,
+                    id,
+                    skill_id,
+                    target_index,
+                }
+            }
+            (_, CommandCode::ABORT_BATTLE) => {
+                ensure!(event_command.parameters.is_empty());
+
+                Command::AbortBattle
+            }
+            (_, CommandCode::RETURN_TO_TITLE_SCREEN) => {
+                ensure!(event_command.parameters.is_empty());
+
+                Command::ReturnToTitleScreen
             }
             (_, CommandCode::SCRIPT) => {
                 ensure!(event_command.parameters.len() == 1);
@@ -1344,6 +1673,22 @@ pub fn parse_event_command_list(
             (_, CommandCode::CONDITONAL_BRANCH_END) => {
                 ensure!(event_command.parameters.is_empty());
                 Command::ConditionalBranchEnd
+            }
+            (_, CommandCode::IF_WIN) => {
+                ensure!(event_command.parameters.is_empty());
+                Command::IfWin
+            }
+            (_, CommandCode::IF_ESCAPE) => {
+                ensure!(event_command.parameters.is_empty());
+                Command::IfEscape
+            }
+            (_, CommandCode::IF_LOSE) => {
+                ensure!(event_command.parameters.is_empty());
+                Command::IfLose
+            }
+            (_, CommandCode::BATTLE_RESULT_END) => {
+                ensure!(event_command.parameters.is_empty());
+                Command::BattleResultEnd
             }
             (_, _) => Command::Unknown {
                 code: command_code,

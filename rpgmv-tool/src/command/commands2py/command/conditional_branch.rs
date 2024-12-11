@@ -241,6 +241,22 @@ impl Command {
                     operation,
                 }
             }
+            ConditionalBranchKind::SelfSwitch => {
+                ensure!(event_command.parameters.len() == 3);
+
+                let name = event_command.parameters[1]
+                    .as_str()
+                    .context("`name` is not a `String`")?
+                    .to_string();
+                let check_true = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`check_true` is not a `u32`")?;
+                ensure!(check_true <= 1);
+                let check_true = check_true == 0;
+
+                ConditionalBranchCommand::SelfSwitch { name, check_true }
+            }
             ConditionalBranchKind::Actor => {
                 ensure!(event_command.parameters.len() >= 3);
                 let actor_id = event_command.parameters[1]
@@ -387,6 +403,10 @@ pub enum ConditionalBranchCommand {
         lhs_id: u32,
         rhs_id: MaybeRef<u32>,
         operation: ConditionalBranchVariableOperation,
+    },
+    SelfSwitch {
+        name: String,
+        check_true: bool,
     },
     ActorInParty {
         actor_id: u32,

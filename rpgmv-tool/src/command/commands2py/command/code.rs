@@ -84,17 +84,20 @@ impl CommandCode {
     pub const CHANGE_SKILL: Self = Self(318);
     pub const CHANGE_EQUIPMENT: Self = Self(319);
 
+    pub const CHANGE_CLASS: Self = Self(321);
     pub const CHANGE_ACTOR_IMAGES: Self = Self(322);
 
     pub const CHANGE_ENEMY_HP: Self = Self(331);
 
     pub const CHANGE_ENEMY_STATE: Self = Self(333);
 
+    pub const FORCE_ACTION: Self = Self(339);
     pub const ABORT_BATTLE: Self = Self(340);
 
     pub const OPEN_SAVE_SCREEN: Self = Self(352);
     pub const GAME_OVER: Self = Self(353);
 
+    pub const RETURN_TO_TITLE_SCREEN: Self = Self(354);
     pub const SCRIPT: Self = Self(355);
     pub const PLUGIN_COMMAND: Self = Self(356);
 
@@ -120,6 +123,13 @@ impl CommandCode {
     /// Its data always duplicates the data of the SET_MOVEMENT_ROUTE command.
     pub const SET_MOVEMENT_ROUTE_EXTRA: Self = Self(505);
 
+    pub const IF_WIN: Self = Self(601);
+    pub const IF_ESCAPE: Self = Self(602);
+    pub const IF_LOSE: Self = Self(603);
+    /// I think this is an end for an IF_WIN, IF_ESCAPE, or IF_LOSE block.
+    /// I can't be sure as the game doesn't actually care if this exists;
+    /// it just ignores it, only taking into account indents.
+    pub const BATTLE_RESULT_END: Self = Self(604);
     pub const SHOP_PROCESSING_EXTRA: Self = Self(605);
 }
 
@@ -184,11 +194,15 @@ impl std::fmt::Debug for CommandCode {
             Self::CHANGE_PARAMETER => write!(f, "CHANGE_PARAMETER"),
             Self::CHANGE_SKILL => write!(f, "CHANGE_SKILL"),
             Self::CHANGE_EQUIPMENT => write!(f, "CHANGE_EQUIPMENT"),
+            Self::CHANGE_CLASS => write!(f, "CHANGE_CLASS"),
+            Self::CHANGE_ACTOR_IMAGES => write!(f, "CHANGE_ACTOR_IMAGES"),
             Self::CHANGE_ENEMY_HP => write!(f, "CHANGE_ENEMY_HP"),
             Self::CHANGE_ENEMY_STATE => write!(f, "CHANGE_ENEMY_STATE"),
+            Self::FORCE_ACTION => write!(f, "FORCE_ACTION"),
             Self::ABORT_BATTLE => write!(f, "ABORT_BATTLE"),
             Self::OPEN_SAVE_SCREEN => write!(f, "OPEN_SAVE_SCREEN"),
             Self::GAME_OVER => write!(f, "GAME_OVER"),
+            Self::RETURN_TO_TITLE_SCREEN => write!(f, "RETURN_TO_TITLE_SCREEN"),
             Self::SCRIPT => write!(f, "SCRIPT"),
             Self::PLUGIN_COMMAND => write!(f, "PLUGIN_COMMAND"),
             Self::TEXT_DATA => write!(f, "TEXT_DATA"),
@@ -199,6 +213,10 @@ impl std::fmt::Debug for CommandCode {
             Self::ELSE => write!(f, "ELSE"),
             Self::CONDITONAL_BRANCH_END => write!(f, "CONDITONAL_BRANCH_END"),
             Self::SET_MOVEMENT_ROUTE_EXTRA => write!(f, "SET_MOVEMENT_ROUTE_EXTRA"),
+            Self::IF_WIN => write!(f, "IF_WIN"),
+            Self::IF_ESCAPE => write!(f, "IF_ESCAPE"),
+            Self::IF_LOSE => write!(f, "IF_LOSE"),
+            Self::BATTLE_RESULT_END => write!(f, "BATTLE_RESULT_END"),
             Self::SHOP_PROCESSING_EXTRA => write!(f, "SHOP_PROCESSING_EXTRA"),
             _ => write!(f, "Unknown({})", self.0),
         }

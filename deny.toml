@@ -12,7 +12,7 @@ ignore = []
 [licenses]
 confidence-threshold = 0.93
 private = { ignore = true }
-allow = [ "Apache-2.0", "MIT", "Unicode-DFS-2016", "BSD-3-Clause", ]
+allow = [ "Apache-2.0", "MIT", "BSD-3-Clause", "Unicode-3.0"]
 
 [[licenses.clarify]]
 name = "ring"
