@@ -1475,7 +1475,7 @@ pub fn parse_event_command_list(
                 }
             }
             (_, CommandCode::CHANGE_ACTOR_IMAGES) => {
-                ensure!(event_command.parameters.len() == 3);
+                ensure!(event_command.parameters.len() == 6);
 
                 let actor_id = event_command.parameters[0]
                     .as_i64()

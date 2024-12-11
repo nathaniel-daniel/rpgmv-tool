@@ -877,7 +877,7 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(
                 &mut writer,
-                "change_class(actor={actor}, class={class}, keep_exp={keep_exp})"
+                "change_class(actor={actor}, klass={class}, keep_exp={keep_exp})"
             )?;
         }
         Command::ChangeActorImages {
