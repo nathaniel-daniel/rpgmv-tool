@@ -121,6 +121,10 @@ impl CommandCode {
     /// Its data always duplicates the data of the SET_MOVEMENT_ROUTE command.
     pub const SET_MOVEMENT_ROUTE_EXTRA: Self = Self(505);
 
+    pub const IF_WIN: Self = Self(601);
+    pub const IF_ESCAPE: Self = Self(602);
+    pub const IF_LOSE: Self = Self(603);
+
     pub const SHOP_PROCESSING_EXTRA: Self = Self(605);
 }
 
@@ -201,6 +205,9 @@ impl std::fmt::Debug for CommandCode {
             Self::ELSE => write!(f, "ELSE"),
             Self::CONDITONAL_BRANCH_END => write!(f, "CONDITONAL_BRANCH_END"),
             Self::SET_MOVEMENT_ROUTE_EXTRA => write!(f, "SET_MOVEMENT_ROUTE_EXTRA"),
+            Self::IF_WIN => write!(f, "IF_WIN"),
+            Self::IF_ESCAPE => write!(f, "IF_ESCAPE"),
+            Self::IF_LOSE => write!(f, "IF_LOSE"),
             Self::SHOP_PROCESSING_EXTRA => write!(f, "SHOP_PROCESSING_EXTRA"),
             _ => write!(f, "Unknown({})", self.0),
         }
