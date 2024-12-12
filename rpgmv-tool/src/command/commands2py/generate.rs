@@ -321,12 +321,15 @@ where
             };
             for variable_id in *start_variable_id..(*end_variable_id + 1) {
                 let name = config.get_variable_name(variable_id);
+
                 write_indent(&mut writer, indent)?;
                 writeln!(&mut writer, "{name} {operation} {value}")?;
             }
         }
         Command::ControlSelfSwitch { key, value } => {
             let value = stringify_bool(*value);
+
+            write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "game_self_switches['{key}'] = {value}")?;
         }
         Command::ChangeGold { is_add, value } => {
