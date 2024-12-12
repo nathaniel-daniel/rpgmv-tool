@@ -989,10 +989,24 @@ where
             writeln!(&mut writer, "return_to_title_screen()")?;
         }
         Command::Script { lines } => {
-            let data = lines.join("\\n");
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "script(")?;
+            
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(writer, "lines=[")?;
+
+            for line in lines {
+                let line = escape_string(line);
+
+                write_indent(&mut writer, indent + 2)?;
+                writeln!(writer, "'{line}',")?;
+            }
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "],")?;
 
             write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "script(data=\'{data}\')")?;
+            writeln!(&mut writer, ")")?;
         }
         Command::PluginCommand { params } => {
             write_indent(&mut writer, indent)?;

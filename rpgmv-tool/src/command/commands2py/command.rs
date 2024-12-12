@@ -453,6 +453,17 @@ pub fn parse_event_command_list(
 
                 continue;
             }
+            (Some(Command::Script { lines }), CommandCode::SCRIPT_EXTRA) => {
+                ensure!(event_command.parameters.len() == 1);
+                let line = event_command.parameters[0]
+                    .as_str()
+                    .context("`line` is not a string")?
+                    .to_string();
+
+                lines.push(line);
+
+                continue;
+            }
             (_, CommandCode::NOP) => {
                 ensure!(event_command.parameters.is_empty());
 

@@ -131,6 +131,7 @@ impl CommandCode {
     /// it just ignores it, only taking into account indents.
     pub const BATTLE_RESULT_END: Self = Self(604);
     pub const SHOP_PROCESSING_EXTRA: Self = Self(605);
+    pub const SCRIPT_EXTRA: Self = Self(655);
 }
 
 impl std::fmt::Debug for CommandCode {
@@ -218,6 +219,7 @@ impl std::fmt::Debug for CommandCode {
             Self::IF_LOSE => write!(f, "IF_LOSE"),
             Self::BATTLE_RESULT_END => write!(f, "BATTLE_RESULT_END"),
             Self::SHOP_PROCESSING_EXTRA => write!(f, "SHOP_PROCESSING_EXTRA"),
+            Self::SCRIPT_EXTRA => write!(f, "SCRIPT_EXTRA"),
             _ => write!(f, "Unknown({})", self.0),
         }
     }
