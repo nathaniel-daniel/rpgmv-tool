@@ -991,7 +991,7 @@ where
         Command::Script { lines } => {
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "script(")?;
-            
+
             write_indent(&mut writer, indent + 1)?;
             writeln!(writer, "lines=[")?;
 
