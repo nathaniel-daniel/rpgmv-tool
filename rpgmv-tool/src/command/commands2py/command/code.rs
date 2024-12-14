@@ -70,6 +70,8 @@ impl CommandCode {
 
     pub const PLAY_SE: Self = Self(250);
 
+    pub const GET_LOCATION_INFO: Self = Self(285);
+
     pub const BATTLE_PROCESSING: Self = Self(301);
     pub const SHOP_PROCESSING: Self = Self(302);
     pub const NAME_INPUT_PROCESSING: Self = Self(303);
@@ -183,6 +185,7 @@ impl std::fmt::Debug for CommandCode {
             Self::FADEOUT_BGS => write!(f, "FADEOUT_BGS"),
             Self::PLAY_BGS => write!(f, "PLAY_BGS"),
             Self::PLAY_SE => write!(f, "PLAY_SE"),
+            Self::GET_LOCATION_INFO => write!(f, "GET_LOCATION_INFO"),
             Self::BATTLE_PROCESSING => write!(f, "BATTLE_PROCESSING"),
             Self::SHOP_PROCESSING => write!(f, "SHOP_PROCESSING"),
             Self::NAME_INPUT_PROCESSING => write!(f, "NAME_INPUT_PROCESSING"),
