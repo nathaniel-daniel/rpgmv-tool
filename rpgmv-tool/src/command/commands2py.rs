@@ -8,6 +8,7 @@ use self::command::Command;
 use self::command::ConditionalBranchCommand;
 use self::command::ControlVariablesValue;
 use self::command::ControlVariablesValueGameData;
+use self::command::GetLocationInfoKind;
 use self::command::MaybeRef;
 use self::config::Config;
 use self::file_sink::FileSink;

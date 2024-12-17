@@ -7,8 +7,26 @@ pub use self::conditional_branch::ConditionalBranchCommand;
 pub use self::control_variables::ControlVariablesValue;
 pub use self::control_variables::ControlVariablesValueGameData;
 pub use self::control_variables::OperateVariableOperation;
+use anyhow::bail;
 use anyhow::ensure;
 use anyhow::Context;
+
+#[derive(Debug, Copy, Clone)]
+pub enum GetLocationInfoKind {
+    TerrainTag,
+    EventId,
+}
+
+impl GetLocationInfoKind {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            0 => Ok(Self::TerrainTag),
+            1 => Ok(Self::EventId),
+            _ => bail!("{value} is not a valid GetLocationInfoKind"),
+        }
+    }
+}
 
 /// A command
 #[derive(Debug)]
@@ -164,6 +182,12 @@ pub enum Command {
     },
     PlaySe {
         audio: rpgmv_types::AudioFile,
+    },
+    GetLocationInfo {
+        variable_id: u32,
+        kind: GetLocationInfoKind,
+        x: MaybeRef<u32>,
+        y: MaybeRef<u32>,
     },
     BattleProcessing {
         troop_id: MaybeRef<u32>,
@@ -984,6 +1008,48 @@ pub fn parse_event_command_list(
                         .context("invalid `audio` parameter")?;
 
                 Command::PlaySe { audio }
+            }
+            (_, CommandCode::GET_LOCATION_INFO) => {
+                ensure!(event_command.parameters.len() == 5);
+
+                let variable_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`variable_id` is not a `u32`")?;
+
+                let kind = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`kind` is not a `u8`")?;
+                let kind = GetLocationInfoKind::from_u8(kind)?;
+
+                let is_constant = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_constant` is not a `u8`")?;
+                ensure!(is_constant <= 1);
+                let is_constant = is_constant == 0;
+
+                let x = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`x` is not a `u32`")?;
+                let y = event_command.parameters[4]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`x` is not a `u32`")?;
+                let (x, y) = if is_constant {
+                    (MaybeRef::Constant(x), MaybeRef::Constant(y))
+                } else {
+                    (MaybeRef::Ref(x), MaybeRef::Ref(y))
+                };
+
+                Command::GetLocationInfo {
+                    variable_id,
+                    kind,
+                    x,
+                    y,
+                }
             }
             (_, CommandCode::BATTLE_PROCESSING) => {
                 ensure!(event_command.parameters.len() == 4);

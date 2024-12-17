@@ -3,6 +3,7 @@ use super::ConditionalBranchCommand;
 use super::Config;
 use super::ControlVariablesValue;
 use super::ControlVariablesValueGameData;
+use super::GetLocationInfoKind;
 use super::MaybeRef;
 use anyhow::bail;
 use anyhow::ensure;
@@ -743,6 +744,34 @@ where
 
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, ")")?;
+        }
+        Command::GetLocationInfo {
+            variable_id,
+            kind,
+            x,
+            y,
+        } => {
+            let variable = config.get_variable_name(*variable_id);
+            let x = match x {
+                MaybeRef::Constant(x) => x.to_string(),
+                MaybeRef::Ref(x) => config.get_variable_name(*x),
+            };
+            let y = match y {
+                MaybeRef::Constant(y) => y.to_string(),
+                MaybeRef::Ref(y) => config.get_variable_name(*y),
+            };
+
+            let value = match kind {
+                GetLocationInfoKind::TerrainTag => {
+                    format!("game_map.get_terrain_tag(x={x}, y={y})")
+                }
+                GetLocationInfoKind::EventId => {
+                    format!("game_map.get_event_id(x={x}, y={y})")
+                }
+            };
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "{variable} = {value}")?;
         }
         Command::BattleProcessing {
             troop_id,
