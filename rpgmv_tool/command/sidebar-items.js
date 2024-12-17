@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["commands2py","decrypt","encrypt_png"]};
