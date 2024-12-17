@@ -3,6 +3,7 @@ use super::ConditionalBranchCommand;
 use super::Config;
 use super::ControlVariablesValue;
 use super::ControlVariablesValueGameData;
+use super::GetLocationInfoKind;
 use super::MaybeRef;
 use anyhow::bail;
 use anyhow::ensure;
@@ -183,6 +184,11 @@ where
                         "game_party.members.contains(actor={actor_name}):"
                     )?;
                 }
+                ConditionalBranchCommand::Timer { value, is_gte } => {
+                    let cmp = if *is_gte { ">=" } else { "<=" };
+
+                    writeln!(&mut writer, "game_timer.seconds() {cmp} {value}:")?;
+                }
                 ConditionalBranchCommand::ActorSkill { actor_id, skill_id } => {
                     let actor_name = config.get_actor_name(*actor_id);
                     let skill_name = config.get_skill_name(*skill_id);
@@ -303,6 +309,12 @@ where
                         let name = config.get_actor_name(*actor_id);
                         format!("{name}.mp")
                     }
+                    ControlVariablesValueGameData::CharacterMapX { character_id } => {
+                        format!("game.get_character(id={character_id}).map_x")
+                    }
+                    ControlVariablesValueGameData::CharacterMapY { character_id } => {
+                        format!("game.get_character(id={character_id}).map_y")
+                    }
                     ControlVariablesValueGameData::Gold => "game_party.gold".to_string(),
                     ControlVariablesValueGameData::Steps => "game_party.steps".to_string(),
                     _ => bail!("ControlVariablesValueGameData {game_data:?} is not supported"),
@@ -310,13 +322,25 @@ where
             };
             for variable_id in *start_variable_id..(*end_variable_id + 1) {
                 let name = config.get_variable_name(variable_id);
+
                 write_indent(&mut writer, indent)?;
                 writeln!(&mut writer, "{name} {operation} {value}")?;
             }
         }
         Command::ControlSelfSwitch { key, value } => {
             let value = stringify_bool(*value);
+
+            write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "game_self_switches['{key}'] = {value}")?;
+        }
+        Command::ControlTimer { start_seconds } => {
+            write_indent(&mut writer, indent)?;
+            match start_seconds {
+                Some(start_seconds) => {
+                    writeln!(&mut writer, "game_timer.start(seconds={start_seconds})")?
+                }
+                None => writeln!(&mut writer, "game_timer.stop()")?,
+            }
         }
         Command::ChangeGold { is_add, value } => {
             let op = if *is_add { "+=" } else { "-=" };
@@ -551,6 +575,16 @@ where
                 "change_transparency(set_transparent={set_transparent})"
             )?
         }
+        Command::ShowAnimation {
+            character_id,
+            animation_id,
+            wait,
+        } => {
+            let wait = stringify_bool(*wait);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "show_animation(character_id={character_id}, animation_id={animation_id}, wait={wait})")?
+        }
         Command::ShowBalloonIcon {
             character_id,
             balloon_id,
@@ -715,6 +749,10 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, ")")?;
         }
+        Command::FadeoutBgs { duration } => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "fadeout_bgs(duration={duration})")?;
+        }
         Command::PlaySe { audio } => {
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "play_se(")?;
@@ -725,6 +763,34 @@ where
 
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, ")")?;
+        }
+        Command::GetLocationInfo {
+            variable_id,
+            kind,
+            x,
+            y,
+        } => {
+            let variable = config.get_variable_name(*variable_id);
+            let x = match x {
+                MaybeRef::Constant(x) => x.to_string(),
+                MaybeRef::Ref(x) => config.get_variable_name(*x),
+            };
+            let y = match y {
+                MaybeRef::Constant(y) => y.to_string(),
+                MaybeRef::Ref(y) => config.get_variable_name(*y),
+            };
+
+            let value = match kind {
+                GetLocationInfoKind::TerrainTag => {
+                    format!("game_map.get_terrain_tag(x={x}, y={y})")
+                }
+                GetLocationInfoKind::EventId => {
+                    format!("game_map.get_event_id(x={x}, y={y})")
+                }
+            };
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "{variable} = {value}")?;
         }
         Command::BattleProcessing {
             troop_id,
@@ -975,10 +1041,24 @@ where
             writeln!(&mut writer, "return_to_title_screen()")?;
         }
         Command::Script { lines } => {
-            let data = lines.join("\\n");
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "script(")?;
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(writer, "lines=[")?;
+
+            for line in lines {
+                let line = escape_string(line);
+
+                write_indent(&mut writer, indent + 2)?;
+                writeln!(writer, "'{line}',")?;
+            }
+
+            write_indent(&mut writer, indent + 1)?;
+            writeln!(&mut writer, "],")?;
 
             write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "script(data=\'{data}\')")?;
+            writeln!(&mut writer, ")")?;
         }
         Command::PluginCommand { params } => {
             write_indent(&mut writer, indent)?;

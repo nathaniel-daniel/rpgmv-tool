@@ -1,158 +1,29 @@
 mod code;
 mod conditional_branch;
+mod control_variables;
 
 use self::code::CommandCode;
 pub use self::conditional_branch::ConditionalBranchCommand;
+pub use self::control_variables::ControlVariablesValue;
+pub use self::control_variables::ControlVariablesValueGameData;
+pub use self::control_variables::OperateVariableOperation;
 use anyhow::bail;
 use anyhow::ensure;
 use anyhow::Context;
 
 #[derive(Debug, Copy, Clone)]
-enum ControlVariablesOperation {
-    Const = 0,
-    Var = 1,
-    Random = 2,
-    GameData = 3,
-    Script = 4,
+pub enum GetLocationInfoKind {
+    TerrainTag,
+    EventId,
 }
 
-impl ControlVariablesOperation {
+impl GetLocationInfoKind {
     /// Get this from a u8.
     pub fn from_u8(value: u8) -> anyhow::Result<Self> {
         match value {
-            0 => Ok(Self::Const),
-            1 => Ok(Self::Var),
-            2 => Ok(Self::Random),
-            3 => Ok(Self::GameData),
-            4 => Ok(Self::Script),
-            _ => bail!("{value} is not a valid ControlVariablesOperation"),
-        }
-    }
-}
-
-/// The type of variable operation.
-#[derive(Debug, Copy, Clone)]
-pub enum OperateVariableOperation {
-    /// =
-    Set = 0,
-
-    /// +=
-    Add = 1,
-
-    /// -=
-    Sub = 2,
-
-    /// *=
-    Mul = 3,
-
-    /// /=
-    Div = 4,
-}
-
-impl OperateVariableOperation {
-    /// Get this from a u8.
-    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
-        match value {
-            0 => Ok(Self::Set),
-            1 => Ok(Self::Add),
-            2 => Ok(Self::Sub),
-            3 => Ok(Self::Mul),
-            4 => Ok(Self::Div),
-            _ => bail!("{value} is not a valid OperateVariableOperation"),
-        }
-    }
-
-    /// Get this as a str.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Set => "=",
-            Self::Add => "+=",
-            Self::Sub => "-=",
-            Self::Mul => "*=",
-            Self::Div => "/=",
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-enum GameDataOperandKind {
-    Item = 0,
-    Weapon = 1,
-    Armor = 2,
-    Actor = 3,
-    Enemy = 4,
-    Character = 5,
-    Party = 6,
-    Other = 7,
-}
-
-impl GameDataOperandKind {
-    /// Get this from a u8.
-    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
-        match value {
-            0 => Ok(Self::Item),
-            1 => Ok(Self::Weapon),
-            2 => Ok(Self::Armor),
-            3 => Ok(Self::Actor),
-            4 => Ok(Self::Enemy),
-            5 => Ok(Self::Character),
-            6 => Ok(Self::Party),
-            7 => Ok(Self::Other),
-            _ => bail!("{value} is not a valid GameDataOperandKind"),
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-enum GameDataOperandKindOtherCheck {
-    MapId = 0,
-    PartyMembers = 1,
-    Gold = 2,
-    Steps = 3,
-    PlayTime = 4,
-    Timer = 5,
-    SaveCount = 6,
-    BattleCount = 7,
-    WinCount = 8,
-    EscapeCount = 9,
-}
-
-impl GameDataOperandKindOtherCheck {
-    /// Get this from a u8.
-    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
-        match value {
-            0 => Ok(Self::MapId),
-            1 => Ok(Self::PartyMembers),
-            2 => Ok(Self::Gold),
-            3 => Ok(Self::Steps),
-            4 => Ok(Self::PlayTime),
-            5 => Ok(Self::Timer),
-            6 => Ok(Self::SaveCount),
-            7 => Ok(Self::BattleCount),
-            8 => Ok(Self::WinCount),
-            9 => Ok(Self::EscapeCount),
-            _ => bail!("{value} is not a valid GameDataOperandKindOtherCheck"),
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub enum GameDataOperandKindActorCheck {
-    Level = 0,
-    Exp = 1,
-    Hp = 2,
-    Mp = 3,
-}
-
-impl GameDataOperandKindActorCheck {
-    /// Get this from a u8.
-    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
-        match value {
-            0 => Ok(Self::Level),
-            1 => Ok(Self::Exp),
-            2 => Ok(Self::Hp),
-            3 => Ok(Self::Mp),
-            _ => bail!("{value} is not a valid GameDataOperandKindActorCheck"),
+            0 => Ok(Self::TerrainTag),
+            1 => Ok(Self::EventId),
+            _ => bail!("{value} is not a valid GetLocationInfoKind"),
         }
     }
 }
@@ -209,6 +80,9 @@ pub enum Command {
         key: String,
         value: bool,
     },
+    ControlTimer {
+        start_seconds: Option<u32>,
+    },
     ChangeGold {
         is_add: bool,
         value: MaybeRef<u32>,
@@ -251,6 +125,11 @@ pub enum Command {
     },
     ChangeTransparency {
         set_transparent: bool,
+    },
+    ShowAnimation {
+        character_id: i32,
+        animation_id: u32,
+        wait: bool,
     },
     ShowBalloonIcon {
         character_id: i32,
@@ -306,8 +185,17 @@ pub enum Command {
     PlayBgs {
         audio: rpgmv_types::AudioFile,
     },
+    FadeoutBgs {
+        duration: u32,
+    },
     PlaySe {
         audio: rpgmv_types::AudioFile,
+    },
+    GetLocationInfo {
+        variable_id: u32,
+        kind: GetLocationInfoKind,
+        x: MaybeRef<u32>,
+        y: MaybeRef<u32>,
     },
     BattleProcessing {
         troop_id: MaybeRef<u32>,
@@ -474,138 +362,6 @@ impl Command {
         })
     }
 
-    fn parse_control_variables(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
-        ensure!(event_command.parameters.len() >= 4);
-        let start_variable_id = event_command.parameters[0]
-            .as_i64()
-            .and_then(|value| u32::try_from(value).ok())
-            .context("`start_variable_id` is not a `u32`")?;
-        let end_variable_id = event_command.parameters[1]
-            .as_i64()
-            .and_then(|value| u32::try_from(value).ok())
-            .context("`end_variable_id` is not a `u32`")?;
-        let operate_variable_operation = event_command.parameters[2]
-            .as_i64()
-            .and_then(|value| u8::try_from(value).ok())
-            .context("`control_variables_operation` is not a `u8`")?;
-        let operate_variable_operation =
-            OperateVariableOperation::from_u8(operate_variable_operation)?;
-        let control_variables_operation = event_command.parameters[3]
-            .as_i64()
-            .and_then(|value| u8::try_from(value).ok())
-            .context("`control_variables_operation` is not a `u8`")?;
-        let control_variables_operation =
-            ControlVariablesOperation::from_u8(control_variables_operation)?;
-
-        let value = match control_variables_operation {
-            ControlVariablesOperation::Const => {
-                ensure!(event_command.parameters.len() == 5);
-
-                let value = event_command.parameters[4]
-                    .as_i64()
-                    .and_then(|value| i32::try_from(value).ok())
-                    .context("`value` is not an `i32`")?;
-
-                ControlVariablesValue::Constant { value }
-            }
-            ControlVariablesOperation::Var => {
-                ensure!(event_command.parameters.len() == 5);
-
-                let id = event_command.parameters[4]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`id` is not a `u32`")?;
-
-                ControlVariablesValue::Variable { id }
-            }
-            ControlVariablesOperation::Random => {
-                ensure!(event_command.parameters.len() == 6);
-                let start = event_command.parameters[4]
-                    .as_i64()
-                    .and_then(|value| i32::try_from(value).ok())
-                    .context("`start` is not an `i32`")?;
-                let stop = event_command.parameters[5]
-                    .as_i64()
-                    .and_then(|value| i32::try_from(value).ok())
-                    .context("`stop` is not an `i32`")?;
-
-                ControlVariablesValue::Random { start, stop }
-            }
-            ControlVariablesOperation::GameData => {
-                ensure!(event_command.parameters.len() == 7);
-                let kind = event_command.parameters[4]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`kind` is not a `u8`")?;
-                let kind = GameDataOperandKind::from_u8(kind)?;
-                let param1 = event_command.parameters[5]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`param1` is not a `u32`")?;
-                let param2 = event_command.parameters[6]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`param2` is not a `u32`")?;
-
-                let inner = match kind {
-                    GameDataOperandKind::Item => {
-                        let item_id = param1;
-
-                        ControlVariablesValueGameData::NumItems { item_id }
-                    }
-                    GameDataOperandKind::Actor => {
-                        let actor_id = param1;
-                        let check = u8::try_from(param2).context("`check` is not a `u8`")?;
-                        let check = GameDataOperandKindActorCheck::from_u8(check)?;
-
-                        match check {
-                            GameDataOperandKindActorCheck::Level => {
-                                ControlVariablesValueGameData::ActorLevel { actor_id }
-                            }
-                            GameDataOperandKindActorCheck::Mp => {
-                                ControlVariablesValueGameData::ActorMp { actor_id }
-                            }
-                            _ => bail!("GameDataOperandKindActorCheck {check:?} is not supported"),
-                        }
-                    }
-                    GameDataOperandKind::Other => {
-                        let check = u8::try_from(param1).context("`check` is not a `u8`")?;
-                        let check = GameDataOperandKindOtherCheck::from_u8(check)?;
-
-                        match check {
-                            GameDataOperandKindOtherCheck::MapId => {
-                                ControlVariablesValueGameData::MapId
-                            }
-                            GameDataOperandKindOtherCheck::Gold => {
-                                ControlVariablesValueGameData::Gold
-                            }
-                            GameDataOperandKindOtherCheck::Steps => {
-                                ControlVariablesValueGameData::Steps
-                            }
-                            _ => bail!("GameDataOperandKindOtherCheck {check:?} is not supported"),
-                        }
-                    }
-                    _ => {
-                        bail!("GameDataOperandKind {kind:?} is not supported")
-                    }
-                };
-
-                ControlVariablesValue::GameData(inner)
-            }
-            _ => {
-                let name = "ControlVariablesOperation";
-                bail!("{name} {control_variables_operation:?} is not supported")
-            }
-        };
-
-        Ok(Command::ControlVariables {
-            start_variable_id,
-            end_variable_id,
-            operation: operate_variable_operation,
-            value,
-        })
-    }
-
     fn parse_show_picture(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         ensure!(event_command.parameters.len() == 10);
         let picture_id = event_command.parameters[0]
@@ -675,24 +431,6 @@ impl Command {
     }
 }
 
-#[derive(Debug)]
-pub enum ControlVariablesValue {
-    Constant { value: i32 },
-    Variable { id: u32 },
-    Random { start: i32, stop: i32 },
-    GameData(ControlVariablesValueGameData),
-}
-
-#[derive(Debug)]
-pub enum ControlVariablesValueGameData {
-    NumItems { item_id: u32 },
-    ActorLevel { actor_id: u32 },
-    ActorMp { actor_id: u32 },
-    MapId,
-    Gold,
-    Steps,
-}
-
 #[derive(Debug, Copy, Clone, Hash)]
 pub enum MaybeRef<T> {
     Constant(T),
@@ -747,6 +485,17 @@ pub fn parse_event_command_list(
                 ensure!(command == route.list[move_command_index]);
 
                 move_command_index += 1;
+
+                continue;
+            }
+            (Some(Command::Script { lines }), CommandCode::SCRIPT_EXTRA) => {
+                ensure!(event_command.parameters.len() == 1);
+                let line = event_command.parameters[0]
+                    .as_str()
+                    .context("`line` is not a string")?
+                    .to_string();
+
+                lines.push(line);
 
                 continue;
             }
@@ -885,6 +634,29 @@ pub fn parse_event_command_list(
                 let value = value == 0;
 
                 Command::ControlSelfSwitch { key, value }
+            }
+            (_, CommandCode::CONTROL_TIMER) => {
+                ensure!(!event_command.parameters.is_empty());
+                let is_start = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_start` is not a `u8`")?;
+                ensure!(is_start <= 1);
+                let is_start = is_start == 0;
+
+                let start_seconds = if is_start {
+                    ensure!(event_command.parameters.len() == 2);
+                    let start_seconds = event_command.parameters[1]
+                        .as_i64()
+                        .and_then(|value| u32::try_from(value).ok())
+                        .context("`start_seconds` is not a `u32`")?;
+                    Some(start_seconds)
+                } else {
+                    ensure!(event_command.parameters.len() == 1);
+                    None
+                };
+
+                Command::ControlTimer { start_seconds }
             }
             (_, CommandCode::CHANGE_GOLD) => {
                 ensure!(event_command.parameters.len() == 3);
@@ -1094,6 +866,26 @@ pub fn parse_event_command_list(
                 let set_transparent = value == 0;
                 Command::ChangeTransparency { set_transparent }
             }
+            (_, CommandCode::SHOW_ANIMATION) => {
+                ensure!(event_command.parameters.len() == 3);
+                let character_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| i32::try_from(value).ok())
+                    .context("`character_id` is not a `i32`")?;
+                let animation_id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`animation_id` is not a `u32`")?;
+                let wait = event_command.parameters[2]
+                    .as_bool()
+                    .context("`wait` is not a `bool`")?;
+
+                Command::ShowAnimation {
+                    character_id,
+                    animation_id,
+                    wait,
+                }
+            }
             (_, CommandCode::SHOW_BALLOON_ICON) => {
                 ensure!(event_command.parameters.len() == 3);
                 let character_id = event_command.parameters[0]
@@ -1246,6 +1038,16 @@ pub fn parse_event_command_list(
 
                 Command::PlayBgs { audio }
             }
+            (_, CommandCode::FADEOUT_BGS) => {
+                ensure!(event_command.parameters.len() == 1);
+
+                let duration = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`duration` is not a `u32`")?;
+
+                Command::FadeoutBgs { duration }
+            }
             (_, CommandCode::RESUME_BGM) => {
                 ensure!(event_command.parameters.is_empty());
                 Command::ResumeBgm
@@ -1257,6 +1059,48 @@ pub fn parse_event_command_list(
                         .context("invalid `audio` parameter")?;
 
                 Command::PlaySe { audio }
+            }
+            (_, CommandCode::GET_LOCATION_INFO) => {
+                ensure!(event_command.parameters.len() == 5);
+
+                let variable_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`variable_id` is not a `u32`")?;
+
+                let kind = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`kind` is not a `u8`")?;
+                let kind = GetLocationInfoKind::from_u8(kind)?;
+
+                let is_constant = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_constant` is not a `u8`")?;
+                ensure!(is_constant <= 1);
+                let is_constant = is_constant == 0;
+
+                let x = event_command.parameters[3]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`x` is not a `u32`")?;
+                let y = event_command.parameters[4]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`x` is not a `u32`")?;
+                let (x, y) = if is_constant {
+                    (MaybeRef::Constant(x), MaybeRef::Constant(y))
+                } else {
+                    (MaybeRef::Ref(x), MaybeRef::Ref(y))
+                };
+
+                Command::GetLocationInfo {
+                    variable_id,
+                    kind,
+                    x,
+                    y,
+                }
             }
             (_, CommandCode::BATTLE_PROCESSING) => {
                 ensure!(event_command.parameters.len() == 4);

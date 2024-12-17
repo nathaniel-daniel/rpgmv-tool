@@ -70,6 +70,8 @@ impl CommandCode {
 
     pub const PLAY_SE: Self = Self(250);
 
+    pub const GET_LOCATION_INFO: Self = Self(285);
+
     pub const BATTLE_PROCESSING: Self = Self(301);
     pub const SHOP_PROCESSING: Self = Self(302);
     pub const NAME_INPUT_PROCESSING: Self = Self(303);
@@ -131,6 +133,7 @@ impl CommandCode {
     /// it just ignores it, only taking into account indents.
     pub const BATTLE_RESULT_END: Self = Self(604);
     pub const SHOP_PROCESSING_EXTRA: Self = Self(605);
+    pub const SCRIPT_EXTRA: Self = Self(655);
 }
 
 impl std::fmt::Debug for CommandCode {
@@ -182,6 +185,7 @@ impl std::fmt::Debug for CommandCode {
             Self::FADEOUT_BGS => write!(f, "FADEOUT_BGS"),
             Self::PLAY_BGS => write!(f, "PLAY_BGS"),
             Self::PLAY_SE => write!(f, "PLAY_SE"),
+            Self::GET_LOCATION_INFO => write!(f, "GET_LOCATION_INFO"),
             Self::BATTLE_PROCESSING => write!(f, "BATTLE_PROCESSING"),
             Self::SHOP_PROCESSING => write!(f, "SHOP_PROCESSING"),
             Self::NAME_INPUT_PROCESSING => write!(f, "NAME_INPUT_PROCESSING"),
@@ -218,6 +222,7 @@ impl std::fmt::Debug for CommandCode {
             Self::IF_LOSE => write!(f, "IF_LOSE"),
             Self::BATTLE_RESULT_END => write!(f, "BATTLE_RESULT_END"),
             Self::SHOP_PROCESSING_EXTRA => write!(f, "SHOP_PROCESSING_EXTRA"),
+            Self::SCRIPT_EXTRA => write!(f, "SCRIPT_EXTRA"),
             _ => write!(f, "Unknown({})", self.0),
         }
     }

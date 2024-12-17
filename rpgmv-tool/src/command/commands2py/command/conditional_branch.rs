@@ -257,6 +257,22 @@ impl Command {
 
                 ConditionalBranchCommand::SelfSwitch { name, check_true }
             }
+            ConditionalBranchKind::Timer => {
+                ensure!(event_command.parameters.len() == 3);
+
+                let value = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`value` is not a `u32`")?;
+                let is_gte = event_command.parameters[2]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_gte` is not a `u8`")?;
+                ensure!(is_gte <= 1);
+                let is_gte = is_gte == 0;
+
+                ConditionalBranchCommand::Timer { value, is_gte }
+            }
             ConditionalBranchKind::Actor => {
                 ensure!(event_command.parameters.len() >= 3);
                 let actor_id = event_command.parameters[1]
@@ -407,6 +423,10 @@ pub enum ConditionalBranchCommand {
     SelfSwitch {
         name: String,
         check_true: bool,
+    },
+    Timer {
+        value: u32,
+        is_gte: bool,
     },
     ActorInParty {
         actor_id: u32,
