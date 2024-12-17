@@ -159,6 +159,9 @@ pub enum Command {
     PlayBgs {
         audio: rpgmv_types::AudioFile,
     },
+    FadeoutBgs {
+        duration: u32,
+    },
     PlaySe {
         audio: rpgmv_types::AudioFile,
     },
@@ -959,6 +962,16 @@ pub fn parse_event_command_list(
                         .context("invalid `audio` parameter")?;
 
                 Command::PlayBgs { audio }
+            }
+            (_, CommandCode::FADEOUT_BGS) => {
+                ensure!(event_command.parameters.len() == 1);
+
+                let duration = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`duration` is not a `u32`")?;
+
+                Command::FadeoutBgs { duration }
             }
             (_, CommandCode::RESUME_BGM) => {
                 ensure!(event_command.parameters.is_empty());
