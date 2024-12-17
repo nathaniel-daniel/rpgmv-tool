@@ -80,6 +80,9 @@ pub enum Command {
         key: String,
         value: bool,
     },
+    ControlTimer {
+        start_seconds: Option<u32>,
+    },
     ChangeGold {
         is_add: bool,
         value: MaybeRef<u32>,
@@ -122,6 +125,11 @@ pub enum Command {
     },
     ChangeTransparency {
         set_transparent: bool,
+    },
+    ShowAnimation {
+        character_id: i32,
+        animation_id: u32,
+        wait: bool,
     },
     ShowBalloonIcon {
         character_id: i32,
@@ -627,6 +635,29 @@ pub fn parse_event_command_list(
 
                 Command::ControlSelfSwitch { key, value }
             }
+            (_, CommandCode::CONTROL_TIMER) => {
+                ensure!(!event_command.parameters.is_empty());
+                let is_start = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| u8::try_from(value).ok())
+                    .context("`is_start` is not a `u8`")?;
+                ensure!(is_start <= 1);
+                let is_start = is_start == 0;
+
+                let start_seconds = if is_start {
+                    ensure!(event_command.parameters.len() == 2);
+                    let start_seconds = event_command.parameters[1]
+                        .as_i64()
+                        .and_then(|value| u32::try_from(value).ok())
+                        .context("`start_seconds` is not a `u32`")?;
+                    Some(start_seconds)
+                } else {
+                    ensure!(event_command.parameters.len() == 1);
+                    None
+                };
+
+                Command::ControlTimer { start_seconds }
+            }
             (_, CommandCode::CHANGE_GOLD) => {
                 ensure!(event_command.parameters.len() == 3);
                 let is_add = event_command.parameters[0]
@@ -834,6 +865,26 @@ pub fn parse_event_command_list(
 
                 let set_transparent = value == 0;
                 Command::ChangeTransparency { set_transparent }
+            }
+            (_, CommandCode::SHOW_ANIMATION) => {
+                ensure!(event_command.parameters.len() == 3);
+                let character_id = event_command.parameters[0]
+                    .as_i64()
+                    .and_then(|value| i32::try_from(value).ok())
+                    .context("`character_id` is not a `i32`")?;
+                let animation_id = event_command.parameters[1]
+                    .as_i64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .context("`animation_id` is not a `u32`")?;
+                let wait = event_command.parameters[2]
+                    .as_bool()
+                    .context("`wait` is not a `bool`")?;
+
+                Command::ShowAnimation {
+                    character_id,
+                    animation_id,
+                    wait,
+                }
             }
             (_, CommandCode::SHOW_BALLOON_ICON) => {
                 ensure!(event_command.parameters.len() == 3);

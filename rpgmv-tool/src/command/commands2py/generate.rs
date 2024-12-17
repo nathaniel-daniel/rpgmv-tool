@@ -333,6 +333,15 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "game_self_switches['{key}'] = {value}")?;
         }
+        Command::ControlTimer { start_seconds } => {
+            write_indent(&mut writer, indent)?;
+            match start_seconds {
+                Some(start_seconds) => {
+                    writeln!(&mut writer, "game_timer.start(seconds={start_seconds})")?
+                }
+                None => writeln!(&mut writer, "game_timer.stop()")?,
+            }
+        }
         Command::ChangeGold { is_add, value } => {
             let op = if *is_add { "+=" } else { "-=" };
             let value = match value {
@@ -565,6 +574,16 @@ where
                 &mut writer,
                 "change_transparency(set_transparent={set_transparent})"
             )?
+        }
+        Command::ShowAnimation {
+            character_id,
+            animation_id,
+            wait,
+        } => {
+            let wait = stringify_bool(*wait);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "show_animation(character_id={character_id}, animation_id={animation_id}, wait={wait})")?
         }
         Command::ShowBalloonIcon {
             character_id,
