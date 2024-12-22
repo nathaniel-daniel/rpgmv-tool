@@ -282,7 +282,7 @@ fn dump_dir(
                         .common_events
                         .get(&common_event_id_u32)
                         .unwrap_or(&common_event.name);
-                    let output_file_name = format!("{common_event_id_u32:02}_{event_name}.py");
+                    let output_file_name = format!("{common_event_id_u32:03}_{event_name}.py");
                     let output = output.join(output_file_name);
 
                     if !dry_run {
