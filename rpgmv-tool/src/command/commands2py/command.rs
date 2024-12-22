@@ -288,6 +288,20 @@ pub enum Command {
 }
 
 impl Command {
+    fn parse_nop(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::Nop)
+    }
+
+    fn parse_common_event(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let id = reader.read_at(0, "id")?;
+
+        Ok(Self::CommonEvent { id })
+    }
+
     fn parse_transfer_player(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         ensure!(event_command.parameters.len() == 6);
         let is_constant = event_command.parameters[0]
@@ -423,11 +437,10 @@ pub fn parse_event_command_list(
         let last_command = ret.last_mut().map(|(_code, command)| command);
         let command = match (last_command, command_code) {
             (Some(Command::ShowText { lines, .. }), CommandCode::TEXT_DATA) => {
-                ensure!(event_command.parameters.len() == 1);
-                let line = event_command.parameters[0]
-                    .as_str()
-                    .context("`line` is not a string")?
-                    .to_string();
+                let reader = ParamReader::new(event_command);
+                reader.ensure_len_is(1)?;
+
+                let line = reader.read_at(0, "line")?;
 
                 lines.push(line);
 
@@ -474,9 +487,7 @@ pub fn parse_event_command_list(
                 continue;
             }
             (_, CommandCode::NOP) => {
-                ensure!(event_command.parameters.is_empty());
-
-                Command::Nop
+                Command::parse_nop(event_command).context("failed to parse NOP command")?
             }
             (_, CommandCode::SHOW_TEXT) => Command::parse_show_text(event_command)
                 .context("failed to parse SHOW_TEXT command")?,
@@ -539,15 +550,8 @@ pub fn parse_event_command_list(
                 ensure!(event_command.parameters.is_empty());
                 Command::ExitEventProcessing
             }
-            (_, CommandCode::COMMON_EVENT) => {
-                ensure!(event_command.parameters.len() == 1);
-                let id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`id` is not a `u32`")?;
-
-                Command::CommonEvent { id }
-            }
+            (_, CommandCode::COMMON_EVENT) => Command::parse_common_event(event_command)
+                .context("failed to parse COMMON_EVENT command")?,
             (_, CommandCode::LABEL) => {
                 ensure!(event_command.parameters.len() == 1);
 

@@ -6,6 +6,8 @@ use std::io::Write;
 pub struct FunctionCallWriter<W> {
     writer: W,
     indent: u16,
+
+    has_params: bool,
 }
 
 impl<W> FunctionCallWriter<W>
@@ -14,15 +16,24 @@ where
 {
     pub fn new(mut writer: W, indent: u16, name: &str) -> anyhow::Result<Self> {
         write_indent(&mut writer, indent)?;
-        writeln!(writer, "{name}(")?;
+        write!(writer, "{name}(")?;
 
-        Ok(Self { writer, indent })
+        Ok(Self {
+            writer,
+            indent,
+            has_params: false,
+        })
     }
 
     pub fn write_param<T>(&mut self, name: &str, param: &T) -> anyhow::Result<()>
     where
         T: FunctionParamValue,
     {
+        if !self.has_params {
+            writeln!(self.writer)?;
+            self.has_params = true;
+        }
+
         write_indent(&mut self.writer, self.indent + 1)?;
         write!(self.writer, "{name}=")?;
         param.write_param_value(&mut self.writer, self.indent + 1)?;

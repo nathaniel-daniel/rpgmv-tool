@@ -233,9 +233,7 @@ where
         }
         Command::CommonEvent { id } => {
             let name = config.get_common_event_name(*id);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "{name}()")?;
+            FunctionCallWriter::new(&mut writer, indent, &name)?.finish()?;
         }
         Command::Label { name } => {
             let name = escape_string(name);
