@@ -302,6 +302,11 @@ impl Command {
         Ok(Self::CommonEvent { id })
     }
 
+    fn parse_fadein_screen(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::FadeinScreen)
+    }
+
     fn parse_transfer_player(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         ensure!(event_command.parameters.len() == 6);
         let is_constant = event_command.parameters[0]
@@ -900,10 +905,8 @@ pub fn parse_event_command_list(
                 ensure!(event_command.parameters.is_empty());
                 Command::FadeoutScreen
             }
-            (_, CommandCode::FADEIN_SCREEN) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::FadeinScreen
-            }
+            (_, CommandCode::FADEIN_SCREEN) => Command::parse_fadein_screen(event_command)
+                .context("failed to parse FADEIN_SCREEN command")?,
             (_, CommandCode::TINT_SCREEN) => {
                 ensure!(event_command.parameters.len() == 3);
                 let tone: [i16; 4] = serde_json::from_value(event_command.parameters[0].clone())

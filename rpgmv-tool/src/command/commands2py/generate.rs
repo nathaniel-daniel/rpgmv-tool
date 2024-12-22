@@ -588,8 +588,7 @@ where
             writeln!(&mut writer, "fadeout_screen()")?
         }
         Command::FadeinScreen => {
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "fadein_screen()")?
+            FunctionCallWriter::new(&mut writer, indent, "fadein_screen")?.finish()?;
         }
         Command::TintScreen {
             tone,

@@ -43,8 +43,12 @@ where
     }
 
     pub fn finish(&mut self) -> anyhow::Result<()> {
-        write_indent(&mut self.writer, self.indent)?;
+        if self.has_params {
+            write_indent(&mut self.writer, self.indent)?;
+        }
+
         writeln!(&mut self.writer, ")")?;
+
         Ok(())
     }
 }
