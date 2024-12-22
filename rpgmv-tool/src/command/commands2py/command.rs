@@ -1,12 +1,15 @@
 mod code;
 mod conditional_branch;
 mod control_variables;
+mod param_reader;
+mod show_text;
 
 use self::code::CommandCode;
 pub use self::conditional_branch::ConditionalBranchCommand;
 pub use self::control_variables::ControlVariablesValue;
 pub use self::control_variables::ControlVariablesValueGameData;
 pub use self::control_variables::OperateVariableOperation;
+use self::param_reader::ParamReader;
 use anyhow::bail;
 use anyhow::ensure;
 use anyhow::Context;
@@ -285,33 +288,23 @@ pub enum Command {
 }
 
 impl Command {
-    fn parse_show_text(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
-        ensure!(event_command.parameters.len() == 4);
+    fn parse_nop(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::Nop)
+    }
 
-        let face_name = event_command.parameters[0]
-            .as_str()
-            .context("`face_name` is not a string")?
-            .to_string();
-        let face_index = event_command.parameters[1]
-            .as_i64()
-            .and_then(|n| u32::try_from(n).ok())
-            .context("`face_index` is not a `u32`")?;
-        let background = event_command.parameters[2]
-            .as_i64()
-            .and_then(|n| u32::try_from(n).ok())
-            .context("`background` is not a string")?;
-        let position_type = event_command.parameters[3]
-            .as_i64()
-            .and_then(|n| u32::try_from(n).ok())
-            .context("`position_type` is not a string")?;
+    fn parse_common_event(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
 
-        Ok(Command::ShowText {
-            face_name,
-            face_index,
-            background,
-            position_type,
-            lines: Vec::new(),
-        })
+        let id = reader.read_at(0, "id")?;
+
+        Ok(Self::CommonEvent { id })
+    }
+
+    fn parse_fadein_screen(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::FadeinScreen)
     }
 
     fn parse_transfer_player(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
@@ -449,11 +442,10 @@ pub fn parse_event_command_list(
         let last_command = ret.last_mut().map(|(_code, command)| command);
         let command = match (last_command, command_code) {
             (Some(Command::ShowText { lines, .. }), CommandCode::TEXT_DATA) => {
-                ensure!(event_command.parameters.len() == 1);
-                let line = event_command.parameters[0]
-                    .as_str()
-                    .context("`line` is not a string")?
-                    .to_string();
+                let reader = ParamReader::new(event_command);
+                reader.ensure_len_is(1)?;
+
+                let line = reader.read_at(0, "line")?;
 
                 lines.push(line);
 
@@ -500,9 +492,7 @@ pub fn parse_event_command_list(
                 continue;
             }
             (_, CommandCode::NOP) => {
-                ensure!(event_command.parameters.is_empty());
-
-                Command::Nop
+                Command::parse_nop(event_command).context("failed to parse NOP command")?
             }
             (_, CommandCode::SHOW_TEXT) => Command::parse_show_text(event_command)
                 .context("failed to parse SHOW_TEXT command")?,
@@ -565,15 +555,8 @@ pub fn parse_event_command_list(
                 ensure!(event_command.parameters.is_empty());
                 Command::ExitEventProcessing
             }
-            (_, CommandCode::COMMON_EVENT) => {
-                ensure!(event_command.parameters.len() == 1);
-                let id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`id` is not a `u32`")?;
-
-                Command::CommonEvent { id }
-            }
+            (_, CommandCode::COMMON_EVENT) => Command::parse_common_event(event_command)
+                .context("failed to parse COMMON_EVENT command")?,
             (_, CommandCode::LABEL) => {
                 ensure!(event_command.parameters.len() == 1);
 
@@ -922,10 +905,8 @@ pub fn parse_event_command_list(
                 ensure!(event_command.parameters.is_empty());
                 Command::FadeoutScreen
             }
-            (_, CommandCode::FADEIN_SCREEN) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::FadeinScreen
-            }
+            (_, CommandCode::FADEIN_SCREEN) => Command::parse_fadein_screen(event_command)
+                .context("failed to parse FADEIN_SCREEN command")?,
             (_, CommandCode::TINT_SCREEN) => {
                 ensure!(event_command.parameters.len() == 3);
                 let tone: [i16; 4] = serde_json::from_value(event_command.parameters[0].clone())
