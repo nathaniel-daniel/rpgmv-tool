@@ -1,12 +1,15 @@
 mod code;
 mod conditional_branch;
 mod control_variables;
+mod param_reader;
+mod show_text;
 
 use self::code::CommandCode;
 pub use self::conditional_branch::ConditionalBranchCommand;
 pub use self::control_variables::ControlVariablesValue;
 pub use self::control_variables::ControlVariablesValueGameData;
 pub use self::control_variables::OperateVariableOperation;
+use self::param_reader::ParamReader;
 use anyhow::bail;
 use anyhow::ensure;
 use anyhow::Context;
@@ -285,35 +288,6 @@ pub enum Command {
 }
 
 impl Command {
-    fn parse_show_text(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
-        ensure!(event_command.parameters.len() == 4);
-
-        let face_name = event_command.parameters[0]
-            .as_str()
-            .context("`face_name` is not a string")?
-            .to_string();
-        let face_index = event_command.parameters[1]
-            .as_i64()
-            .and_then(|n| u32::try_from(n).ok())
-            .context("`face_index` is not a `u32`")?;
-        let background = event_command.parameters[2]
-            .as_i64()
-            .and_then(|n| u32::try_from(n).ok())
-            .context("`background` is not a string")?;
-        let position_type = event_command.parameters[3]
-            .as_i64()
-            .and_then(|n| u32::try_from(n).ok())
-            .context("`position_type` is not a string")?;
-
-        Ok(Command::ShowText {
-            face_name,
-            face_index,
-            background,
-            position_type,
-            lines: Vec::new(),
-        })
-    }
-
     fn parse_transfer_player(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         ensure!(event_command.parameters.len() == 6);
         let is_constant = event_command.parameters[0]
