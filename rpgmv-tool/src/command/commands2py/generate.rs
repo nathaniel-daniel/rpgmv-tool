@@ -1,3 +1,6 @@
+mod function_call_writer;
+
+use self::function_call_writer::FunctionCallWriter;
 use super::Command;
 use super::ConditionalBranchCommand;
 use super::Config;
@@ -43,36 +46,13 @@ where
             position_type,
             lines,
         } => {
-            write_indent(&mut writer, indent)?;
-            writeln!(writer, "show_text(")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(writer, "face_name='{face_name}',")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(writer, "face_index={face_index},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(writer, "background={background},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(writer, "position_type={position_type},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(writer, "lines=[")?;
-
-            for line in lines {
-                let line = escape_string(line);
-
-                write_indent(&mut writer, indent + 2)?;
-                writeln!(writer, "'{line}',")?;
-            }
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "],")?;
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, ")")?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "show_text")?;
+            writer.write_param("face_name", face_name)?;
+            writer.write_param("face_index", face_index)?;
+            writer.write_param("background", background)?;
+            writer.write_param("position_type", position_type)?;
+            writer.write_param("lines", lines)?;
+            writer.finish()?;
         }
         Command::ShowChoices {
             choices,
