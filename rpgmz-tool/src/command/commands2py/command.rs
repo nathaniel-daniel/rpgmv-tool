@@ -48,6 +48,9 @@ pub enum Command {
     ErasePicture {
         picture_id: u32,
     },
+    PlayBgm {
+        audio: rpgmz_types::AudioFile,
+    },
     Unknown {
         code: CommandCode,
         parameters: Vec<serde_json::Value>,
@@ -116,6 +119,15 @@ impl Command {
         let picture_id = reader.read_at(0, "picture_id")?;
 
         Ok(Command::ErasePicture { picture_id })
+    }
+
+    fn parse_play_bgm(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let audio = reader.read_at(0, "audio")?;
+
+        Ok(Command::PlayBgm { audio })
     }
 }
 
@@ -192,6 +204,8 @@ pub fn parse_event_command_list(
 
             (_, CommandCode::ERASE_PICTURE) => Command::parse_erase_picture(event_command)
                 .context("failed to parse ERASE_PICTURE command")?,
+            (_, CommandCode::PLAY_BGM) => Command::parse_play_bgm(event_command)
+                .context("failed to parse PLAY_BGM command")?,
             (_, _) => Command::Unknown {
                 code: command_code,
                 parameters: event_command.parameters.clone(),

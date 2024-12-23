@@ -120,3 +120,9 @@ impl ParamReaderOutput for rpgmz_types::MoveCommand {
         serde_json::from_value(value.clone()).context("invalid command")
     }
 }
+
+impl ParamReaderOutput for rpgmz_types::AudioFile {
+    fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
+        serde_json::from_value(value.clone()).context("invalid audio file")
+    }
+}

@@ -133,6 +133,11 @@ where
             writer.write_param("picture_id", picture_id)?;
             writer.finish()?;
         }
+        Command::PlayBgm { audio } => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "play_bgm")?;
+            writer.write_param("audio", audio)?;
+            writer.finish()?;
+        }
         Command::Unknown { code, parameters } => {
             write_indent(&mut writer, indent)?;
             writeln!(
