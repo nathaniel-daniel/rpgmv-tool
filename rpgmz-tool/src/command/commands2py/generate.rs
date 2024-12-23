@@ -118,6 +118,12 @@ where
         Command::FadeinScreen => {
             FunctionCallWriter::new(&mut writer, indent, "fadein_screen")?.finish()?;
         }
+        Command::ErasePicture { picture_id } => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "erase_picture")?;
+            writer.set_multiline(false);
+            writer.write_param("picture_id", picture_id)?;
+            writer.finish()?;
+        }
         Command::Unknown { code, parameters } => {
             write_indent(&mut writer, indent)?;
             writeln!(

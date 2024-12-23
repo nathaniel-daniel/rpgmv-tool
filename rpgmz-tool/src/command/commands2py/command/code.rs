@@ -42,6 +42,8 @@ command_codes! {
 
     (222, FADEIN_SCREEN),
 
+    (235, ERASE_PICTURE),
+
     (401, TEXT_DATA),
 
     (408, COMMENT_EXTRA),

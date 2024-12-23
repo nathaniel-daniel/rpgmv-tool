@@ -8,6 +8,7 @@ pub struct FunctionCallWriter<W> {
     indent: u16,
 
     has_params: bool,
+    multiline: bool,
 }
 
 impl<W> FunctionCallWriter<W>
@@ -22,28 +23,36 @@ where
             writer,
             indent,
             has_params: false,
+            multiline: true,
         })
+    }
+
+    pub fn set_multiline(&mut self, multiline: bool) {
+        self.multiline = multiline;
     }
 
     pub fn write_param<T>(&mut self, name: &str, param: &T) -> anyhow::Result<()>
     where
         T: FunctionParamValue,
     {
-        if !self.has_params {
-            writeln!(self.writer)?;
-            self.has_params = true;
+        if self.has_params {
+            write!(self.writer, ",")?;
         }
-
-        write_indent(&mut self.writer, self.indent + 1)?;
+        if self.multiline {
+            writeln!(self.writer)?;
+            write_indent(&mut self.writer, self.indent + 1)?;
+        }
         write!(self.writer, "{name}=")?;
         param.write_param_value(&mut self.writer, self.indent + 1)?;
-        writeln!(self.writer, ",")?;
+
+        self.has_params = true;
 
         Ok(())
     }
 
     pub fn finish(&mut self) -> anyhow::Result<()> {
-        if self.has_params {
+        if self.has_params && self.multiline {
+            writeln!(self.writer, ",")?;
             write_indent(&mut self.writer, self.indent)?;
         }
 

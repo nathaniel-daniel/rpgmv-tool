@@ -40,6 +40,9 @@ pub enum Command {
         value: bool,
     },
     FadeinScreen,
+    ErasePicture {
+        picture_id: u32,
+    },
     Unknown {
         code: CommandCode,
         parameters: Vec<serde_json::Value>,
@@ -86,6 +89,15 @@ impl Command {
     fn parse_fadein_screen(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::FadeinScreen)
+    }
+
+    fn parse_erase_picture(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let picture_id = reader.read_at(0, "picture_id")?;
+
+        Ok(Command::ErasePicture { picture_id })
     }
 }
 
@@ -138,6 +150,8 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::FADEIN_SCREEN) => Command::parse_fadein_screen(event_command)
                 .context("failed to parse FADEIN_SCREEN command")?,
+            (_, CommandCode::ERASE_PICTURE) => Command::parse_erase_picture(event_command)
+                .context("failed to parse ERASE_PICTURE command")?,
             (_, _) => Command::Unknown {
                 code: command_code,
                 parameters: event_command.parameters.clone(),
