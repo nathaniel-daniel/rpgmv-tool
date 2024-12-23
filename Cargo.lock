@@ -140,6 +140,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rpgmz-tool"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "argh",
+ "nd-util",
+ "rpgmz-types",
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
 name = "rpgmz-types"
 version = "0.0.0"
 dependencies = [
