@@ -38,6 +38,7 @@ command_codes! {
     (117, COMMON_EVENT),
 
     (122, CONTROL_VARIABLES),
+    (123, CONTROL_SELF_SWITCH),
 
     (222, FADEIN_SCREEN),
 

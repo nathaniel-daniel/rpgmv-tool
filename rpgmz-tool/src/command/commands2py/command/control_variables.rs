@@ -188,6 +188,7 @@ pub enum ControlVariablesValue {
 pub enum ControlVariablesValueGameData {
     NumItems { item_id: u32 },
     ActorLevel { actor_id: u32 },
+    ActorHp { actor_id: u32 },
     ActorMp { actor_id: u32 },
     CharacterMapX { character_id: i32 },
     CharacterMapY { character_id: i32 },
@@ -258,6 +259,9 @@ impl Command {
                         match check {
                             GameDataOperandKindActorCheck::Level => {
                                 ControlVariablesValueGameData::ActorLevel { actor_id }
+                            }
+                            GameDataOperandKindActorCheck::Hp => {
+                                ControlVariablesValueGameData::ActorHp { actor_id }
                             }
                             GameDataOperandKindActorCheck::Mp => {
                                 ControlVariablesValueGameData::ActorMp { actor_id }

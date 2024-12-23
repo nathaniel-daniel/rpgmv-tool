@@ -283,6 +283,10 @@ where
                         let name = config.get_actor_name(*actor_id);
                         format!("{name}.level")
                     }
+                    ControlVariablesValueGameData::ActorHp { actor_id } => {
+                        let name = config.get_actor_name(*actor_id);
+                        format!("{name}.hp")
+                    }
                     ControlVariablesValueGameData::ActorMp { actor_id } => {
                         let name = config.get_actor_name(*actor_id);
                         format!("{name}.mp")
