@@ -492,8 +492,7 @@ where
             writeln!(&mut writer, "{fn_name}()")?
         }
         Command::FadeoutScreen => {
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "fadeout_screen()")?
+            FunctionCallWriter::new(&mut writer, indent, "fadeout_screen")?.finish()?;
         }
         Command::FadeinScreen => {
             FunctionCallWriter::new(&mut writer, indent, "fadein_screen")?.finish()?;

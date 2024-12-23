@@ -359,6 +359,11 @@ impl Command {
         Ok(Self::ControlSelfSwitch { key, value })
     }
 
+    fn parse_fadeout_screen(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::FadeoutScreen)
+    }
+
     fn parse_fadein_screen(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::FadeinScreen)
@@ -933,10 +938,8 @@ pub fn parse_event_command_list(
 
                 Command::ChangePlayerFollowers { is_show }
             }
-            (_, CommandCode::FADEOUT_SCREEN) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::FadeoutScreen
-            }
+            (_, CommandCode::FADEOUT_SCREEN) => Command::parse_fadeout_screen(event_command)
+                .context("failed to parse FADEOUT_SCREEN command")?,
             (_, CommandCode::FADEIN_SCREEN) => Command::parse_fadein_screen(event_command)
                 .context("failed to parse FADEIN_SCREEN command")?,
             (_, CommandCode::TINT_SCREEN) => {
