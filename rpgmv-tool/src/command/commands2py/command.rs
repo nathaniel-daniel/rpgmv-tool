@@ -525,6 +525,18 @@ impl Command {
         Ok(Self::PlayBgm { audio })
     }
 
+    fn parse_name_input_processing(
+        event_command: &rpgmv_types::EventCommand,
+    ) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(2)?;
+
+        let actor_id = reader.read_at(0, "actor_id")?;
+        let max_len = reader.read_at(1, "max_len")?;
+
+        Ok(Self::NameInputProcessing { actor_id, max_len })
+    }
+
     fn parse_when(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(2)?;
@@ -1142,17 +1154,8 @@ pub fn parse_event_command_list(
                 }
             }
             (_, CommandCode::NAME_INPUT_PROCESSING) => {
-                ensure!(event_command.parameters.len() == 2);
-                let actor_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`actor_id` is not a `u32`")?;
-                let max_len = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`max_len` is not a `u32`")?;
-
-                Command::NameInputProcessing { actor_id, max_len }
+                Command::parse_name_input_processing(event_command)
+                    .context("failed to parse NAME_INPUT_PROCESSING command")?
             }
             (_, CommandCode::CHANGE_HP) => {
                 ensure!(event_command.parameters.len() == 6);

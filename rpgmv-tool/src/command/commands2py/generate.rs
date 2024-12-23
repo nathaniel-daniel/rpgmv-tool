@@ -702,11 +702,11 @@ where
         Command::NameInputProcessing { actor_id, max_len } => {
             let actor = config.get_actor_name(*actor_id);
 
-            write_indent(&mut writer, indent)?;
-            writeln!(
-                &mut writer,
-                "name_input_processing(actor={actor}, max_len={max_len})"
-            )?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "name_input_processing")?;
+            writer.set_multiline(false);
+            writer.write_param("actor", &Ident(&actor))?;
+            writer.write_param("max_len", max_len)?;
+            writer.finish()?;
         }
         Command::ChangeHp {
             actor_id,

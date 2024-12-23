@@ -40,6 +40,10 @@ where
     {
         if self.has_params {
             write!(self.writer, ",")?;
+            
+            if !self.multiline {
+                write!(self.writer, " ")?;
+            }
         }
         if self.multiline {
             writeln!(self.writer)?;
