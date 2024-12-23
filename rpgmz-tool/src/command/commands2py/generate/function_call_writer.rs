@@ -1,5 +1,8 @@
 use super::escape_string;
+use super::stringify_bool;
 use super::write_indent;
+use anyhow::bail;
+use anyhow::Context;
 use std::io::Write;
 
 #[derive(Debug)]
@@ -88,6 +91,14 @@ impl FunctionParamValue for u32 {
     }
 }
 
+impl FunctionParamValue for i32 {
+    fn write_param_value(&self, writer: &mut dyn Write, _indent: u16) -> anyhow::Result<()> {
+        write!(writer, "{}", self)?;
+
+        Ok(())
+    }
+}
+
 impl<T> FunctionParamValue for &[T]
 where
     T: FunctionParamValue,
@@ -129,5 +140,99 @@ where
                 Ok(())
             }
         }
+    }
+}
+
+impl FunctionParamValue for rpgmz_types::MoveRoute {
+    fn write_param_value(&self, mut writer: &mut dyn Write, indent: u16) -> anyhow::Result<()> {
+        let repeat = stringify_bool(self.repeat);
+        let skippable = stringify_bool(self.skippable);
+        let wait = stringify_bool(self.wait);
+
+        writeln!(writer, "MoveRoute(")?;
+
+        write_indent(&mut writer, indent + 1)?;
+        writeln!(writer, "repeat={repeat},")?;
+
+        write_indent(&mut writer, indent + 1)?;
+        writeln!(writer, "skippable={skippable},")?;
+
+        write_indent(&mut writer, indent + 1)?;
+        writeln!(&mut writer, "wait={wait},")?;
+
+        write_indent(&mut writer, indent + 1)?;
+        writeln!(writer, "list=[")?;
+
+        for command in self.list.iter() {
+            let command_indent = command
+                .indent
+                .map(|indent| indent.to_string())
+                .unwrap_or_else(|| "None".to_string());
+
+            write_indent(&mut writer, indent + 2)?;
+            writeln!(writer, "MoveCommand(")?;
+
+            write_indent(&mut writer, indent + 3)?;
+            writeln!(writer, "code={},", command.code)?;
+
+            write_indent(&mut writer, indent + 3)?;
+            writeln!(writer, "indent={command_indent},")?;
+
+            match command.parameters.as_ref() {
+                Some(parameters) => {
+                    write_indent(&mut writer, indent + 3)?;
+                    writeln!(writer, "parameters=[")?;
+
+                    for parameter in parameters {
+                        match parameter {
+                            serde_json::Value::Number(number) if number.is_i64() => {
+                                let value = number.as_i64().context("value is not an i64")?;
+
+                                write_indent(&mut writer, indent + 4)?;
+                                writeln!(writer, "{value},")?;
+                            }
+                            serde_json::Value::String(value) => {
+                                let value = escape_string(value);
+                                write_indent(&mut writer, indent + 4)?;
+                                writeln!(writer, "'{value}',")?;
+                            }
+                            serde_json::Value::Object(object) => {
+                                write_indent(&mut writer, indent + 4)?;
+                                writeln!(writer, "{{")?;
+
+                                for (key, value) in object.iter() {
+                                    write_indent(&mut writer, indent + 5)?;
+                                    writeln!(writer, "'{key}': {value},")?;
+                                }
+
+                                write_indent(&mut writer, indent + 4)?;
+                                writeln!(writer, "}},")?;
+                            }
+                            _ => {
+                                bail!("cannot write move route parameter \"{parameter:?}\"")
+                            }
+                        }
+                    }
+
+                    write_indent(&mut writer, indent + 3)?;
+                    writeln!(writer, "],")?;
+                }
+                None => {
+                    write_indent(&mut writer, indent + 3)?;
+                    writeln!(writer, "parameters=None,")?;
+                }
+            }
+
+            write_indent(&mut writer, indent + 2)?;
+            writeln!(writer, "),")?;
+        }
+
+        write_indent(&mut writer, indent + 1)?;
+        writeln!(writer, "]")?;
+
+        write_indent(&mut writer, indent)?;
+        write!(writer, ")")?;
+
+        Ok(())
     }
 }

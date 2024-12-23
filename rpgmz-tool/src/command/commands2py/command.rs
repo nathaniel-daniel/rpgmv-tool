@@ -9,6 +9,7 @@ pub use self::control_variables::ControlVariablesValueGameData;
 pub use self::control_variables::OperateVariableOperation;
 use self::param_reader::IntBool;
 use self::param_reader::ParamReader;
+use anyhow::ensure;
 use anyhow::Context;
 
 /// A command
@@ -40,6 +41,10 @@ pub enum Command {
         value: bool,
     },
     FadeinScreen,
+    SetMovementRoute {
+        character_id: i32,
+        route: rpgmz_types::MoveRoute,
+    },
     ErasePicture {
         picture_id: u32,
     },
@@ -91,6 +96,19 @@ impl Command {
         Ok(Self::FadeinScreen)
     }
 
+    fn parse_set_movement_route(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(2)?;
+
+        let character_id = reader.read_at(0, "character_id")?;
+        let route = reader.read_at(1, "route")?;
+
+        Ok(Self::SetMovementRoute {
+            character_id,
+            route,
+        })
+    }
+
     fn parse_erase_picture(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(1)?;
@@ -106,7 +124,7 @@ pub fn parse_event_command_list(
 ) -> anyhow::Result<Vec<(u16, Command)>> {
     let mut ret = Vec::with_capacity(list.len());
 
-    // let mut move_command_index = 0;
+    let mut move_command_index = 0;
     for event_command in list.iter() {
         let command_code = CommandCode(event_command.code);
 
@@ -132,6 +150,21 @@ pub fn parse_event_command_list(
 
                 continue;
             }
+            (
+                Some(Command::SetMovementRoute { route, .. }),
+                CommandCode::SET_MOVEMENT_ROUTE_EXTRA,
+            ) if move_command_index < route.list.len() => {
+                let reader = ParamReader::new(event_command);
+                reader.ensure_len_is(1)?;
+
+                let command: rpgmz_types::MoveCommand = reader.read_at(0, "command")?;
+
+                ensure!(command == route.list[move_command_index]);
+
+                move_command_index += 1;
+
+                continue;
+            }
             (_, CommandCode::NOP) => {
                 Command::parse_nop(event_command).context("failed to parse NOP command")?
             }
@@ -148,8 +181,15 @@ pub fn parse_event_command_list(
                 Command::parse_control_self_switch(event_command)
                     .context("failed to parse CONTROL_SELF_SWITCH command")?
             }
+            (_, CommandCode::SET_MOVEMENT_ROUTE) => {
+                move_command_index = 0;
+
+                Command::parse_set_movement_route(event_command)
+                    .context("failed to parse SET_MOVEMENT_ROUTE command")?
+            }
             (_, CommandCode::FADEIN_SCREEN) => Command::parse_fadein_screen(event_command)
                 .context("failed to parse FADEIN_SCREEN command")?,
+
             (_, CommandCode::ERASE_PICTURE) => Command::parse_erase_picture(event_command)
                 .context("failed to parse ERASE_PICTURE command")?,
             (_, _) => Command::Unknown {

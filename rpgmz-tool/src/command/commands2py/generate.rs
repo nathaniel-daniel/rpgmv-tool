@@ -115,6 +115,15 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "game_self_switches['{key}'] = {value}")?;
         }
+        Command::SetMovementRoute {
+            character_id,
+            route,
+        } => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "set_movement_route")?;
+            writer.write_param("character_id", character_id)?;
+            writer.write_param("route", route)?;
+            writer.finish()?;
+        }
         Command::FadeinScreen => {
             FunctionCallWriter::new(&mut writer, indent, "fadein_screen")?.finish()?;
         }
