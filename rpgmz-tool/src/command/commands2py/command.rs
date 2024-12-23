@@ -39,6 +39,11 @@ pub enum Command {
     CommonEvent {
         id: u32,
     },
+    ControlSwitches {
+        start_id: u32,
+        end_id: u32,
+        value: bool,
+    },
     ControlVariables {
         start_variable_id: u32,
         end_variable_id: u32,
@@ -68,6 +73,7 @@ pub enum Command {
         audio: rpgmz_types::AudioFile,
     },
     Else,
+    ConditionalBranchEnd,
     Unknown {
         code: CommandCode,
         parameters: Vec<serde_json::Value>,
@@ -96,6 +102,21 @@ impl Command {
         let id = reader.read_at(0, "id")?;
 
         Ok(Self::CommonEvent { id })
+    }
+
+    fn parse_control_switches(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(3)?;
+
+        let start_id = reader.read_at(0, "start_id")?;
+        let end_id = reader.read_at(1, "end_id")?;
+        let IntBool(value) = reader.read_at(2, "value")?;
+
+        Ok(Self::ControlSwitches {
+            start_id,
+            end_id,
+            value,
+        })
     }
 
     fn parse_control_self_switch(
@@ -182,6 +203,13 @@ impl Command {
 
         Ok(Command::Else)
     }
+
+    fn parse_conditional_branch_end(
+        event_command: &rpgmz_types::EventCommand,
+    ) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::ConditionalBranchEnd)
+    }
 }
 
 pub fn parse_event_command_list(
@@ -242,6 +270,8 @@ pub fn parse_event_command_list(
                 .context("failed to parse CONDITONAL_BRANCH command")?,
             (_, CommandCode::COMMON_EVENT) => Command::parse_common_event(event_command)
                 .context("failed to parse COMMON_EVENT command")?,
+            (_, CommandCode::CONTROL_SWITCHES) => Command::parse_control_switches(event_command)
+                .context("failed to parse CONTROL_SWITCHES command")?,
             (_, CommandCode::CONTROL_VARIABLES) => Command::parse_control_variables(event_command)
                 .context("failed to parse CONTROL_VARIABLES command")?,
             (_, CommandCode::CONTROL_SELF_SWITCH) => {
@@ -265,6 +295,10 @@ pub fn parse_event_command_list(
                 .context("failed to parse PLAY_BGM command")?,
             (_, CommandCode::ELSE) => {
                 Command::parse_else(event_command).context("failed to parse ELSE command")?
+            }
+            (_, CommandCode::CONDITONAL_BRANCH_END) => {
+                Command::parse_conditional_branch_end(event_command)
+                    .context("failed to parse CONDITONAL_BRANCH_END command")?
             }
             (_, _) => Command::Unknown {
                 code: command_code,

@@ -32,6 +32,7 @@ command_codes! {
     (0, NOP),
 
     (101, SHOW_TEXT),
+    (102, SHOW_CHOICES),
 
     (108, COMMENT),
 
@@ -39,6 +40,7 @@ command_codes! {
 
     (117, COMMON_EVENT),
 
+    (121, CONTROL_SWITCHES),
     (122, CONTROL_VARIABLES),
     (123, CONTROL_SELF_SWITCH),
 
@@ -57,6 +59,10 @@ command_codes! {
     (408, COMMENT_EXTRA),
 
     (411, ELSE),
+    /// I think this is an end for the CONDITONAL_BRANCH block.
+    /// I can't be sure as the game doesn't actually care if this exists;
+    /// it just ignores it, only taking into account indents.
+    (412, CONDITONAL_BRANCH_END),
 
     /// This is likely related to move routes somehow,
     /// like how the TEXT_DATA command extends the SHOW_TEXT command.

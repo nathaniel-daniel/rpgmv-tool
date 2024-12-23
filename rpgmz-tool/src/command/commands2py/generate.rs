@@ -211,6 +211,19 @@ where
                 writeln!(&mut writer, "{name} {operation} {value}")?;
             }
         }
+        Command::ControlSwitches {
+            start_id,
+            end_id,
+            value,
+        } => {
+            for id in *start_id..(*end_id + 1) {
+                let name = config.get_switch_name(id);
+                let value = stringify_bool(*value);
+
+                write_indent(&mut writer, indent)?;
+                writeln!(&mut writer, "{name} = {value}")?;
+            }
+        }
         Command::ControlSelfSwitch { key, value } => {
             let value = stringify_bool(*value);
 
@@ -287,6 +300,9 @@ where
         Command::Else => {
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "else:")?;
+        }
+        Command::ConditionalBranchEnd => {
+            // Trust indents over end commands
         }
         Command::Unknown { code, parameters } => {
             write_indent(&mut writer, indent)?;
