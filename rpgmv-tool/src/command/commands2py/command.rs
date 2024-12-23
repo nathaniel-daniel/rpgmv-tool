@@ -463,6 +463,13 @@ impl Command {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::Else)
     }
+
+    fn parse_conditional_branch_end(
+        event_command: &rpgmv_types::EventCommand,
+    ) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::ConditionalBranchEnd)
+    }
 }
 
 #[derive(Debug, Copy, Clone, Hash)]
@@ -1504,8 +1511,8 @@ pub fn parse_event_command_list(
                 Command::parse_else(event_command).context("failed to parse ELSE command")?
             }
             (_, CommandCode::CONDITONAL_BRANCH_END) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::ConditionalBranchEnd
+                Command::parse_conditional_branch_end(event_command)
+                    .context("failed to parse CONDITONAL_BRANCH_END command")?
             }
             (_, CommandCode::IF_WIN) => {
                 ensure!(event_command.parameters.is_empty());
