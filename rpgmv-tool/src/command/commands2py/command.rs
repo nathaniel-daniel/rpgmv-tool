@@ -322,7 +322,7 @@ impl Command {
         let value: IntBool = reader.read_at(1, "value")?;
         let value = value.0;
 
-        Ok(Command::ControlSelfSwitch { key, value })
+        Ok(Self::ControlSelfSwitch { key, value })
     }
 
     fn parse_fadein_screen(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
@@ -351,7 +351,7 @@ impl Command {
             (MaybeRef::Ref(map_id), MaybeRef::Ref(x), MaybeRef::Ref(y))
         };
 
-        Ok(Command::TransferPlayer {
+        Ok(Self::TransferPlayer {
             map_id,
             x,
             y,
@@ -428,7 +428,7 @@ impl Command {
             (MaybeRef::Ref(x), MaybeRef::Ref(y))
         };
 
-        Ok(Command::ShowPicture {
+        Ok(Self::ShowPicture {
             picture_id,
             picture_name,
             origin,
@@ -447,7 +447,7 @@ impl Command {
 
         let picture_id = reader.read_at(0, "picture_id")?;
 
-        Ok(Command::ErasePicture { picture_id })
+        Ok(Self::ErasePicture { picture_id })
     }
 
     fn parse_play_bgm(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
@@ -456,7 +456,12 @@ impl Command {
 
         let audio = reader.read_at(0, "audio")?;
 
-        Ok(Command::PlayBgm { audio })
+        Ok(Self::PlayBgm { audio })
+    }
+
+    fn parse_else(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::Else)
     }
 }
 
@@ -1496,8 +1501,7 @@ pub fn parse_event_command_list(
                 Command::WhenEnd
             }
             (_, CommandCode::ELSE) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::Else
+                Command::parse_else(event_command).context("failed to parse ELSE command")?
             }
             (_, CommandCode::CONDITONAL_BRANCH_END) => {
                 ensure!(event_command.parameters.is_empty());
