@@ -81,3 +81,17 @@ impl ParamReaderOutput for u32 {
         u32::try_from(value).context("i64 value out of range for u32")
     }
 }
+
+impl ParamReaderOutput for i32 {
+    fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
+        let value = i64::from_param(value)?;
+        i32::try_from(value).context("i64 value out of range for i32")
+    }
+}
+
+impl ParamReaderOutput for u8 {
+    fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
+        let value = i64::from_param(value)?;
+        u8::try_from(value).context("i64 value out of range for u8")
+    }
+}

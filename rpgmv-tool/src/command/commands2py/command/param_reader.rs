@@ -21,6 +21,16 @@ impl<'a> ParamReader<'a> {
         Ok(())
     }
 
+    pub fn ensure_len_is_at_least(&self, expected_len: usize) -> anyhow::Result<()> {
+        let actual_len = self.command.parameters.len();
+        ensure!(
+            actual_len >= expected_len,
+            "expected at least {expected_len} parameters, but got {actual_len}"
+        );
+
+        Ok(())
+    }
+
     pub fn read_at<T>(&self, index: usize, parameter_name: &str) -> anyhow::Result<T>
     where
         T: ParamReaderOutput,
@@ -65,5 +75,19 @@ impl ParamReaderOutput for u32 {
     fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
         let value = i64::from_param(value)?;
         u32::try_from(value).context("i64 value out of range for u32")
+    }
+}
+
+impl ParamReaderOutput for i32 {
+    fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
+        let value = i64::from_param(value)?;
+        i32::try_from(value).context("i64 value out of range for i32")
+    }
+}
+
+impl ParamReaderOutput for u8 {
+    fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
+        let value = i64::from_param(value)?;
+        u8::try_from(value).context("i64 value out of range for u8")
     }
 }

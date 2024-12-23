@@ -293,9 +293,9 @@ where
                     ControlVariablesValueGameData::CharacterMapY { character_id } => {
                         format!("game.get_character(id={character_id}).map_y")
                     }
+                    ControlVariablesValueGameData::MapId => "game_map.map_id()".to_string(),
                     ControlVariablesValueGameData::Gold => "game_party.gold".to_string(),
                     ControlVariablesValueGameData::Steps => "game_party.steps".to_string(),
-                    _ => bail!("ControlVariablesValueGameData {game_data:?} is not supported"),
                 },
             };
             for variable_id in *start_variable_id..(*end_variable_id + 1) {

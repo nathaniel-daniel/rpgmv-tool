@@ -1,8 +1,12 @@
 mod code;
+mod control_variables;
 mod param_reader;
 mod show_text;
 
 use self::code::CommandCode;
+pub use self::control_variables::ControlVariablesValue;
+pub use self::control_variables::ControlVariablesValueGameData;
+pub use self::control_variables::OperateVariableOperation;
 use self::param_reader::ParamReader;
 use anyhow::Context;
 
@@ -23,6 +27,12 @@ pub enum Command {
     },
     CommonEvent {
         id: u32,
+    },
+    ControlVariables {
+        start_variable_id: u32,
+        end_variable_id: u32,
+        operation: OperateVariableOperation,
+        value: ControlVariablesValue,
     },
     FadeinScreen,
     Unknown {
@@ -102,6 +112,8 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::COMMON_EVENT) => Command::parse_common_event(event_command)
                 .context("failed to parse COMMON_EVENT command")?,
+            (_, CommandCode::CONTROL_VARIABLES) => Command::parse_control_variables(event_command)
+                .context("failed to parse CONTROL_VARIABLES command")?,
             (_, CommandCode::FADEIN_SCREEN) => Command::parse_fadein_screen(event_command)
                 .context("failed to parse FADEIN_SCREEN command")?,
             (_, _) => Command::Unknown {

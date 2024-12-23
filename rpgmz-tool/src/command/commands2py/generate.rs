@@ -3,6 +3,8 @@ mod function_call_writer;
 use self::function_call_writer::FunctionCallWriter;
 use super::Command;
 use super::Config;
+use super::ControlVariablesValue;
+use super::ControlVariablesValueGameData;
 use std::io::Write;
 
 pub fn commands2py<W>(
@@ -57,6 +59,51 @@ where
         Command::CommonEvent { id } => {
             let name = config.get_common_event_name(*id);
             FunctionCallWriter::new(&mut writer, indent, &name)?.finish()?;
+        }
+        Command::ControlVariables {
+            start_variable_id,
+            end_variable_id,
+            operation,
+            value,
+        } => {
+            let operation = operation.as_str();
+            let value = match value {
+                ControlVariablesValue::Constant { value } => value.to_string(),
+                ControlVariablesValue::Variable { id } => config.get_variable_name(*id),
+                ControlVariablesValue::Random { start, stop } => {
+                    format!("random.randrange(start={start}, stop={stop})")
+                }
+                ControlVariablesValue::GameData(game_data) => match game_data {
+                    ControlVariablesValueGameData::NumItems { item_id } => {
+                        let name = config.get_item_name(*item_id);
+
+                        format!("game_party.get_num_items(item={name})")
+                    }
+                    ControlVariablesValueGameData::ActorLevel { actor_id } => {
+                        let name = config.get_actor_name(*actor_id);
+                        format!("{name}.level")
+                    }
+                    ControlVariablesValueGameData::ActorMp { actor_id } => {
+                        let name = config.get_actor_name(*actor_id);
+                        format!("{name}.mp")
+                    }
+                    ControlVariablesValueGameData::CharacterMapX { character_id } => {
+                        format!("game.get_character(id={character_id}).map_x")
+                    }
+                    ControlVariablesValueGameData::CharacterMapY { character_id } => {
+                        format!("game.get_character(id={character_id}).map_y")
+                    }
+                    ControlVariablesValueGameData::MapId => "game_map.map_id()".to_string(),
+                    ControlVariablesValueGameData::Gold => "game_party.gold".to_string(),
+                    ControlVariablesValueGameData::Steps => "game_party.steps".to_string(),
+                },
+            };
+            for variable_id in *start_variable_id..(*end_variable_id + 1) {
+                let name = config.get_variable_name(variable_id);
+
+                write_indent(&mut writer, indent)?;
+                writeln!(&mut writer, "{name} {operation} {value}")?;
+            }
         }
         Command::FadeinScreen => {
             FunctionCallWriter::new(&mut writer, indent, "fadein_screen")?.finish()?;
