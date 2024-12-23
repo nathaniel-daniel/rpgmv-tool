@@ -7,6 +7,7 @@ use self::code::CommandCode;
 pub use self::control_variables::ControlVariablesValue;
 pub use self::control_variables::ControlVariablesValueGameData;
 pub use self::control_variables::OperateVariableOperation;
+use self::param_reader::IntBool;
 use self::param_reader::ParamReader;
 use anyhow::Context;
 
@@ -33,6 +34,10 @@ pub enum Command {
         end_variable_id: u32,
         operation: OperateVariableOperation,
         value: ControlVariablesValue,
+    },
+    ControlSelfSwitch {
+        key: String,
+        value: bool,
     },
     FadeinScreen,
     Unknown {
@@ -63,6 +68,19 @@ impl Command {
         let id = reader.read_at(0, "id")?;
 
         Ok(Self::CommonEvent { id })
+    }
+
+    fn parse_control_self_switch(
+        event_command: &rpgmz_types::EventCommand,
+    ) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(2)?;
+
+        let key = reader.read_at(0, "key")?;
+        let value: IntBool = reader.read_at(1, "value")?;
+        let value = value.0;
+
+        Ok(Command::ControlSelfSwitch { key, value })
     }
 
     fn parse_fadein_screen(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
@@ -114,6 +132,10 @@ pub fn parse_event_command_list(
                 .context("failed to parse COMMON_EVENT command")?,
             (_, CommandCode::CONTROL_VARIABLES) => Command::parse_control_variables(event_command)
                 .context("failed to parse CONTROL_VARIABLES command")?,
+            (_, CommandCode::CONTROL_SELF_SWITCH) => {
+                Command::parse_control_self_switch(event_command)
+                    .context("failed to parse CONTROL_SELF_SWITCH command")?
+            }
             (_, CommandCode::FADEIN_SCREEN) => Command::parse_fadein_screen(event_command)
                 .context("failed to parse FADEIN_SCREEN command")?,
             (_, _) => Command::Unknown {

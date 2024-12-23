@@ -95,3 +95,16 @@ impl ParamReaderOutput for u8 {
         u8::try_from(value).context("i64 value out of range for u8")
     }
 }
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub struct IntBool(pub bool);
+
+impl ParamReaderOutput for IntBool {
+    fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
+        let value = u8::from_param(value)?;
+        ensure!(value <= 1, "u8 value is not 0 or 1");
+        let value = value == 0;
+
+        Ok(Self(value))
+    }
+}

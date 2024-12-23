@@ -109,6 +109,12 @@ where
                 writeln!(&mut writer, "{name} {operation} {value}")?;
             }
         }
+        Command::ControlSelfSwitch { key, value } => {
+            let value = stringify_bool(*value);
+
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "game_self_switches['{key}'] = {value}")?;
+        }
         Command::FadeinScreen => {
             FunctionCallWriter::new(&mut writer, indent, "fadein_screen")?.finish()?;
         }
@@ -122,6 +128,13 @@ where
     }
 
     Ok(())
+}
+
+fn stringify_bool(b: bool) -> &'static str {
+    match b {
+        true => "True",
+        false => "False",
+    }
 }
 
 fn write_indent<W>(mut writer: W, indent: u16) -> std::io::Result<()>
