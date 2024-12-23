@@ -9,6 +9,7 @@ pub use self::conditional_branch::ConditionalBranchCommand;
 pub use self::control_variables::ControlVariablesValue;
 pub use self::control_variables::ControlVariablesValueGameData;
 pub use self::control_variables::OperateVariableOperation;
+use self::param_reader::IntBool;
 use self::param_reader::ParamReader;
 use anyhow::bail;
 use anyhow::ensure;
@@ -300,6 +301,19 @@ impl Command {
         let id = reader.read_at(0, "id")?;
 
         Ok(Self::CommonEvent { id })
+    }
+
+    fn parse_control_self_switch(
+        event_command: &rpgmv_types::EventCommand,
+    ) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(2)?;
+
+        let key = reader.read_at(0, "key")?;
+        let value: IntBool = reader.read_at(1, "value")?;
+        let value = value.0;
+
+        Ok(Command::ControlSelfSwitch { key, value })
     }
 
     fn parse_fadein_screen(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
@@ -604,19 +618,8 @@ pub fn parse_event_command_list(
             (_, CommandCode::CONTROL_VARIABLES) => Command::parse_control_variables(event_command)
                 .context("failed to parse CONTROL_VARIABLES command")?,
             (_, CommandCode::CONTROL_SELF_SWITCH) => {
-                ensure!(event_command.parameters.len() == 2);
-                let key = event_command.parameters[0]
-                    .as_str()
-                    .context("`key` is not a `str`")?
-                    .to_string();
-                let value = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`value` is not a `u8`")?;
-                ensure!(value <= 1);
-                let value = value == 0;
-
-                Command::ControlSelfSwitch { key, value }
+                Command::parse_control_self_switch(event_command)
+                    .context("failed to parse CONTROL_SELF_SWITCH command")?
             }
             (_, CommandCode::CONTROL_TIMER) => {
                 ensure!(!event_command.parameters.is_empty());

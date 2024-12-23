@@ -74,20 +74,33 @@ impl ParamReaderOutput for i64 {
 impl ParamReaderOutput for u32 {
     fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
         let value = i64::from_param(value)?;
-        u32::try_from(value).context("i64 value out of range for u32")
+        Self::try_from(value).context("i64 value out of range for u32")
     }
 }
 
 impl ParamReaderOutput for i32 {
     fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
         let value = i64::from_param(value)?;
-        i32::try_from(value).context("i64 value out of range for i32")
+        Self::try_from(value).context("i64 value out of range for i32")
     }
 }
 
 impl ParamReaderOutput for u8 {
     fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
         let value = i64::from_param(value)?;
-        u8::try_from(value).context("i64 value out of range for u8")
+        Self::try_from(value).context("i64 value out of range for u8")
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub struct IntBool(pub bool);
+
+impl ParamReaderOutput for IntBool {
+    fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
+        let value = u8::from_param(value)?;
+        ensure!(value <= 1, "u8 value is not 0 or 1");
+        let value = value == 0;
+
+        Ok(Self(value))
     }
 }
