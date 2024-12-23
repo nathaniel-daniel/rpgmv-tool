@@ -3,9 +3,11 @@ mod function_call_writer;
 use self::function_call_writer::FunctionCallWriter;
 use self::function_call_writer::Ident;
 use super::Command;
-use super::Config;use super::MaybeRef;
+use super::ConditionalBranchCommand;
+use super::Config;
 use super::ControlVariablesValue;
 use super::ControlVariablesValueGameData;
+use super::MaybeRef;
 use std::io::Write;
 
 pub fn commands2py<W>(
@@ -55,6 +57,105 @@ where
             for line in lines.iter() {
                 write_indent(&mut writer, indent)?;
                 writeln!(&mut writer, "# {line}")?;
+            }
+        }
+        Command::ConditionalBranch(command) => {
+            write_indent(&mut writer, indent)?;
+            write!(&mut writer, "if ")?;
+            match command {
+                ConditionalBranchCommand::Switch { id, check_true } => {
+                    let name = config.get_switch_name(*id);
+                    let check_true_str = if *check_true { "" } else { "not " };
+                    writeln!(&mut writer, "{check_true_str}{name}:")?;
+                }
+                ConditionalBranchCommand::Variable {
+                    lhs_id,
+                    rhs_id,
+                    operation,
+                } => {
+                    let lhs = config.get_variable_name(*lhs_id);
+                    let rhs = match rhs_id {
+                        MaybeRef::Constant(value) => value.to_string(),
+                        MaybeRef::Ref(id) => config.get_variable_name(*id),
+                    };
+                    let operation = operation.as_str();
+
+                    writeln!(&mut writer, "{lhs} {operation} {rhs}:")?;
+                }
+                ConditionalBranchCommand::SelfSwitch { name, check_true } => {
+                    let name = escape_string(name);
+                    let check_true_str = if *check_true { "" } else { "not " };
+                    writeln!(&mut writer, "{check_true_str}game_self_switches.get(map_id=self.map_id, event_id=self.event_id, name='{name}'):")?;
+                }
+                ConditionalBranchCommand::ActorInParty { actor_id } => {
+                    let actor_name = config.get_actor_name(*actor_id);
+
+                    writeln!(
+                        &mut writer,
+                        "game_party.members.contains(actor={actor_name}):"
+                    )?;
+                }
+                ConditionalBranchCommand::Timer { value, is_gte } => {
+                    let cmp = if *is_gte { ">=" } else { "<=" };
+
+                    writeln!(&mut writer, "game_timer.seconds() {cmp} {value}:")?;
+                }
+                ConditionalBranchCommand::ActorSkill { actor_id, skill_id } => {
+                    let actor_name = config.get_actor_name(*actor_id);
+                    let skill_name = config.get_skill_name(*skill_id);
+
+                    writeln!(&mut writer, "{actor_name}.has_skill(skill={skill_name}):")?;
+                }
+                ConditionalBranchCommand::ActorArmor { actor_id, armor_id } => {
+                    let actor_name = config.get_actor_name(*actor_id);
+                    let armor_name = config.get_armor_name(*armor_id);
+
+                    writeln!(&mut writer, "{actor_name}.has_armor(armor={armor_name}):")?;
+                }
+                ConditionalBranchCommand::ActorState { actor_id, state_id } => {
+                    let actor_name = config.get_actor_name(*actor_id);
+                    let state_name = config.get_state_name(*state_id);
+
+                    writeln!(&mut writer, "{actor_name}.has_state(state={state_name}):")?;
+                }
+                ConditionalBranchCommand::EnemyState {
+                    enemy_index,
+                    state_id,
+                } => {
+                    let name = config.get_state_name(*state_id);
+
+                    writeln!(
+                        &mut writer,
+                        "game_troop.members[{enemy_index}].is_state_affected(state={name}):"
+                    )?;
+                }
+                ConditionalBranchCommand::Character {
+                    character_id,
+                    direction,
+                } => {
+                    let name = if *character_id < 0 {
+                        "game_player".to_string()
+                    } else {
+                        format!("game_character_{character_id}")
+                    };
+
+                    writeln!(&mut writer, "{name}.direction == {direction}:")?;
+                }
+                ConditionalBranchCommand::Gold { value, check } => {
+                    let check = check.as_str();
+
+                    writeln!(&mut writer, "game_party.gold {check} {value}:")?;
+                }
+                ConditionalBranchCommand::Item { item_id } => {
+                    let name = config.get_item_name(*item_id);
+
+                    writeln!(&mut writer, "game_party.has_item(item={name}):")?;
+                }
+                ConditionalBranchCommand::Script { value } => {
+                    let value = escape_string(value);
+
+                    writeln!(&mut writer, "execute_script('{value}'):")?;
+                }
             }
         }
         Command::CommonEvent { id } => {
@@ -182,6 +283,10 @@ where
             let mut writer = FunctionCallWriter::new(&mut writer, indent, "play_bgm")?;
             writer.write_param("audio", audio)?;
             writer.finish()?;
+        }
+        Command::Else => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "else:")?;
         }
         Command::Unknown { code, parameters } => {
             write_indent(&mut writer, indent)?;

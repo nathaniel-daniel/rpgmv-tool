@@ -35,6 +35,8 @@ command_codes! {
 
     (108, COMMENT),
 
+    (111, CONDITONAL_BRANCH),
+
     (117, COMMON_EVENT),
 
     (122, CONTROL_VARIABLES),
@@ -53,6 +55,8 @@ command_codes! {
     (401, TEXT_DATA),
 
     (408, COMMENT_EXTRA),
+
+    (411, ELSE),
 
     /// This is likely related to move routes somehow,
     /// like how the TEXT_DATA command extends the SHOW_TEXT command.

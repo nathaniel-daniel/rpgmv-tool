@@ -1,9 +1,11 @@
 mod code;
+mod conditional_branch;
 mod control_variables;
 mod param_reader;
 mod show_text;
 
 use self::code::CommandCode;
+pub use self::conditional_branch::ConditionalBranchCommand;
 pub use self::control_variables::ControlVariablesValue;
 pub use self::control_variables::ControlVariablesValueGameData;
 pub use self::control_variables::OperateVariableOperation;
@@ -33,6 +35,7 @@ pub enum Command {
     Comment {
         lines: Vec<String>,
     },
+    ConditionalBranch(ConditionalBranchCommand),
     CommonEvent {
         id: u32,
     },
@@ -64,6 +67,7 @@ pub enum Command {
     PlayBgm {
         audio: rpgmz_types::AudioFile,
     },
+    Else,
     Unknown {
         code: CommandCode,
         parameters: Vec<serde_json::Value>,
@@ -172,6 +176,12 @@ impl Command {
 
         Ok(Command::PlayBgm { audio })
     }
+
+    fn parse_else(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+
+        Ok(Command::Else)
+    }
 }
 
 pub fn parse_event_command_list(
@@ -228,6 +238,8 @@ pub fn parse_event_command_list(
             (_, CommandCode::COMMENT) => {
                 Command::parse_comment(event_command).context("failed to parse COMMENT command")?
             }
+            (_, CommandCode::CONDITONAL_BRANCH) => Command::parse_conditional_branch(event_command)
+                .context("failed to parse CONDITONAL_BRANCH command")?,
             (_, CommandCode::COMMON_EVENT) => Command::parse_common_event(event_command)
                 .context("failed to parse COMMON_EVENT command")?,
             (_, CommandCode::CONTROL_VARIABLES) => Command::parse_control_variables(event_command)
@@ -251,6 +263,9 @@ pub fn parse_event_command_list(
                 .context("failed to parse ERASE_PICTURE command")?,
             (_, CommandCode::PLAY_BGM) => Command::parse_play_bgm(event_command)
                 .context("failed to parse PLAY_BGM command")?,
+            (_, CommandCode::ELSE) => {
+                Command::parse_else(event_command).context("failed to parse ELSE command")?
+            }
             (_, _) => Command::Unknown {
                 code: command_code,
                 parameters: event_command.parameters.clone(),
