@@ -321,15 +321,6 @@ impl Command {
         Ok(Self::FadeinScreen)
     }
 
-    fn parse_erase_picture(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
-        let reader = ParamReader::new(event_command);
-        reader.ensure_len_is(1)?;
-
-        let picture_id = reader.read_at(0, "picture_id")?;
-
-        Ok(Command::ErasePicture { picture_id })
-    }
-
     fn parse_transfer_player(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         ensure!(event_command.parameters.len() == 6);
         let is_constant = event_command.parameters[0]
@@ -375,6 +366,19 @@ impl Command {
             y,
             direction,
             fade_type,
+        })
+    }
+
+    fn parse_set_movement_route(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(2)?;
+
+        let character_id = reader.read_at(0, "character_id")?;
+        let route = reader.read_at(1, "route")?;
+
+        Ok(Self::SetMovementRoute {
+            character_id,
+            route,
         })
     }
 
@@ -444,6 +448,15 @@ impl Command {
             opacity,
             blend_mode,
         })
+    }
+
+    fn parse_erase_picture(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let picture_id = reader.read_at(0, "picture_id")?;
+
+        Ok(Command::ErasePicture { picture_id })
     }
 }
 
@@ -834,21 +847,10 @@ pub fn parse_event_command_list(
             (_, CommandCode::TRANSFER_PLAYER) => Command::parse_transfer_player(event_command)
                 .context("failed to parse TRANSFER_PLAYER command")?,
             (_, CommandCode::SET_MOVEMENT_ROUTE) => {
-                ensure!(event_command.parameters.len() == 2);
-                let character_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| i32::try_from(value).ok())
-                    .context("`value` is not an `i32`")?;
-                let route: rpgmv_types::MoveRoute =
-                    serde_json::from_value(event_command.parameters[1].clone())
-                        .context("invalid `route` parameter")?;
-
                 move_command_index = 0;
 
-                Command::SetMovementRoute {
-                    character_id,
-                    route,
-                }
+                Command::parse_set_movement_route(event_command)
+                    .context("failed to parse SET_MOVEMENT_ROUTE command")?
             }
             (_, CommandCode::CHANGE_TRANSPARENCY) => {
                 ensure!(event_command.parameters.len() == 1);
