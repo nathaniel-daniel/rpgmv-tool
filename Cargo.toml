@@ -4,6 +4,7 @@ members = [
     "rpgmvp",
     "rpgmv-tool",
     "rpgmv-types",
+    "rpgmz-types",
 ]
 
 [profile.release]
