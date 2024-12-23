@@ -606,15 +606,9 @@ where
             writer.finish()?;
         }
         Command::PlayBgm { audio } => {
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "play_bgm(")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            write!(&mut writer, "audio=")?;
-            write_audio_file(&mut writer, indent + 1, audio)?;
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, ")")?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "play_bgm")?;
+            writer.write_param("audio", audio)?;
+            writer.finish()?;
         }
         Command::FadeoutBgm { duration } => {
             write_indent(&mut writer, indent)?;

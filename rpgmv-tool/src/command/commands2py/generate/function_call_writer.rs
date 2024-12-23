@@ -221,3 +221,28 @@ impl FunctionParamValue for rpgmv_types::MoveRoute {
         Ok(())
     }
 }
+
+impl FunctionParamValue for rpgmv_types::AudioFile {
+    fn write_param_value(&self, mut writer: &mut dyn Write, indent: u16) -> anyhow::Result<()> {
+        let audio_name = escape_string(&self.name);
+
+        writeln!(writer, "AudioFile(")?;
+
+        write_indent(&mut writer, indent + 1)?;
+        writeln!(writer, "name='{audio_name}',")?;
+
+        write_indent(&mut writer, indent + 1)?;
+        writeln!(writer, "pan={},", self.pan)?;
+
+        write_indent(&mut writer, indent + 1)?;
+        writeln!(writer, "pitch={},", self.pitch)?;
+
+        write_indent(&mut writer, indent + 1)?;
+        writeln!(writer, "volume={},", self.volume)?;
+
+        write_indent(&mut writer, indent)?;
+        write!(writer, ")")?;
+
+        Ok(())
+    }
+}

@@ -144,7 +144,7 @@ command_codes! {
     /// it just ignores it, only taking into account indents.
     (412, CONDITONAL_BRANCH_END),
 
-     /// This is likely related to move routes somehow,
+    /// This is likely related to move routes somehow,
     /// like how the TEXT_DATA command extends the SHOW_TEXT command.
     /// However, I can't find the implementation of this instruction.
     /// Furthermore, I don't know why it's even included;
