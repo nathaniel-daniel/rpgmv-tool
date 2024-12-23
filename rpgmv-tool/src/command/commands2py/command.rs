@@ -493,6 +493,24 @@ impl Command {
         Ok(Self::PlayBgm { audio })
     }
 
+    fn parse_when(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(2)?;
+
+        let choice_index = reader.read_at(0, "choice_index")?;
+        let choice_name = reader.read_at(1, "choice_name")?;
+
+        Ok(Self::When {
+            choice_index,
+            choice_name,
+        })
+    }
+
+    fn parse_when_end(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::WhenEnd)
+    }
+
     fn parse_else(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::Else)
@@ -1457,20 +1475,7 @@ pub fn parse_event_command_list(
                 }
             }
             (_, CommandCode::WHEN) => {
-                ensure!(event_command.parameters.len() == 2);
-                let choice_index = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`choice_index` is not a `u32`")?;
-                let choice_name = event_command.parameters[1]
-                    .as_str()
-                    .context("`choice_name` is not a string")?
-                    .to_string();
-
-                Command::When {
-                    choice_index,
-                    choice_name,
-                }
+                Command::parse_when(event_command).context("failed to parse WHEN command")?
             }
             (_, CommandCode::WHEN_CANCEL) => {
                 ensure!(event_command.parameters.len() == 2);
@@ -1487,10 +1492,8 @@ pub fn parse_event_command_list(
                     choice_name,
                 }
             }
-            (_, CommandCode::WHEN_END) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::WhenEnd
-            }
+            (_, CommandCode::WHEN_END) => Command::parse_when_end(event_command)
+                .context("failed to parse WHEN_END command")?,
             (_, CommandCode::ELSE) => {
                 Command::parse_else(event_command).context("failed to parse ELSE command")?
             }
