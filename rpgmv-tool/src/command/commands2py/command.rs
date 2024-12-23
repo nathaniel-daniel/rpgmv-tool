@@ -312,6 +312,21 @@ impl Command {
         Ok(Self::CommonEvent { id })
     }
 
+    fn parse_control_switches(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(3)?;
+
+        let start_id = reader.read_at(0, "start_id")?;
+        let end_id = reader.read_at(1, "end_id")?;
+        let IntBool(value) = reader.read_at(2, "value")?;
+
+        Ok(Self::ControlSwitches {
+            start_id,
+            end_id,
+            value,
+        })
+    }
+
     fn parse_control_self_switch(
         event_command: &rpgmv_types::EventCommand,
     ) -> anyhow::Result<Self> {
@@ -629,30 +644,8 @@ pub fn parse_event_command_list(
 
                 Command::JumpToLabel { name }
             }
-            (_, CommandCode::CONTROL_SWITCHES) => {
-                ensure!(event_command.parameters.len() == 3);
-
-                let start_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`start_id` is not a `u32`")?;
-                let end_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`end_id` is not a `u32`")?;
-                let value = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`value` is not a `u32`")?;
-                ensure!(value <= 1);
-                let value = value == 0;
-
-                Command::ControlSwitches {
-                    start_id,
-                    end_id,
-                    value,
-                }
-            }
+            (_, CommandCode::CONTROL_SWITCHES) => Command::parse_control_switches(event_command)
+                .context("failed to parse CONTROL_SWITCHES command")?,
             (_, CommandCode::CONTROL_VARIABLES) => Command::parse_control_variables(event_command)
                 .context("failed to parse CONTROL_VARIABLES command")?,
             (_, CommandCode::CONTROL_SELF_SWITCH) => {
