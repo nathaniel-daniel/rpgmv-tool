@@ -294,6 +294,25 @@ impl Command {
         Ok(Self::Nop)
     }
 
+    fn parse_show_choices(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(5)?;
+
+        let choices = reader.read_at(0, "choices")?;
+        let cancel_type = reader.read_at(1, "cancel_type")?;
+        let default_type = reader.read_at(2, "default_type")?;
+        let position_type = reader.read_at(3, "position_type")?;
+        let background = reader.read_at(4, "background")?;
+
+        Ok(Command::ShowChoices {
+            choices,
+            cancel_type,
+            default_type,
+            position_type,
+            background,
+        })
+    }
+
     fn parse_comment(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(1)?;
@@ -568,36 +587,8 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::SHOW_TEXT) => Command::parse_show_text(event_command)
                 .context("failed to parse SHOW_TEXT command")?,
-            (_, CommandCode::SHOW_CHOICES) => {
-                ensure!(event_command.parameters.len() == 5);
-
-                let choices: Vec<String> =
-                    serde_json::from_value(event_command.parameters[0].clone())
-                        .context("invalid `choices` parameter")?;
-                let cancel_type = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| i32::try_from(value).ok())
-                    .context("`cancel_type` is not an `i32`")?;
-                let default_type = event_command.parameters[2]
-                    .as_i64()
-                    .context("`default_type` is not an `i64`")?;
-                let position_type = event_command.parameters[3]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`position_type` is not a `u32`")?;
-                let background = event_command.parameters[4]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`background` is not a `u32`")?;
-
-                Command::ShowChoices {
-                    choices,
-                    cancel_type,
-                    default_type,
-                    position_type,
-                    background,
-                }
-            }
+            (_, CommandCode::SHOW_CHOICES) => Command::parse_show_choices(event_command)
+                .context("failed to parse SHOW_CHOICES command")?,
             (_, CommandCode::SHOW_SCROLLING_TEXT) => {
                 let speed = event_command.parameters[0]
                     .as_i64()

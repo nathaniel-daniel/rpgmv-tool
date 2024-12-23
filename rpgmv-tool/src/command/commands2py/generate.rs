@@ -60,36 +60,13 @@ where
             position_type,
             background,
         } => {
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "show_choices(")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "choices=[")?;
-
-            for choice in choices {
-                let choice = escape_string(choice);
-
-                write_indent(&mut writer, indent + 2)?;
-                writeln!(&mut writer, "'{choice}',")?;
-            }
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "],")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "cancel_type={cancel_type},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "default_type={default_type},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "position_type={position_type},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "background={background},")?;
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, ")")?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "show_choices")?;
+            writer.write_param("choices", choices)?;
+            writer.write_param("cancel_type", cancel_type)?;
+            writer.write_param("default_type", default_type)?;
+            writer.write_param("position_type", position_type)?;
+            writer.write_param("background", background)?;
+            writer.finish()?;
         }
         Command::ShowScrollingText {
             speed,
