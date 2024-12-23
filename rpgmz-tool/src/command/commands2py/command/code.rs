@@ -40,6 +40,8 @@ command_codes! {
     (122, CONTROL_VARIABLES),
     (123, CONTROL_SELF_SWITCH),
 
+    (201, TRANSFER_PLAYER),
+
     (205, SET_MOVEMENT_ROUTE),
 
     (222, FADEIN_SCREEN),

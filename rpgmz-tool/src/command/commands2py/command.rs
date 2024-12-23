@@ -12,6 +12,12 @@ use self::param_reader::ParamReader;
 use anyhow::ensure;
 use anyhow::Context;
 
+#[derive(Debug, Copy, Clone, Hash)]
+pub enum MaybeRef<T> {
+    Constant(T),
+    Ref(u32),
+}
+
 /// A command
 #[derive(Debug)]
 pub enum Command {
@@ -40,11 +46,18 @@ pub enum Command {
         key: String,
         value: bool,
     },
-    FadeinScreen,
+    TransferPlayer {
+        map_id: MaybeRef<u32>,
+        x: MaybeRef<u32>,
+        y: MaybeRef<u32>,
+        direction: u8,
+        fade_type: u8,
+    },
     SetMovementRoute {
         character_id: i32,
         route: rpgmz_types::MoveRoute,
     },
+    FadeinScreen,
     ErasePicture {
         picture_id: u32,
     },
@@ -92,6 +105,36 @@ impl Command {
         let value = value.0;
 
         Ok(Command::ControlSelfSwitch { key, value })
+    }
+
+    fn parse_transfer_player(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(6)?;
+
+        let IntBool(is_constant) = reader.read_at(0, "is_constant")?;
+        let map_id = reader.read_at(1, "map_id")?;
+        let x = reader.read_at(2, "x")?;
+        let y = reader.read_at(3, "y")?;
+        let direction = reader.read_at(4, "direction")?;
+        let fade_type = reader.read_at(5, "fade_type")?;
+
+        let (map_id, x, y) = if is_constant {
+            (
+                MaybeRef::Constant(map_id),
+                MaybeRef::Constant(x),
+                MaybeRef::Constant(y),
+            )
+        } else {
+            (MaybeRef::Ref(map_id), MaybeRef::Ref(x), MaybeRef::Ref(y))
+        };
+
+        Ok(Command::TransferPlayer {
+            map_id,
+            x,
+            y,
+            direction,
+            fade_type,
+        })
     }
 
     fn parse_fadein_screen(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
@@ -193,6 +236,8 @@ pub fn parse_event_command_list(
                 Command::parse_control_self_switch(event_command)
                     .context("failed to parse CONTROL_SELF_SWITCH command")?
             }
+            (_, CommandCode::TRANSFER_PLAYER) => Command::parse_transfer_player(event_command)
+                .context("failed to parse TRANSFER_PLAYER command")?,
             (_, CommandCode::SET_MOVEMENT_ROUTE) => {
                 move_command_index = 0;
 

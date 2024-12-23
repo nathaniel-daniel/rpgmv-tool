@@ -1,8 +1,9 @@
 mod function_call_writer;
 
 use self::function_call_writer::FunctionCallWriter;
+use self::function_call_writer::Ident;
 use super::Command;
-use super::Config;
+use super::Config;use super::MaybeRef;
 use super::ControlVariablesValue;
 use super::ControlVariablesValueGameData;
 use std::io::Write;
@@ -114,6 +115,50 @@ where
 
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "game_self_switches['{key}'] = {value}")?;
+        }
+        Command::TransferPlayer {
+            map_id,
+            x,
+            y,
+            direction,
+            fade_type,
+        } => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "transfer_player")?;
+            match map_id {
+                MaybeRef::Constant(id) => {
+                    let name = format!("game_map_{id}");
+                    writer.write_param("map", &Ident(&name))?;
+                }
+                MaybeRef::Ref(id) => {
+                    let name = config.get_variable_name(*id);
+                    writer.write_param("map_id", &Ident(&name))?;
+                }
+            }
+
+            match x {
+                MaybeRef::Constant(value) => {
+                    writer.write_param("x", value)?;
+                }
+                MaybeRef::Ref(id) => {
+                    let name = config.get_variable_name(*id);
+                    writer.write_param("x", &Ident(&name))?;
+                }
+            }
+
+            match y {
+                MaybeRef::Constant(value) => {
+                    writer.write_param("y", value)?;
+                }
+                MaybeRef::Ref(id) => {
+                    let name = config.get_variable_name(*id);
+                    writer.write_param("y", &Ident(&name))?;
+                }
+            }
+
+            writer.write_param("direction", direction)?;
+            writer.write_param("fade_type", fade_type)?;
+
+            writer.finish()?;
         }
         Command::SetMovementRoute {
             character_id,

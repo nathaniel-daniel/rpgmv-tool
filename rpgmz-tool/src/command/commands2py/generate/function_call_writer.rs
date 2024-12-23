@@ -99,6 +99,14 @@ impl FunctionParamValue for i32 {
     }
 }
 
+impl FunctionParamValue for u8 {
+    fn write_param_value(&self, writer: &mut dyn Write, _indent: u16) -> anyhow::Result<()> {
+        write!(writer, "{}", self)?;
+
+        Ok(())
+    }
+}
+
 impl<T> FunctionParamValue for &[T]
 where
     T: FunctionParamValue,
@@ -258,6 +266,15 @@ impl FunctionParamValue for rpgmz_types::AudioFile {
         write_indent(&mut writer, indent)?;
         write!(writer, ")")?;
 
+        Ok(())
+    }
+}
+
+pub struct Ident<'a>(pub &'a str);
+
+impl FunctionParamValue for Ident<'_> {
+    fn write_param_value(&self, writer: &mut dyn Write, _indent: u16) -> anyhow::Result<()> {
+        write!(writer, "{}", self.0)?;
         Ok(())
     }
 }

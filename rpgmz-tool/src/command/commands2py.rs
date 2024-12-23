@@ -6,6 +6,7 @@ mod generate;
 use self::command::parse_event_command_list;
 use self::command::Command;
 use self::command::ControlVariablesValue;
+use self::command::MaybeRef;
 use self::command::ControlVariablesValueGameData;
 use self::config::Config;
 use self::file_sink::FileSink;
