@@ -333,6 +333,15 @@ where
             writer.write_param("audio", audio)?;
             writer.finish()?;
         }
+        Command::NameInputProcessing { actor_id, max_len } => {
+            let actor = config.get_actor_name(*actor_id);
+
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "name_input_processing")?;
+            writer.set_multiline(false);
+            writer.write_param("actor", &Ident(&actor))?;
+            writer.write_param("max_len", max_len)?;
+            writer.finish()?;
+        }
         Command::When {
             choice_index,
             choice_name,

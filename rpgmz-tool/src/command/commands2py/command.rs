@@ -89,6 +89,10 @@ pub enum Command {
     PlayBgm {
         audio: rpgmz_types::AudioFile,
     },
+     NameInputProcessing {
+        actor_id: u32,
+        max_len: u32,
+    },
     When {
         choice_index: u32,
         choice_name: String,
@@ -270,6 +274,18 @@ impl Command {
 
         Ok(Command::PlayBgm { audio })
     }
+    
+    fn parse_name_input_processing(
+        event_command: &rpgmz_types::EventCommand,
+    ) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(2)?;
+
+        let actor_id = reader.read_at(0, "actor_id")?;
+        let max_len = reader.read_at(1, "max_len")?;
+
+        Ok(Self::NameInputProcessing { actor_id, max_len })
+    }
 
     fn parse_when(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
@@ -395,6 +411,10 @@ pub fn parse_event_command_list(
                 .context("failed to parse ERASE_PICTURE command")?,
             (_, CommandCode::PLAY_BGM) => Command::parse_play_bgm(event_command)
                 .context("failed to parse PLAY_BGM command")?,
+            (_, CommandCode::NAME_INPUT_PROCESSING) => {
+                Command::parse_name_input_processing(event_command)
+                    .context("failed to parse NAME_INPUT_PROCESSING command")?
+            }
             (_, CommandCode::WHEN) => {
                 Command::parse_when(event_command).context("failed to parse WHEN command")?
             }

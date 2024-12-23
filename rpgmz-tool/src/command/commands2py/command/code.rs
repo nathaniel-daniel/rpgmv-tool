@@ -58,6 +58,8 @@ command_codes! {
     (235, ERASE_PICTURE),
 
     (241, PLAY_BGM),
+    
+    (303, NAME_INPUT_PROCESSING),
 
     (401, TEXT_DATA),
     (402, WHEN),
