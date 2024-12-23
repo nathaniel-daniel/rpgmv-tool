@@ -321,6 +321,15 @@ impl Command {
         Ok(Self::FadeinScreen)
     }
 
+    fn parse_erase_picture(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let picture_id = reader.read_at(0, "picture_id")?;
+
+        Ok(Command::ErasePicture { picture_id })
+    }
+
     fn parse_transfer_player(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         ensure!(event_command.parameters.len() == 6);
         let is_constant = event_command.parameters[0]
@@ -982,16 +991,8 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::SHOW_PICTURE) => Command::parse_show_picture(event_command)
                 .context("failed to parse SHOW_PICTURE command")?,
-            (_, CommandCode::ERASE_PICTURE) => {
-                ensure!(event_command.parameters.len() == 1);
-
-                let picture_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`picture_id` is not a `u32`")?;
-
-                Command::ErasePicture { picture_id }
-            }
+            (_, CommandCode::ERASE_PICTURE) => Command::parse_erase_picture(event_command)
+                .context("failed to parse ERASE_PICTURE command")?,
             (_, CommandCode::PLAY_BGM) => {
                 ensure!(event_command.parameters.len() == 1);
                 let audio: rpgmv_types::AudioFile =
