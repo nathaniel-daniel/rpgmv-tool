@@ -110,3 +110,9 @@ impl ParamReaderOutput for rpgmv_types::MoveRoute {
         serde_json::from_value(value.clone()).context("invalid route")
     }
 }
+
+impl ParamReaderOutput for rpgmv_types::MoveCommand {
+    fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
+        serde_json::from_value(value.clone()).context("invalid command")
+    }
+}

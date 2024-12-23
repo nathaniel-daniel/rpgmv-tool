@@ -500,11 +500,10 @@ pub fn parse_event_command_list(
                 Some(Command::ShowScrollingText { lines, .. }),
                 CommandCode::SHOW_SCROLLING_TEXT_EXTRA,
             ) => {
-                ensure!(event_command.parameters.len() == 1);
-                let line = event_command.parameters[0]
-                    .as_str()
-                    .context("`line` is not a string")?
-                    .to_string();
+                let reader = ParamReader::new(event_command);
+                reader.ensure_len_is(1)?;
+
+                let line = reader.read_at(0, "line")?;
 
                 lines.push(line);
 
@@ -524,10 +523,10 @@ pub fn parse_event_command_list(
                 Some(Command::SetMovementRoute { route, .. }),
                 CommandCode::SET_MOVEMENT_ROUTE_EXTRA,
             ) if move_command_index < route.list.len() => {
-                ensure!(event_command.parameters.len() == 1);
-                let command: rpgmv_types::MoveCommand =
-                    serde_json::from_value(event_command.parameters[0].clone())
-                        .context("invalid `command` parameter")?;
+                let reader = ParamReader::new(event_command);
+                reader.ensure_len_is(1)?;
+
+                let command: rpgmv_types::MoveCommand = reader.read_at(0, "command")?;
 
                 ensure!(command == route.list[move_command_index]);
 
