@@ -298,6 +298,9 @@ where
             writer.write_param("route", route)?;
             writer.finish()?;
         }
+        Command::FadeoutScreen => {
+            FunctionCallWriter::new(&mut writer, indent, "fadeout_screen")?.finish()?;
+        }
         Command::FadeinScreen => {
             FunctionCallWriter::new(&mut writer, indent, "fadein_screen")?.finish()?;
         }
@@ -311,6 +314,19 @@ where
             let mut writer = FunctionCallWriter::new(&mut writer, indent, "play_bgm")?;
             writer.write_param("audio", audio)?;
             writer.finish()?;
+        }
+        Command::When {
+            choice_index,
+            choice_name,
+        } => {
+            write_indent(&mut writer, indent)?;
+            writeln!(
+                &mut writer,
+                "if get_choice_index() == {choice_index}: # {choice_name}"
+            )?;
+        }
+        Command::WhenEnd => {
+            // Trust indents over end commands
         }
         Command::Else => {
             write_indent(&mut writer, indent)?;

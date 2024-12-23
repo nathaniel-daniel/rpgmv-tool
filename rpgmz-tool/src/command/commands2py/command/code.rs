@@ -48,6 +48,7 @@ command_codes! {
 
     (205, SET_MOVEMENT_ROUTE),
 
+    (221, FADEOUT_SCREEN),
     (222, FADEIN_SCREEN),
 
     (235, ERASE_PICTURE),

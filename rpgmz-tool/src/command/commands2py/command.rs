@@ -72,6 +72,7 @@ pub enum Command {
         character_id: i32,
         route: rpgmz_types::MoveRoute,
     },
+    FadeoutScreen,
     FadeinScreen,
     ErasePicture {
         picture_id: u32,
@@ -79,6 +80,11 @@ pub enum Command {
     PlayBgm {
         audio: rpgmz_types::AudioFile,
     },
+    When {
+        choice_index: u32,
+        choice_name: String,
+    },
+    WhenEnd,
     Else,
     ConditionalBranchEnd,
     Unknown {
@@ -187,6 +193,11 @@ impl Command {
             fade_type,
         })
     }
+    
+    fn parse_fadeout_screen(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::FadeoutScreen)
+    }
 
     fn parse_fadein_screen(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         ParamReader::new(event_command).ensure_len_is(0)?;
@@ -222,6 +233,24 @@ impl Command {
         let audio = reader.read_at(0, "audio")?;
 
         Ok(Command::PlayBgm { audio })
+    }
+
+    fn parse_when(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(2)?;
+
+        let choice_index = reader.read_at(0, "choice_index")?;
+        let choice_name = reader.read_at(1, "choice_name")?;
+
+        Ok(Self::When {
+            choice_index,
+            choice_name,
+        })
+    }
+
+    fn parse_when_end(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::WhenEnd)
     }
 
     fn parse_else(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
@@ -314,6 +343,8 @@ pub fn parse_event_command_list(
                 Command::parse_set_movement_route(event_command)
                     .context("failed to parse SET_MOVEMENT_ROUTE command")?
             }
+            (_, CommandCode::FADEOUT_SCREEN) => Command::parse_fadeout_screen(event_command)
+                .context("failed to parse FADEOUT_SCREEN command")?,
             (_, CommandCode::FADEIN_SCREEN) => Command::parse_fadein_screen(event_command)
                 .context("failed to parse FADEIN_SCREEN command")?,
 
@@ -321,6 +352,11 @@ pub fn parse_event_command_list(
                 .context("failed to parse ERASE_PICTURE command")?,
             (_, CommandCode::PLAY_BGM) => Command::parse_play_bgm(event_command)
                 .context("failed to parse PLAY_BGM command")?,
+            (_, CommandCode::WHEN) => {
+                Command::parse_when(event_command).context("failed to parse WHEN command")?
+            }
+            (_, CommandCode::WHEN_END) => Command::parse_when_end(event_command)
+                .context("failed to parse WHEN_END command")?,
             (_, CommandCode::ELSE) => {
                 Command::parse_else(event_command).context("failed to parse ELSE command")?
             }
