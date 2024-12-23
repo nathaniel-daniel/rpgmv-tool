@@ -1,8 +1,8 @@
 use super::Command;
+use super::IntBool;
 use super::MaybeRef;
+use super::ParamReader;
 use anyhow::bail;
-use anyhow::ensure;
-use anyhow::Context;
 
 #[derive(Debug, Copy, Clone)]
 pub(super) enum ConditionalBranchKind {
@@ -184,55 +184,35 @@ impl Command {
     pub(super) fn parse_conditional_branch(
         event_command: &rpgmv_types::EventCommand,
     ) -> anyhow::Result<Self> {
-        ensure!(!event_command.parameters.is_empty());
-        let kind = event_command.parameters[0]
-            .as_i64()
-            .and_then(|value| u8::try_from(value).ok())
-            .context("`kind` is not a `u32`")?;
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is_at_least(1)?;
+
+        let kind = reader.read_at(0, "kind")?;
         let kind = ConditionalBranchKind::from_u8(kind)?;
 
         let inner = match kind {
             ConditionalBranchKind::Switch => {
-                ensure!(event_command.parameters.len() == 3);
+                reader.ensure_len_is(3)?;
 
-                let id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`id` is not a `u32`")?;
-                let check_true = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`check_true` is not a `u32`")?;
-                ensure!(check_true <= 1);
-                let check_true = check_true == 0;
+                let id = reader.read_at(1, "id")?;
+                let IntBool(check_true) = reader.read_at(2, "check_true")?;
 
                 ConditionalBranchCommand::Switch { id, check_true }
             }
             ConditionalBranchKind::Variable => {
-                ensure!(event_command.parameters.len() == 5);
+                reader.ensure_len_is(5)?;
 
-                let lhs_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`lhs_id` is not a `u32`")?;
-                let is_constant = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_constant` is not a `u32`")?;
-                let is_constant = is_constant == 0;
-                let rhs_id = event_command.parameters[3]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`rhs_id` is not a `u32`")?;
+                let lhs_id = reader.read_at(1, "lhs_id")?;
+                let IntBool(is_constant) = reader.read_at(2, "is_constant")?;
+                let rhs_id = reader.read_at(3, "rhs_id")?;
+
                 let rhs_id = if is_constant {
                     MaybeRef::Constant(rhs_id)
                 } else {
                     MaybeRef::Ref(rhs_id)
                 };
-                let operation = event_command.parameters[4]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`operation` is not a `u8`")?;
+
+                let operation = reader.read_at(4, "operation")?;
                 let operation = ConditionalBranchVariableOperation::from_u8(operation)?;
 
                 ConditionalBranchCommand::Variable {
@@ -242,80 +222,53 @@ impl Command {
                 }
             }
             ConditionalBranchKind::SelfSwitch => {
-                ensure!(event_command.parameters.len() == 3);
+                reader.ensure_len_is(3)?;
 
-                let name = event_command.parameters[1]
-                    .as_str()
-                    .context("`name` is not a `String`")?
-                    .to_string();
-                let check_true = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`check_true` is not a `u32`")?;
-                ensure!(check_true <= 1);
-                let check_true = check_true == 0;
+                let name = reader.read_at(1, "name")?;
+                let IntBool(check_true) = reader.read_at(2, "check_true")?;
 
                 ConditionalBranchCommand::SelfSwitch { name, check_true }
             }
             ConditionalBranchKind::Timer => {
-                ensure!(event_command.parameters.len() == 3);
+                reader.ensure_len_is(3)?;
 
-                let value = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`value` is not a `u32`")?;
-                let is_gte = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_gte` is not a `u8`")?;
-                ensure!(is_gte <= 1);
-                let is_gte = is_gte == 0;
+                let value = reader.read_at(1, "value")?;
+                let IntBool(is_gte) = reader.read_at(2, "is_gte")?;
 
                 ConditionalBranchCommand::Timer { value, is_gte }
             }
             ConditionalBranchKind::Actor => {
-                ensure!(event_command.parameters.len() >= 3);
-                let actor_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`actor_id` is not a `u32`")?;
-                let check = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`check` is not a `u8`")?;
+                reader.ensure_len_is_at_least(3)?;
+
+                let actor_id = reader.read_at(1, "actor_id")?;
+                let check = reader.read_at(2, "check")?;
                 let check = ConditionalBranchKindActorCheck::from_u8(check)?;
 
                 match check {
                     ConditionalBranchKindActorCheck::InParty => {
-                        ensure!(event_command.parameters.len() == 3);
+                        reader.ensure_len_is(3)?;
+
                         ConditionalBranchCommand::ActorInParty { actor_id }
                     }
                     ConditionalBranchKindActorCheck::Skill => {
-                        ensure!(event_command.parameters.len() == 4);
+                        reader.ensure_len_is(4)?;
 
-                        let skill_id = event_command.parameters[3]
-                            .as_i64()
-                            .and_then(|value| u32::try_from(value).ok())
-                            .context("`skill_id` is not a `u32`")?;
+                        let skill_id = reader.read_at(3, "skill_id")?;
 
                         ConditionalBranchCommand::ActorSkill { actor_id, skill_id }
                     }
                     ConditionalBranchKindActorCheck::Armor => {
-                        ensure!(event_command.parameters.len() == 4);
+                        reader.ensure_len_is(4)?;
 
-                        let armor_id = event_command.parameters[3]
-                            .as_i64()
-                            .and_then(|value| u32::try_from(value).ok())
-                            .context("`armor_id` is not a `u32`")?;
+                        let armor_id = reader.read_at(3, "armor_id")?;
 
                         ConditionalBranchCommand::ActorArmor { actor_id, armor_id }
                     }
                     ConditionalBranchKindActorCheck::State => {
-                        ensure!(event_command.parameters.len() == 4);
-                        let state_id = event_command.parameters[3]
-                            .as_i64()
-                            .and_then(|value| u32::try_from(value).ok())
-                            .context("`state_id` is not a `u32`")?;
+                        reader.ensure_len_is(4)?;
+
+                        let state_id = reader.read_at(3, "state_id")?;
+
                         ConditionalBranchCommand::ActorState { actor_id, state_id }
                     }
                     _ => {
@@ -324,25 +277,17 @@ impl Command {
                 }
             }
             ConditionalBranchKind::Enemy => {
-                ensure!(event_command.parameters.len() >= 3);
-                let enemy_index = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`enemy_index` is not a `u32`")?;
-                let check = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`check` is not a `u8`")?;
+                reader.ensure_len_is_at_least(3)?;
+
+                let enemy_index = reader.read_at(1, "enemy_index")?;
+                let check = reader.read_at(2, "check")?;
                 let check = ConditionalBranchKindEnemyCheck::from_u8(check)?;
 
                 match check {
                     ConditionalBranchKindEnemyCheck::State => {
-                        ensure!(event_command.parameters.len() == 4);
+                        reader.ensure_len_is(4)?;
 
-                        let state_id = event_command.parameters[2]
-                            .as_i64()
-                            .and_then(|value| u32::try_from(value).ok())
-                            .context("`check` is not a `u32`")?;
+                        let state_id = reader.read_at(2, "state_id")?;
 
                         ConditionalBranchCommand::EnemyState {
                             enemy_index,
@@ -355,15 +300,10 @@ impl Command {
                 }
             }
             ConditionalBranchKind::Character => {
-                ensure!(event_command.parameters.len() == 3);
-                let character_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| i32::try_from(value).ok())
-                    .context("`character_id` is not an `i32`")?;
-                let direction = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`direction` is not a `u8`")?;
+                reader.ensure_len_is(3)?;
+
+                let character_id = reader.read_at(1, "character_id")?;
+                let direction = reader.read_at(2, "direction")?;
 
                 ConditionalBranchCommand::Character {
                     character_id,
@@ -371,34 +311,25 @@ impl Command {
                 }
             }
             ConditionalBranchKind::Gold => {
-                ensure!(event_command.parameters.len() == 3);
-                let value = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`value` is not a `u32`")?;
-                let check = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`check` is not a `u8`")?;
+                reader.ensure_len_is(3)?;
+
+                let value = reader.read_at(1, "value")?;
+                let check = reader.read_at(2, "check")?;
                 let check = ConditionalBranchKindGoldCheck::from_u8(check)?;
 
                 ConditionalBranchCommand::Gold { value, check }
             }
             ConditionalBranchKind::Item => {
-                ensure!(event_command.parameters.len() == 2);
-                let item_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`item_id` is not a `u32`")?;
+                reader.ensure_len_is(2)?;
+
+                let item_id = reader.read_at(1, "item_id")?;
 
                 ConditionalBranchCommand::Item { item_id }
             }
             ConditionalBranchKind::Script => {
-                ensure!(event_command.parameters.len() == 2);
-                let value = event_command.parameters[1]
-                    .as_str()
-                    .context("`value` is not a string")?
-                    .to_string();
+                reader.ensure_len_is(2)?;
+
+                let value = reader.read_at(1, "value")?;
 
                 ConditionalBranchCommand::Script { value }
             }
