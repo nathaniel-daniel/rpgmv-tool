@@ -538,8 +538,10 @@ where
             )?
         }
         Command::Wait { duration } => {
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "wait(duration={duration})")?
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "wait")?;
+            writer.set_multiline(false);
+            writer.write_param("duration", duration)?;
+            writer.finish()?;
         }
         Command::ShowPicture {
             picture_id,
