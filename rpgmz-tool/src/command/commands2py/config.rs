@@ -50,6 +50,8 @@ pub struct Config {
     pub classes: BTreeMap<u32, String>,
 }
 
+// These will be used later
+#[expect(dead_code)]
 impl Config {
     /// Load this from a path.
     pub fn from_path<P>(path: P) -> anyhow::Result<Self>

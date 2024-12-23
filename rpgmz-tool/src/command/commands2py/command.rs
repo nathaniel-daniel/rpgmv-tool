@@ -66,7 +66,7 @@ pub fn parse_event_command_list(
 ) -> anyhow::Result<Vec<(u16, Command)>> {
     let mut ret = Vec::with_capacity(list.len());
 
-    let mut move_command_index = 0;
+    // let mut move_command_index = 0;
     for event_command in list.iter() {
         let command_code = CommandCode(event_command.code);
 
