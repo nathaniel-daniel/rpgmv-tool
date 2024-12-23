@@ -55,6 +55,12 @@ command_codes! {
     (241, PLAY_BGM),
 
     (401, TEXT_DATA),
+    (402, WHEN),
+
+    /// I think this is an end for the WHEN block.
+    /// I can't be sure as the game doesn't actually care if this exists;
+    /// it just ignores it, only taking into account indents.
+    (404, WHEN_END),
 
     (408, COMMENT_EXTRA),
 

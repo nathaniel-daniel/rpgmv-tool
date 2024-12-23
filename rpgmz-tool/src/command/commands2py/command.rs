@@ -32,6 +32,13 @@ pub enum Command {
         speaker_name: Option<String>,
         lines: Vec<String>,
     },
+    ShowChoices {
+        choices: Vec<String>,
+        cancel_type: i32,
+        default_type: i64,
+        position_type: u32,
+        background: u32,
+    },
     Comment {
         lines: Vec<String>,
     },
@@ -84,6 +91,25 @@ impl Command {
     fn parse_nop(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::Nop)
+    }
+
+    fn parse_show_choices(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(5)?;
+
+        let choices = reader.read_at(0, "choices")?;
+        let cancel_type = reader.read_at(1, "cancel_type")?;
+        let default_type = reader.read_at(2, "default_type")?;
+        let position_type = reader.read_at(3, "position_type")?;
+        let background = reader.read_at(4, "background")?;
+
+        Ok(Command::ShowChoices {
+            choices,
+            cancel_type,
+            default_type,
+            position_type,
+            background,
+        })
     }
 
     fn parse_comment(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
@@ -263,6 +289,8 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::SHOW_TEXT) => Command::parse_show_text(event_command)
                 .context("failed to parse SHOW_TEXT command")?,
+            (_, CommandCode::SHOW_CHOICES) => Command::parse_show_choices(event_command)
+                .context("failed to parse SHOW_CHOICES command")?,
             (_, CommandCode::COMMENT) => {
                 Command::parse_comment(event_command).context("failed to parse COMMENT command")?
             }

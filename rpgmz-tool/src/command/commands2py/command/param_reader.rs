@@ -126,3 +126,9 @@ impl ParamReaderOutput for rpgmz_types::AudioFile {
         serde_json::from_value(value.clone()).context("invalid audio file")
     }
 }
+
+impl ParamReaderOutput for Vec<String> {
+    fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
+        serde_json::from_value(value.clone()).context("invalid string array")
+    }
+}

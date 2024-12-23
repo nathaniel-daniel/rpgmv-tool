@@ -83,6 +83,14 @@ impl FunctionParamValue for String {
     }
 }
 
+impl FunctionParamValue for i64 {
+    fn write_param_value(&self, writer: &mut dyn Write, _indent: u16) -> anyhow::Result<()> {
+        write!(writer, "{}", self)?;
+
+        Ok(())
+    }
+}
+
 impl FunctionParamValue for u32 {
     fn write_param_value(&self, writer: &mut dyn Write, _indent: u16) -> anyhow::Result<()> {
         write!(writer, "{}", self)?;

@@ -53,6 +53,21 @@ where
             writer.write_param("lines", lines)?;
             writer.finish()?;
         }
+        Command::ShowChoices {
+            choices,
+            cancel_type,
+            default_type,
+            position_type,
+            background,
+        } => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "show_choices")?;
+            writer.write_param("choices", choices)?;
+            writer.write_param("cancel_type", cancel_type)?;
+            writer.write_param("default_type", default_type)?;
+            writer.write_param("position_type", position_type)?;
+            writer.write_param("background", background)?;
+            writer.finish()?;
+        }
         Command::Comment { lines } => {
             for line in lines.iter() {
                 write_indent(&mut writer, indent)?;
