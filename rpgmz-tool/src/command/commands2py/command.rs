@@ -74,6 +74,9 @@ pub enum Command {
     },
     FadeoutScreen,
     FadeinScreen,
+    Wait {
+        duration: u32,
+    },
     ErasePicture {
         picture_id: u32,
     },
@@ -193,7 +196,7 @@ impl Command {
             fade_type,
         })
     }
-    
+
     fn parse_fadeout_screen(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::FadeoutScreen)
@@ -202,6 +205,15 @@ impl Command {
     fn parse_fadein_screen(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::FadeinScreen)
+    }
+
+    fn parse_wait(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let duration = reader.read_at(0, "duration")?;
+
+        Ok(Self::Wait { duration })
     }
 
     fn parse_set_movement_route(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
@@ -347,7 +359,9 @@ pub fn parse_event_command_list(
                 .context("failed to parse FADEOUT_SCREEN command")?,
             (_, CommandCode::FADEIN_SCREEN) => Command::parse_fadein_screen(event_command)
                 .context("failed to parse FADEIN_SCREEN command")?,
-
+            (_, CommandCode::WAIT) => {
+                Command::parse_wait(event_command).context("failed to parse WAIT command")?
+            }
             (_, CommandCode::ERASE_PICTURE) => Command::parse_erase_picture(event_command)
                 .context("failed to parse ERASE_PICTURE command")?,
             (_, CommandCode::PLAY_BGM) => Command::parse_play_bgm(event_command)
