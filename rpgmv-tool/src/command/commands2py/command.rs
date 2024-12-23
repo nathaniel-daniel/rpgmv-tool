@@ -331,33 +331,15 @@ impl Command {
     }
 
     fn parse_transfer_player(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
-        ensure!(event_command.parameters.len() == 6);
-        let is_constant = event_command.parameters[0]
-            .as_i64()
-            .and_then(|value| u8::try_from(value).ok())
-            .context("`is_constant` is not a `u8`")?;
-        ensure!(is_constant <= 1);
-        let is_constant = is_constant == 0;
-        let map_id = event_command.parameters[1]
-            .as_i64()
-            .and_then(|value| u32::try_from(value).ok())
-            .context("`y` is not a `u32`")?;
-        let x = event_command.parameters[2]
-            .as_i64()
-            .and_then(|value| u32::try_from(value).ok())
-            .context("`x` is not a `u32`")?;
-        let y = event_command.parameters[3]
-            .as_i64()
-            .and_then(|value| u32::try_from(value).ok())
-            .context("`y` is not a `u32`")?;
-        let direction = event_command.parameters[3]
-            .as_i64()
-            .and_then(|value| u8::try_from(value).ok())
-            .context("`direction` is not a `u8`")?;
-        let fade_type = event_command.parameters[3]
-            .as_i64()
-            .and_then(|value| u8::try_from(value).ok())
-            .context("`fade_type` is not a `u8`")?;
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(6)?;
+
+        let IntBool(is_constant) = reader.read_at(0, "is_constant")?;
+        let map_id = reader.read_at(1, "map_id")?;
+        let x = reader.read_at(2, "x")?;
+        let y = reader.read_at(3, "y")?;
+        let direction = reader.read_at(4, "direction")?;
+        let fade_type = reader.read_at(5, "fade_type")?;
 
         let (map_id, x, y) = if is_constant {
             (

@@ -1,6 +1,7 @@
 mod function_call_writer;
 
 use self::function_call_writer::FunctionCallWriter;
+use self::function_call_writer::Ident;
 use super::Command;
 use super::ConditionalBranchCommand;
 use super::Config;
@@ -428,23 +429,42 @@ where
             direction,
             fade_type,
         } => {
-            let map_arg = match map_id {
-                MaybeRef::Constant(id) => format!("map=game_map_{id}"),
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "transfer_player")?;
+            match map_id {
+                MaybeRef::Constant(id) => {
+                    let name = format!("game_map_{id}");
+                    writer.write_param("map", &Ident(&name))?;
+                }
                 MaybeRef::Ref(id) => {
                     let name = config.get_variable_name(*id);
-                    format!("map_id={name}")
+                    writer.write_param("map_id", &Ident(&name))?;
                 }
-            };
-            let x = match x {
-                MaybeRef::Constant(value) => value.to_string(),
-                MaybeRef::Ref(id) => config.get_variable_name(*id),
-            };
-            let y = match y {
-                MaybeRef::Constant(value) => value.to_string(),
-                MaybeRef::Ref(id) => config.get_variable_name(*id),
-            };
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "transfer_player({map_arg}, x={x}, y={y}, direction={direction}, fade_type={fade_type})")?;
+            }
+
+            match x {
+                MaybeRef::Constant(value) => {
+                    writer.write_param("x", value)?;
+                }
+                MaybeRef::Ref(id) => {
+                    let name = config.get_variable_name(*id);
+                    writer.write_param("x", &Ident(&name))?;
+                }
+            }
+
+            match y {
+                MaybeRef::Constant(value) => {
+                    writer.write_param("y", value)?;
+                }
+                MaybeRef::Ref(id) => {
+                    let name = config.get_variable_name(*id);
+                    writer.write_param("y", &Ident(&name))?;
+                }
+            }
+
+            writer.write_param("direction", direction)?;
+            writer.write_param("fade_type", fade_type)?;
+
+            writer.finish()?;
         }
         Command::SetMovementRoute {
             character_id,
