@@ -8,9 +8,7 @@ use super::ControlVariablesValue;
 use super::ControlVariablesValueGameData;
 use super::GetLocationInfoKind;
 use super::MaybeRef;
-use anyhow::bail;
 use anyhow::ensure;
-use anyhow::Context;
 use std::io::Write;
 
 pub fn commands2py<W>(
@@ -450,103 +448,10 @@ where
             character_id,
             route,
         } => {
-            let repeat = stringify_bool(route.repeat);
-            let skippable = stringify_bool(route.skippable);
-            let wait = stringify_bool(route.wait);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "set_movement_route(")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "character_id={character_id},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "route=MoveRoute(")?;
-
-            write_indent(&mut writer, indent + 2)?;
-            writeln!(&mut writer, "repeat={repeat},")?;
-
-            write_indent(&mut writer, indent + 2)?;
-            writeln!(&mut writer, "skippable={skippable},")?;
-
-            write_indent(&mut writer, indent + 2)?;
-            writeln!(&mut writer, "wait={wait},")?;
-
-            write_indent(&mut writer, indent + 2)?;
-            writeln!(&mut writer, "list=[")?;
-
-            for command in route.list.iter() {
-                let command_indent = command
-                    .indent
-                    .map(|indent| indent.to_string())
-                    .unwrap_or_else(|| "None".to_string());
-
-                write_indent(&mut writer, indent + 3)?;
-                writeln!(&mut writer, "MoveCommand(")?;
-
-                write_indent(&mut writer, indent + 4)?;
-                writeln!(&mut writer, "code={},", command.code)?;
-
-                write_indent(&mut writer, indent + 4)?;
-                writeln!(&mut writer, "indent={command_indent},")?;
-
-                match command.parameters.as_ref() {
-                    Some(parameters) => {
-                        write_indent(&mut writer, indent + 4)?;
-                        writeln!(&mut writer, "parameters=[")?;
-
-                        for parameter in parameters {
-                            match parameter {
-                                serde_json::Value::Number(number) if number.is_i64() => {
-                                    let value = number.as_i64().context("value is not an i64")?;
-
-                                    write_indent(&mut writer, indent + 5)?;
-                                    writeln!(&mut writer, "{value},")?;
-                                }
-                                serde_json::Value::String(value) => {
-                                    let value = escape_string(value);
-                                    write_indent(&mut writer, indent + 5)?;
-                                    writeln!(&mut writer, "'{value}',")?;
-                                }
-                                serde_json::Value::Object(object) => {
-                                    write_indent(&mut writer, indent + 5)?;
-                                    writeln!(&mut writer, "{{")?;
-
-                                    for (key, value) in object.iter() {
-                                        write_indent(&mut writer, indent + 6)?;
-                                        writeln!(&mut writer, "'{key}': {value},")?;
-                                    }
-
-                                    write_indent(&mut writer, indent + 5)?;
-                                    writeln!(&mut writer, "}},")?;
-                                }
-                                _ => {
-                                    bail!("cannot write move route parameter \"{parameter:?}\"")
-                                }
-                            }
-                        }
-
-                        write_indent(&mut writer, indent + 4)?;
-                        writeln!(&mut writer, "],")?;
-                    }
-                    None => {
-                        write_indent(&mut writer, indent + 4)?;
-                        writeln!(&mut writer, "parameters=None,")?;
-                    }
-                }
-
-                write_indent(&mut writer, indent + 3)?;
-                writeln!(&mut writer, "),")?;
-            }
-
-            write_indent(&mut writer, indent + 2)?;
-            writeln!(&mut writer, "]")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "),")?;
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, ")")?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "set_movement_route")?;
+            writer.write_param("character_id", character_id)?;
+            writer.write_param("route", route)?;
+            writer.finish()?;
         }
         Command::ChangeTransparency { set_transparent } => {
             let set_transparent = stringify_bool(*set_transparent);
