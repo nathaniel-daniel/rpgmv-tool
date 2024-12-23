@@ -39,6 +39,8 @@ command_codes! {
     (111, CONDITONAL_BRANCH),
 
     (117, COMMON_EVENT),
+    (118, LABEL),
+    (119, JUMP_TO_LABEL),
 
     (121, CONTROL_SWITCHES),
     (122, CONTROL_VARIABLES),

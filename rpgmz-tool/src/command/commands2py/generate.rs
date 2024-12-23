@@ -177,6 +177,18 @@ where
             let name = config.get_common_event_name(*id);
             FunctionCallWriter::new(&mut writer, indent, &name)?.finish()?;
         }
+        Command::Label { name } => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "set_label")?;
+            writer.set_multiline(false);
+            writer.write_param("name", name)?;
+            writer.finish()?;
+        }
+        Command::JumpToLabel { name } => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "jump_to_label")?;
+            writer.set_multiline(false);
+            writer.write_param("name", name)?;
+            writer.finish()?;
+        }
         Command::ControlVariables {
             start_variable_id,
             end_variable_id,

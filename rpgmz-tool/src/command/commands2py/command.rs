@@ -46,6 +46,12 @@ pub enum Command {
     CommonEvent {
         id: u32,
     },
+    Label {
+        name: String,
+    },
+    JumpToLabel {
+        name: String,
+    },
     ControlSwitches {
         start_id: u32,
         end_id: u32,
@@ -137,6 +143,24 @@ impl Command {
         let id = reader.read_at(0, "id")?;
 
         Ok(Self::CommonEvent { id })
+    }
+
+    fn parse_label(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let name = reader.read_at(0, "name")?;
+
+        Ok(Self::Label { name })
+    }
+
+    fn parse_jump_to_label(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let name = reader.read_at(0, "name")?;
+
+        Ok(Self::JumpToLabel { name })
     }
 
     fn parse_control_switches(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
@@ -339,6 +363,11 @@ pub fn parse_event_command_list(
                 .context("failed to parse CONDITONAL_BRANCH command")?,
             (_, CommandCode::COMMON_EVENT) => Command::parse_common_event(event_command)
                 .context("failed to parse COMMON_EVENT command")?,
+            (_, CommandCode::LABEL) => {
+                Command::parse_label(event_command).context("failed to parse LABEL command")?
+            }
+            (_, CommandCode::JUMP_TO_LABEL) => Command::parse_jump_to_label(event_command)
+                .context("failed to parse JUMP_TO_LABEL command")?,
             (_, CommandCode::CONTROL_SWITCHES) => Command::parse_control_switches(event_command)
                 .context("failed to parse CONTROL_SWITCHES command")?,
             (_, CommandCode::CONTROL_VARIABLES) => Command::parse_control_variables(event_command)
