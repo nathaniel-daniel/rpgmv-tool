@@ -214,16 +214,16 @@ where
             FunctionCallWriter::new(&mut writer, indent, &name)?.finish()?;
         }
         Command::Label { name } => {
-            let name = escape_string(name);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "set_label('{name}')")?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "set_label")?;
+            writer.set_multiline(false);
+            writer.write_param("name", name)?;
+            writer.finish()?;
         }
         Command::JumpToLabel { name } => {
-            let name = escape_string(name);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "jump_to_label('{name}')")?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "jump_to_label")?;
+            writer.set_multiline(false);
+            writer.write_param("name", name)?;
+            writer.finish()?;
         }
         Command::ControlSwitches {
             start_id,

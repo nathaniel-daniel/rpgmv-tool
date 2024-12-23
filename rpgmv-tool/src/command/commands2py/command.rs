@@ -331,6 +331,24 @@ impl Command {
         Ok(Self::CommonEvent { id })
     }
 
+    fn parse_label(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let name = reader.read_at(0, "name")?;
+
+        Ok(Self::Label { name })
+    }
+
+    fn parse_jump_to_label(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let name = reader.read_at(0, "name")?;
+
+        Ok(Self::JumpToLabel { name })
+    }
+
     fn parse_control_switches(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(3)?;
@@ -648,25 +666,10 @@ pub fn parse_event_command_list(
             (_, CommandCode::COMMON_EVENT) => Command::parse_common_event(event_command)
                 .context("failed to parse COMMON_EVENT command")?,
             (_, CommandCode::LABEL) => {
-                ensure!(event_command.parameters.len() == 1);
-
-                let name = event_command.parameters[0]
-                    .as_str()
-                    .context("`name` is not a `String`")?
-                    .to_string();
-
-                Command::Label { name }
+                Command::parse_label(event_command).context("failed to parse LABEL command")?
             }
-            (_, CommandCode::JUMP_TO_LABEL) => {
-                ensure!(event_command.parameters.len() == 1);
-
-                let name = event_command.parameters[0]
-                    .as_str()
-                    .context("`name` is not a `String`")?
-                    .to_string();
-
-                Command::JumpToLabel { name }
-            }
+            (_, CommandCode::JUMP_TO_LABEL) => Command::parse_jump_to_label(event_command)
+                .context("failed to parse JUMP_TO_LABEL command")?,
             (_, CommandCode::CONTROL_SWITCHES) => Command::parse_control_switches(event_command)
                 .context("failed to parse CONTROL_SWITCHES command")?,
             (_, CommandCode::CONTROL_VARIABLES) => Command::parse_control_variables(event_command)
