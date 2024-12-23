@@ -56,7 +56,7 @@ pub enum Command {
         lines: Vec<String>,
     },
     Comment {
-        comment: String,
+        lines: Vec<String>,
     },
     ConditionalBranch(ConditionalBranchCommand),
     ExitEventProcessing,
@@ -294,6 +294,15 @@ impl Command {
         Ok(Self::Nop)
     }
 
+    fn parse_comment(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let line = reader.read_at(0, "line")?;
+
+        Ok(Self::Comment { lines: vec![line] })
+    }
+
     fn parse_common_event(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(1)?;
@@ -501,6 +510,16 @@ pub fn parse_event_command_list(
 
                 continue;
             }
+            (Some(Command::Comment { lines }), CommandCode::COMMENT_EXTRA) => {
+                let reader = ParamReader::new(event_command);
+                reader.ensure_len_is(1)?;
+
+                let line = reader.read_at(0, "line")?;
+
+                lines.push(line);
+
+                continue;
+            }
             (
                 Some(Command::SetMovementRoute { route, .. }),
                 CommandCode::SET_MOVEMENT_ROUTE_EXTRA,
@@ -578,12 +597,7 @@ pub fn parse_event_command_list(
                 }
             }
             (_, CommandCode::COMMENT) => {
-                ensure!(event_command.parameters.len() == 1);
-                let comment = event_command.parameters[0]
-                    .as_str()
-                    .context("`comment` is not a str")?
-                    .to_string();
-                Command::Comment { comment }
+                Command::parse_comment(event_command).context("failed to parse COMMENT command")?
             }
             (_, CommandCode::CONDITONAL_BRANCH) => Command::parse_conditional_branch(event_command)
                 .context("failed to parse CONDITONAL_BRANCH command")?,

@@ -136,6 +136,8 @@ command_codes! {
     (404, WHEN_END),
     (405, SHOW_SCROLLING_TEXT_EXTRA),
 
+    (408, COMMENT_EXTRA),
+
     (411, ELSE),
     /// I think this is an end for the CONDITONAL_BRANCH block.
     /// I can't be sure as the game doesn't actually care if this exists;

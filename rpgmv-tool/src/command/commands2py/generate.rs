@@ -122,9 +122,11 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, ")")?;
         }
-        Command::Comment { comment } => {
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "# {comment}")?;
+        Command::Comment { lines } => {
+            for line in lines.iter() {
+                write_indent(&mut writer, indent)?;
+                writeln!(&mut writer, "# {line}")?;
+            }
         }
         Command::ConditionalBranch(command) => {
             write_indent(&mut writer, indent)?;
