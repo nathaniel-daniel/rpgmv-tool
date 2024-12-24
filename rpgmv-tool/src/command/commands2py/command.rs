@@ -445,6 +445,23 @@ impl Command {
         })
     }
 
+    fn parse_shake_screen(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(4)?;
+
+        let power = reader.read_at(0, "power")?;
+        let speed = reader.read_at(1, "speed")?;
+        let duration = reader.read_at(2, "duration")?;
+        let wait = reader.read_at(3, "wait")?;
+
+        Ok(Self::ShakeScreen {
+            power,
+            speed,
+            duration,
+            wait,
+        })
+    }
+
     fn parse_wait(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(1)?;
@@ -1008,31 +1025,8 @@ pub fn parse_event_command_list(
                     wait,
                 }
             }
-            (_, CommandCode::SHAKE_SCREEN) => {
-                ensure!(event_command.parameters.len() == 4);
-                let power = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`power` is not a `u32`")?;
-                let speed = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`speed` is not a `u32`")?;
-                let duration = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`duration` is not a `u32`")?;
-                let wait = event_command.parameters[3]
-                    .as_bool()
-                    .context("`wait` is not a `bool`")?;
-
-                Command::ShakeScreen {
-                    power,
-                    speed,
-                    duration,
-                    wait,
-                }
-            }
+            (_, CommandCode::SHAKE_SCREEN) => Command::parse_shake_screen(event_command)
+                .context("failed to parse SHAKE_SCREEN command")?,
             (_, CommandCode::WAIT) => {
                 Command::parse_wait(event_command).context("failed to parse WAIT command")?
             }

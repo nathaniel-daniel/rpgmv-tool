@@ -531,13 +531,13 @@ where
             duration,
             wait,
         } => {
-            let wait = stringify_bool(*wait);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(
-                &mut writer,
-                "shake_screen(power={power}, speed={speed}, duration={duration}, wait={wait})"
-            )?
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "shake_screen")?;
+            writer.set_multiline(false);
+            writer.write_param("power", power)?;
+            writer.write_param("speed", speed)?;
+            writer.write_param("duration", duration)?;
+            writer.write_param("wait", wait)?;
+            writer.finish()?;
         }
         Command::Wait { duration } => {
             let mut writer = FunctionCallWriter::new(&mut writer, indent, "wait")?;
