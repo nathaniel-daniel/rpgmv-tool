@@ -611,8 +611,9 @@ where
             writer.finish()?;
         }
         Command::FadeoutBgm { duration } => {
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "fadeout_bgm(duration={duration})")?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "fadeout_bgm")?;
+            writer.write_param("duration", duration)?;
+            writer.finish()?;
         }
         Command::SaveBgm => {
             write_indent(&mut writer, indent)?;

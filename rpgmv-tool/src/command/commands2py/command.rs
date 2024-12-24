@@ -566,6 +566,15 @@ impl Command {
         Ok(Self::PlayBgm { audio })
     }
 
+    fn parse_fadeout_bgm(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let duration = reader.read_at(0, "duration")?;
+
+        Ok(Self::FadeoutBgm { duration })
+    }
+
     fn parse_name_input_processing(
         event_command: &rpgmv_types::EventCommand,
     ) -> anyhow::Result<Self> {
@@ -1036,16 +1045,8 @@ pub fn parse_event_command_list(
                 .context("failed to parse ERASE_PICTURE command")?,
             (_, CommandCode::PLAY_BGM) => Command::parse_play_bgm(event_command)
                 .context("failed to parse PLAY_BGM command")?,
-            (_, CommandCode::FADEOUT_BGM) => {
-                ensure!(event_command.parameters.len() == 1);
-
-                let duration = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`duration` is not a `u32`")?;
-
-                Command::FadeoutBgm { duration }
-            }
+            (_, CommandCode::FADEOUT_BGM) => Command::parse_fadeout_bgm(event_command)
+                .context("failed to parse FADEOUT_BGM command")?,
             (_, CommandCode::SAVE_BGM) => {
                 ensure!(event_command.parameters.is_empty());
                 Command::SaveBgm
