@@ -439,6 +439,15 @@ impl Command {
         Ok(Self::Wait { duration })
     }
 
+    fn parse_play_se(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let audio = reader.read_at(0, "audio")?;
+
+        Ok(Self::PlaySe { audio })
+    }
+
     fn parse_show_picture(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         ensure!(event_command.parameters.len() == 10);
         let picture_id = event_command.parameters[0]
@@ -1073,12 +1082,7 @@ pub fn parse_event_command_list(
                 Command::ResumeBgm
             }
             (_, CommandCode::PLAY_SE) => {
-                ensure!(event_command.parameters.len() == 1);
-                let audio: rpgmv_types::AudioFile =
-                    serde_json::from_value(event_command.parameters[0].clone())
-                        .context("invalid `audio` parameter")?;
-
-                Command::PlaySe { audio }
+                Command::parse_play_se(event_command).context("failed to parse PLAY_SE command")?
             }
             (_, CommandCode::GET_LOCATION_INFO) => {
                 ensure!(event_command.parameters.len() == 5);

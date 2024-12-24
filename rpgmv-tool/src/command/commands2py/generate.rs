@@ -636,15 +636,9 @@ where
             writeln!(&mut writer, "fadeout_bgs(duration={duration})")?;
         }
         Command::PlaySe { audio } => {
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "play_se(")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            write!(&mut writer, "audio=")?;
-            write_audio_file(&mut writer, indent + 1, audio)?;
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, ")")?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "play_se")?;
+            writer.write_param("audio", audio)?;
+            writer.finish()?;
         }
         Command::GetLocationInfo {
             variable_id,
