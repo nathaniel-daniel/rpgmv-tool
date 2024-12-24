@@ -333,6 +333,11 @@ where
             writer.write_param("audio", audio)?;
             writer.finish()?;
         }
+        Command::PlaySe { audio } => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "play_se")?;
+            writer.write_param("audio", audio)?;
+            writer.finish()?;
+        }
         Command::NameInputProcessing { actor_id, max_len } => {
             let actor = config.get_actor_name(*actor_id);
 
