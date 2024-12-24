@@ -323,9 +323,13 @@ where
                 MaybeRef::Constant(value) => value.to_string(),
                 MaybeRef::Ref(id) => config.get_variable_name(*id),
             };
+            let value = format!("{sign}{value}");
 
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "gain_item(item={item}, value={sign}{value})")?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "gain_item")?;
+            writer.set_multiline(false);
+            writer.write_param("item", &Ident(&item))?;
+            writer.write_param("value", &Ident(&value))?;
+            writer.finish()?;
         }
         Command::ChangeArmors {
             armor_id,
@@ -479,10 +483,10 @@ where
             wait,
         } => {
             let mut writer = FunctionCallWriter::new(&mut writer, indent, "show_balloon_icon")?;
+            writer.set_multiline(false);
             writer.write_param("character_id", character_id)?;
             writer.write_param("balloon_id", balloon_id)?;
             writer.write_param("wait", wait)?;
-            writer.set_multiline(false);
             writer.finish()?;
         }
         Command::ChangePlayerFollowers { is_show } => {
