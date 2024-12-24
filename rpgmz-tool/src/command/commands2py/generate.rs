@@ -310,6 +310,18 @@ where
             writer.write_param("route", route)?;
             writer.finish()?;
         }
+        Command::ShowAnimation {
+            character_id,
+            animation_id,
+            wait,
+        } => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "show_animation")?;
+            writer.set_multiline(false);
+            writer.write_param("character_id", character_id)?;
+            writer.write_param("animation_id", animation_id)?;
+            writer.write_param("wait", wait)?;
+            writer.finish()?;
+        }
         Command::FadeoutScreen => {
             FunctionCallWriter::new(&mut writer, indent, "fadeout_screen")?.finish()?;
         }

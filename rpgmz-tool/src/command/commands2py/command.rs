@@ -78,6 +78,11 @@ pub enum Command {
         character_id: i32,
         route: rpgmz_types::MoveRoute,
     },
+    ShowAnimation {
+        character_id: i32,
+        animation_id: u32,
+        wait: bool,
+    },
     FadeoutScreen,
     FadeinScreen,
     Wait {
@@ -260,6 +265,21 @@ impl Command {
         })
     }
 
+    fn parse_show_animation(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(3)?;
+
+        let character_id = reader.read_at(0, "character_id")?;
+        let animation_id = reader.read_at(1, "animation_id")?;
+        let wait = reader.read_at(2, "animation_id")?;
+
+        Ok(Self::ShowAnimation {
+            character_id,
+            animation_id,
+            wait,
+        })
+    }
+
     fn parse_erase_picture(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(1)?;
@@ -412,6 +432,8 @@ pub fn parse_event_command_list(
                 Command::parse_set_movement_route(event_command)
                     .context("failed to parse SET_MOVEMENT_ROUTE command")?
             }
+            (_, CommandCode::SHOW_ANIMATION) => Command::parse_show_animation(event_command)
+                .context("failed to parse SHOW_ANIMATION command")?,
             (_, CommandCode::FADEOUT_SCREEN) => Command::parse_fadeout_screen(event_command)
                 .context("failed to parse FADEOUT_SCREEN command")?,
             (_, CommandCode::FADEIN_SCREEN) => Command::parse_fadein_screen(event_command)
