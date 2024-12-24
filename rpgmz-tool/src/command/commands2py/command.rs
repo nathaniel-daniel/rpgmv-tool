@@ -83,6 +83,11 @@ pub enum Command {
         animation_id: u32,
         wait: bool,
     },
+    ShowBalloonIcon {
+        character_id: i32,
+        balloon_id: u32,
+        wait: bool,
+    },
     FadeoutScreen,
     FadeinScreen,
     ShakeScreen {
@@ -306,6 +311,21 @@ impl Command {
         })
     }
 
+    fn parse_show_balloon_icon(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(3)?;
+
+        let character_id = reader.read_at(0, "character_id")?;
+        let balloon_id = reader.read_at(1, "balloon_id")?;
+        let wait = reader.read_at(2, "wait")?;
+
+        Ok(Self::ShowBalloonIcon {
+            character_id,
+            balloon_id,
+            wait,
+        })
+    }
+
     fn parse_erase_picture(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(1)?;
@@ -469,6 +489,8 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::SHOW_ANIMATION) => Command::parse_show_animation(event_command)
                 .context("failed to parse SHOW_ANIMATION command")?,
+            (_, CommandCode::SHOW_BALLOON_ICON) => Command::parse_show_balloon_icon(event_command)
+                .context("failed to parse SHOW_BALLOON_ICON command")?,
             (_, CommandCode::FADEOUT_SCREEN) => Command::parse_fadeout_screen(event_command)
                 .context("failed to parse FADEOUT_SCREEN command")?,
             (_, CommandCode::FADEIN_SCREEN) => Command::parse_fadein_screen(event_command)

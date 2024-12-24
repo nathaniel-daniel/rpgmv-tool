@@ -322,6 +322,18 @@ where
             writer.write_param("wait", wait)?;
             writer.finish()?;
         }
+        Command::ShowBalloonIcon {
+            character_id,
+            balloon_id,
+            wait,
+        } => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "show_balloon_icon")?;
+            writer.write_param("character_id", character_id)?;
+            writer.write_param("balloon_id", balloon_id)?;
+            writer.write_param("wait", wait)?;
+            writer.set_multiline(false);
+            writer.finish()?;
+        }
         Command::FadeoutScreen => {
             FunctionCallWriter::new(&mut writer, indent, "fadeout_screen")?.finish()?;
         }

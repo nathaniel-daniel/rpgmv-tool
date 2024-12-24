@@ -51,6 +51,7 @@ command_codes! {
     (205, SET_MOVEMENT_ROUTE),
 
     (212, SHOW_ANIMATION),
+    (213, SHOW_BALLOON_ICON),
 
     (221, FADEOUT_SCREEN),
     (222, FADEIN_SCREEN),
