@@ -257,6 +257,25 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "game_self_switches['{key}'] = {value}")?;
         }
+        Command::ChangeItems {
+            item_id,
+            is_add,
+            value,
+        } => {
+            let item = config.get_item_name(*item_id);
+            let sign = if *is_add { "" } else { "-" };
+            let value = match value {
+                MaybeRef::Constant(value) => value.to_string(),
+                MaybeRef::Ref(id) => config.get_variable_name(*id),
+            };
+            let value = format!("{sign}{value}");
+
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "gain_item")?;
+            writer.set_multiline(false);
+            writer.write_param("item", &Ident(&item))?;
+            writer.write_param("value", &Ident(&value))?;
+            writer.finish()?;
+        }
         Command::TransferPlayer {
             map_id,
             x,

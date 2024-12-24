@@ -67,6 +67,11 @@ pub enum Command {
         key: String,
         value: bool,
     },
+    ChangeItems {
+        item_id: u32,
+        is_add: bool,
+        value: MaybeRef<u32>,
+    },
     TransferPlayer {
         map_id: MaybeRef<u32>,
         x: MaybeRef<u32>,
@@ -224,6 +229,27 @@ impl Command {
         let value = value.0;
 
         Ok(Command::ControlSelfSwitch { key, value })
+    }
+
+    fn parse_change_items(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(4)?;
+
+        let item_id = reader.read_at(0, "item_id")?;
+        let IntBool(is_add) = reader.read_at(1, "is_add")?;
+        let IntBool(is_constant) = reader.read_at(2, "is_constant")?;
+        let value = reader.read_at(3, "is_constant")?;
+        let value = if is_constant {
+            MaybeRef::Constant(value)
+        } else {
+            MaybeRef::Ref(value)
+        };
+
+        Ok(Self::ChangeItems {
+            item_id,
+            is_add,
+            value,
+        })
     }
 
     fn parse_transfer_player(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
@@ -510,6 +536,8 @@ pub fn parse_event_command_list(
                 Command::parse_control_self_switch(event_command)
                     .context("failed to parse CONTROL_SELF_SWITCH command")?
             }
+            (_, CommandCode::CHANGE_ITEMS) => Command::parse_change_items(event_command)
+                .context("failed to parse CHANGE_ITEMS command")?,
             (_, CommandCode::TRANSFER_PLAYER) => Command::parse_transfer_player(event_command)
                 .context("failed to parse TRANSFER_PLAYER command")?,
             (_, CommandCode::SET_MOVEMENT_ROUTE) => {

@@ -46,6 +46,8 @@ command_codes! {
     (122, CONTROL_VARIABLES),
     (123, CONTROL_SELF_SWITCH),
 
+    (126, CHANGE_ITEMS),
+
     (201, TRANSFER_PLAYER),
 
     (205, SET_MOVEMENT_ROUTE),
@@ -93,7 +95,7 @@ command_codes! {
     /// Furthermore, I don't know why it's even included;
     /// Its data always duplicates the data of the SET_MOVEMENT_ROUTE command.
     (505, SET_MOVEMENT_ROUTE_EXTRA),
-    
+
     /// This is likely related to plugin commands somehow,
     /// like how the TEXT_DATA command extends the SHOW_TEXT command.
     /// However, I can't find the implementation of this instruction.
