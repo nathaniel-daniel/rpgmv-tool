@@ -328,6 +328,20 @@ where
         Command::FadeinScreen => {
             FunctionCallWriter::new(&mut writer, indent, "fadein_screen")?.finish()?;
         }
+        Command::ShakeScreen {
+            power,
+            speed,
+            duration,
+            wait,
+        } => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "shake_screen")?;
+            writer.set_multiline(false);
+            writer.write_param("power", power)?;
+            writer.write_param("speed", speed)?;
+            writer.write_param("duration", duration)?;
+            writer.write_param("wait", wait)?;
+            writer.finish()?;
+        }
         Command::Wait { duration } => {
             let mut writer = FunctionCallWriter::new(&mut writer, indent, "wait")?;
             writer.set_multiline(false);

@@ -85,6 +85,12 @@ pub enum Command {
     },
     FadeoutScreen,
     FadeinScreen,
+    ShakeScreen {
+        power: u32,
+        speed: u32,
+        duration: u32,
+        wait: bool,
+    },
     Wait {
         duration: u32,
     },
@@ -241,6 +247,23 @@ impl Command {
     fn parse_fadein_screen(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::FadeinScreen)
+    }
+
+    fn parse_shake_screen(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(4)?;
+
+        let power = reader.read_at(0, "power")?;
+        let speed = reader.read_at(1, "speed")?;
+        let duration = reader.read_at(2, "duration")?;
+        let wait = reader.read_at(3, "wait")?;
+
+        Ok(Self::ShakeScreen {
+            power,
+            speed,
+            duration,
+            wait,
+        })
     }
 
     fn parse_wait(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
@@ -438,6 +461,8 @@ pub fn parse_event_command_list(
                 .context("failed to parse FADEOUT_SCREEN command")?,
             (_, CommandCode::FADEIN_SCREEN) => Command::parse_fadein_screen(event_command)
                 .context("failed to parse FADEIN_SCREEN command")?,
+            (_, CommandCode::SHAKE_SCREEN) => Command::parse_shake_screen(event_command)
+                .context("failed to parse SHAKE_SCREEN command")?,
             (_, CommandCode::WAIT) => {
                 Command::parse_wait(event_command).context("failed to parse WAIT command")?
             }

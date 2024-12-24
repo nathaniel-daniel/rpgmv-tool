@@ -55,6 +55,8 @@ command_codes! {
     (221, FADEOUT_SCREEN),
     (222, FADEIN_SCREEN),
 
+    (225, SHAKE_SCREEN),
+
     (230, WAIT),
 
     (235, ERASE_PICTURE),
