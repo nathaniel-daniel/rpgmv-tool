@@ -119,6 +119,15 @@ impl FunctionParamValue for u8 {
     }
 }
 
+impl FunctionParamValue for bool {
+    fn write_param_value(&self, writer: &mut dyn Write, _indent: u16) -> anyhow::Result<()> {
+        let value = stringify_bool(*self);
+        write!(writer, "{value}")?;
+
+        Ok(())
+    }
+}
+
 impl<T> FunctionParamValue for &[T]
 where
     T: FunctionParamValue,

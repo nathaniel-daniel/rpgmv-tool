@@ -65,6 +65,12 @@ impl ParamReaderOutput for String {
     }
 }
 
+impl ParamReaderOutput for bool {
+    fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
+        value.as_bool().context("not a bool")
+    }
+}
+
 impl ParamReaderOutput for i64 {
     fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
         value.as_i64().context("not an i64")

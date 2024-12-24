@@ -430,6 +430,21 @@ impl Command {
         })
     }
 
+    fn parse_show_animation(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(3)?;
+
+        let character_id = reader.read_at(0, "character_id")?;
+        let animation_id = reader.read_at(1, "animation_id")?;
+        let wait = reader.read_at(2, "animation_id")?;
+
+        Ok(Self::ShowAnimation {
+            character_id,
+            animation_id,
+            wait,
+        })
+    }
+
     fn parse_wait(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(1)?;
@@ -908,6 +923,8 @@ pub fn parse_event_command_list(
                 Command::parse_set_movement_route(event_command)
                     .context("failed to parse SET_MOVEMENT_ROUTE command")?
             }
+            (_, CommandCode::SHOW_ANIMATION) => Command::parse_show_animation(event_command)
+                .context("failed to parse SHOW_ANIMATION command")?,
             (_, CommandCode::CHANGE_TRANSPARENCY) => {
                 ensure!(event_command.parameters.len() == 1);
                 let value = event_command.parameters[0]
@@ -918,26 +935,6 @@ pub fn parse_event_command_list(
 
                 let set_transparent = value == 0;
                 Command::ChangeTransparency { set_transparent }
-            }
-            (_, CommandCode::SHOW_ANIMATION) => {
-                ensure!(event_command.parameters.len() == 3);
-                let character_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| i32::try_from(value).ok())
-                    .context("`character_id` is not a `i32`")?;
-                let animation_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`animation_id` is not a `u32`")?;
-                let wait = event_command.parameters[2]
-                    .as_bool()
-                    .context("`wait` is not a `bool`")?;
-
-                Command::ShowAnimation {
-                    character_id,
-                    animation_id,
-                    wait,
-                }
             }
             (_, CommandCode::SHOW_BALLOON_ICON) => {
                 ensure!(event_command.parameters.len() == 3);
