@@ -478,6 +478,11 @@ pub fn parse_event_command_list(
 
                 continue;
             }
+            (Some(Command::PluginCommand { .. }), CommandCode::PLUGIN_COMMAND_EXTRA) => {
+                // I'm not sure about the plugin command arg format,
+                // so I don't do checks here.
+                continue;
+            }
             (_, CommandCode::NOP) => {
                 Command::parse_nop(event_command).context("failed to parse NOP command")?
             }

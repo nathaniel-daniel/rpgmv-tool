@@ -93,6 +93,13 @@ command_codes! {
     /// Furthermore, I don't know why it's even included;
     /// Its data always duplicates the data of the SET_MOVEMENT_ROUTE command.
     (505, SET_MOVEMENT_ROUTE_EXTRA),
+    
+    /// This is likely related to plugin commands somehow,
+    /// like how the TEXT_DATA command extends the SHOW_TEXT command.
+    /// However, I can't find the implementation of this instruction.
+    /// Furthermore, I don't know why it's even included;
+    /// Its data always duplicates the data of the PLUGIN_COMMAND args data.
+    (657, PLUGIN_COMMAND_EXTRA),
 }
 
 impl std::fmt::Debug for CommandCode {
