@@ -478,10 +478,12 @@ where
             balloon_id,
             wait,
         } => {
-            let wait = stringify_bool(*wait);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "show_balloon_icon(character_id={character_id}, balloon_id={balloon_id}, wait={wait})")?
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "show_balloon_icon")?;
+            writer.write_param("character_id", character_id)?;
+            writer.write_param("balloon_id", balloon_id)?;
+            writer.write_param("wait", wait)?;
+            writer.set_multiline(false);
+            writer.finish()?;
         }
         Command::ChangePlayerFollowers { is_show } => {
             let fn_name = if *is_show {
@@ -612,6 +614,7 @@ where
         }
         Command::FadeoutBgm { duration } => {
             let mut writer = FunctionCallWriter::new(&mut writer, indent, "fadeout_bgm")?;
+            writer.set_multiline(false);
             writer.write_param("duration", duration)?;
             writer.finish()?;
         }

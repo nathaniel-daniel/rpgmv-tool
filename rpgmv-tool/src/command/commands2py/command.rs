@@ -445,6 +445,21 @@ impl Command {
         })
     }
 
+    fn parse_show_balloon_icon(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(3)?;
+
+        let character_id = reader.read_at(0, "character_id")?;
+        let balloon_id = reader.read_at(1, "balloon_id")?;
+        let wait = reader.read_at(2, "wait")?;
+
+        Ok(Self::ShowBalloonIcon {
+            character_id,
+            balloon_id,
+            wait,
+        })
+    }
+
     fn parse_shake_screen(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(4)?;
@@ -951,6 +966,8 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::SHOW_ANIMATION) => Command::parse_show_animation(event_command)
                 .context("failed to parse SHOW_ANIMATION command")?,
+            (_, CommandCode::SHOW_BALLOON_ICON) => Command::parse_show_balloon_icon(event_command)
+                .context("failed to parse SHOW_BALLOON_ICON command")?,
             (_, CommandCode::CHANGE_TRANSPARENCY) => {
                 ensure!(event_command.parameters.len() == 1);
                 let value = event_command.parameters[0]
@@ -961,26 +978,6 @@ pub fn parse_event_command_list(
 
                 let set_transparent = value == 0;
                 Command::ChangeTransparency { set_transparent }
-            }
-            (_, CommandCode::SHOW_BALLOON_ICON) => {
-                ensure!(event_command.parameters.len() == 3);
-                let character_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| i32::try_from(value).ok())
-                    .context("`character_id` is not a `i32`")?;
-                let balloon_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`balloon_id` is not a `u32`")?;
-                let wait = event_command.parameters[2]
-                    .as_bool()
-                    .context("`wait` is not a `bool`")?;
-
-                Command::ShowBalloonIcon {
-                    character_id,
-                    balloon_id,
-                    wait,
-                }
             }
             (_, CommandCode::CHANGE_PLAYER_FOLLOWERS) => {
                 ensure!(event_command.parameters.len() == 1);
