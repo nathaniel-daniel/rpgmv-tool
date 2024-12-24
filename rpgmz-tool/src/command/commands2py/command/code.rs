@@ -69,6 +69,8 @@ command_codes! {
 
     (303, NAME_INPUT_PROCESSING),
 
+    (357, PLUGIN_COMMAND),
+
     (401, TEXT_DATA),
     (402, WHEN),
 

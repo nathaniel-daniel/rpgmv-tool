@@ -328,10 +328,10 @@ where
             wait,
         } => {
             let mut writer = FunctionCallWriter::new(&mut writer, indent, "show_balloon_icon")?;
+            writer.set_multiline(false);
             writer.write_param("character_id", character_id)?;
             writer.write_param("balloon_id", balloon_id)?;
             writer.write_param("wait", wait)?;
-            writer.set_multiline(false);
             writer.finish()?;
         }
         Command::FadeoutScreen => {
@@ -389,6 +389,21 @@ where
             writer.set_multiline(false);
             writer.write_param("actor", &Ident(&actor))?;
             writer.write_param("max_len", max_len)?;
+            writer.finish()?;
+        }
+        Command::PluginCommand {
+            plugin_name,
+            command_name,
+            comment,
+            args,
+        } => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "# {comment}")?;
+
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "plugin_command")?;
+            writer.write_param("plugin_name", plugin_name)?;
+            writer.write_param("command_name", command_name)?;
+            writer.write_param("args", args)?;
             writer.finish()?;
         }
         Command::When {

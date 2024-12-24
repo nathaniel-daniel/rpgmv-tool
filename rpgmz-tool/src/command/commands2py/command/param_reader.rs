@@ -115,6 +115,12 @@ impl ParamReaderOutput for IntBool {
     }
 }
 
+impl ParamReaderOutput for serde_json::Value {
+    fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
+        Ok(value.clone())
+    }
+}
+
 impl ParamReaderOutput for rpgmz_types::MoveRoute {
     fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
         serde_json::from_value(value.clone()).context("invalid route")

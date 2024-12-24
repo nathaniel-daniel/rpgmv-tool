@@ -172,6 +172,38 @@ where
     }
 }
 
+impl FunctionParamValue for serde_json::Value {
+    fn write_param_value(&self, mut writer: &mut dyn Write, indent: u16) -> anyhow::Result<()> {
+        match self {
+            serde_json::Value::Number(number) if number.is_i64() => {
+                let value = number.as_i64().context("value is not an i64")?;
+                write!(writer, "{value}")?;
+            }
+            serde_json::Value::String(value) => {
+                value.write_param_value(writer, indent)?;
+            }
+            serde_json::Value::Object(object) => {
+                writeln!(writer, "{{")?;
+
+                for (key, value) in object.iter() {
+                    write_indent(&mut writer, indent + 1)?;
+                    write!(writer, "'{key}': ")?;
+                    value.write_param_value(writer, indent + 1)?;
+                    writeln!(writer, ",")?;
+                }
+
+                write_indent(&mut writer, indent)?;
+                write!(writer, "}}")?;
+            }
+            _ => {
+                bail!("cannot write json value parameter \"{self:?}\"")
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl FunctionParamValue for rpgmz_types::MoveRoute {
     fn write_param_value(&self, mut writer: &mut dyn Write, indent: u16) -> anyhow::Result<()> {
         let repeat = stringify_bool(self.repeat);

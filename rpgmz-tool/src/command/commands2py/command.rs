@@ -115,6 +115,15 @@ pub enum Command {
         actor_id: u32,
         max_len: u32,
     },
+    // We create these names based on how they are annotated in the RPGMaker code.
+    // We want to follow this naming.
+    #[expect(clippy::enum_variant_names)]
+    PluginCommand {
+        plugin_name: String,
+        command_name: String,
+        comment: String,
+        args: serde_json::Value,
+    },
     When {
         choice_index: u32,
         choice_name: String,
@@ -374,6 +383,23 @@ impl Command {
         Ok(Self::NameInputProcessing { actor_id, max_len })
     }
 
+    fn parse_plugin_command(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(4)?;
+
+        let plugin_name = reader.read_at(0, "plugin_name")?;
+        let command_name = reader.read_at(1, "command_name")?;
+        let comment = reader.read_at(2, "comment")?;
+        let args = reader.read_at(3, "args")?;
+
+        Ok(Self::PluginCommand {
+            plugin_name,
+            command_name,
+            comment,
+            args,
+        })
+    }
+
     fn parse_when(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(2)?;
@@ -513,6 +539,8 @@ pub fn parse_event_command_list(
                 Command::parse_name_input_processing(event_command)
                     .context("failed to parse NAME_INPUT_PROCESSING command")?
             }
+            (_, CommandCode::PLUGIN_COMMAND) => Command::parse_plugin_command(event_command)
+                .context("failed to parse PLUGIN_COMMAND command")?,
             (_, CommandCode::WHEN) => {
                 Command::parse_when(event_command).context("failed to parse WHEN command")?
             }
