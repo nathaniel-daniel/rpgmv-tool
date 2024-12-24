@@ -359,6 +359,12 @@ where
             writer.write_param("audio", audio)?;
             writer.finish()?;
         }
+        Command::FadeoutBgm { duration } => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "fadeout_bgm")?;
+            writer.set_multiline(false);
+            writer.write_param("duration", duration)?;
+            writer.finish()?;
+        }
         Command::PlaySe { audio } => {
             let mut writer = FunctionCallWriter::new(&mut writer, indent, "play_se")?;
             writer.write_param("audio", audio)?;

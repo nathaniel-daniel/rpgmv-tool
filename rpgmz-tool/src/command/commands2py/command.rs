@@ -100,6 +100,9 @@ pub enum Command {
     PlayBgm {
         audio: rpgmz_types::AudioFile,
     },
+    FadeoutBgm {
+        duration: u32,
+    },
     PlaySe {
         audio: rpgmz_types::AudioFile,
     },
@@ -321,6 +324,15 @@ impl Command {
         Ok(Self::PlayBgm { audio })
     }
 
+    fn parse_fadeout_bgm(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let duration = reader.read_at(0, "duration")?;
+
+        Ok(Self::FadeoutBgm { duration })
+    }
+
     fn parse_play_se(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(1)?;
@@ -470,6 +482,8 @@ pub fn parse_event_command_list(
                 .context("failed to parse ERASE_PICTURE command")?,
             (_, CommandCode::PLAY_BGM) => Command::parse_play_bgm(event_command)
                 .context("failed to parse PLAY_BGM command")?,
+            (_, CommandCode::FADEOUT_BGM) => Command::parse_fadeout_bgm(event_command)
+                .context("failed to parse FADEOUT_BGM command")?,
             (_, CommandCode::PLAY_SE) => {
                 Command::parse_play_se(event_command).context("failed to parse PLAY_SE command")?
             }
