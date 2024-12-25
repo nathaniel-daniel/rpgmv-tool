@@ -623,6 +623,33 @@ impl Command {
         Ok(Self::NameInputProcessing { actor_id, max_len })
     }
 
+    fn parse_change_mp(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(5)?;
+
+        let IntBool(is_actor_constant) = reader.read_at(0, "is_actor_constant")?;
+        let actor_id = reader.read_at(1, "actor_id")?;
+        let actor_id = if is_actor_constant {
+            MaybeRef::Constant(actor_id)
+        } else {
+            MaybeRef::Ref(actor_id)
+        };
+        let IntBool(is_add) = reader.read_at(2, "is_add")?;
+        let IntBool(is_constant) = reader.read_at(3, "is_constant")?;
+        let value = reader.read_at(4, "is_constant")?;
+        let value = if is_constant {
+            MaybeRef::Constant(value)
+        } else {
+            MaybeRef::Ref(value)
+        };
+
+        Ok(Self::ChangeMp {
+            actor_id,
+            is_add,
+            value,
+        })
+    }
+
     fn parse_when(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(2)?;
@@ -1189,52 +1216,8 @@ pub fn parse_event_command_list(
                     allow_death,
                 }
             }
-            (_, CommandCode::CHANGE_MP) => {
-                ensure!(event_command.parameters.len() == 5);
-
-                let is_actor_constant = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_actor_constant` is not a `u8`")?;
-                ensure!(is_actor_constant <= 1);
-                let is_actor_constant = is_actor_constant == 0;
-                let actor_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`actor_id` is not a `u32`")?;
-                let actor_id = if is_actor_constant {
-                    MaybeRef::Constant(actor_id)
-                } else {
-                    MaybeRef::Ref(actor_id)
-                };
-                let is_add = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_add` is not a `u8`")?;
-                ensure!(is_add <= 1);
-                let is_add = is_add == 0;
-                let is_constant = event_command.parameters[3]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_constant` is not a `u8`")?;
-                ensure!(is_constant <= 1);
-                let is_constant = is_constant == 0;
-                let value = event_command.parameters[4]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`value` is not a `u32`")?;
-                let value = if is_constant {
-                    MaybeRef::Constant(value)
-                } else {
-                    MaybeRef::Ref(value)
-                };
-
-                Command::ChangeMp {
-                    actor_id,
-                    is_add,
-                    value,
-                }
-            }
+            (_, CommandCode::CHANGE_MP) => Command::parse_change_mp(event_command)
+                .context("failed to parse CHANGE_MP command")?,
             (_, CommandCode::CHANGE_STATE) => {
                 ensure!(event_command.parameters.len() == 4);
                 let is_constant = event_command.parameters[0]
