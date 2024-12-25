@@ -120,6 +120,11 @@ pub enum Command {
         actor_id: u32,
         max_len: u32,
     },
+    ChangeMp {
+        actor_id: MaybeRef<u32>,
+        is_add: bool,
+        value: MaybeRef<u32>,
+    },
     // We create these names based on how they are annotated in the RPGMaker code.
     // We want to follow this naming.
     #[expect(clippy::enum_variant_names)]
@@ -409,6 +414,33 @@ impl Command {
         Ok(Self::NameInputProcessing { actor_id, max_len })
     }
 
+    fn parse_change_mp(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(5)?;
+
+        let IntBool(is_actor_constant) = reader.read_at(0, "is_actor_constant")?;
+        let actor_id = reader.read_at(1, "actor_id")?;
+        let actor_id = if is_actor_constant {
+            MaybeRef::Constant(actor_id)
+        } else {
+            MaybeRef::Ref(actor_id)
+        };
+        let IntBool(is_add) = reader.read_at(2, "is_add")?;
+        let IntBool(is_constant) = reader.read_at(3, "is_constant")?;
+        let value = reader.read_at(4, "is_constant")?;
+        let value = if is_constant {
+            MaybeRef::Constant(value)
+        } else {
+            MaybeRef::Ref(value)
+        };
+
+        Ok(Self::ChangeMp {
+            actor_id,
+            is_add,
+            value,
+        })
+    }
+
     fn parse_plugin_command(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(4)?;
@@ -572,6 +604,8 @@ pub fn parse_event_command_list(
                 Command::parse_name_input_processing(event_command)
                     .context("failed to parse NAME_INPUT_PROCESSING command")?
             }
+            (_, CommandCode::CHANGE_MP) => Command::parse_change_mp(event_command)
+                .context("failed to parse CHANGE_MP command")?,
             (_, CommandCode::PLUGIN_COMMAND) => Command::parse_plugin_command(event_command)
                 .context("failed to parse PLUGIN_COMMAND command")?,
             (_, CommandCode::WHEN) => {

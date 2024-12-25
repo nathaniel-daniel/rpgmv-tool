@@ -71,6 +71,8 @@ command_codes! {
 
     (303, NAME_INPUT_PROCESSING),
 
+    (312, CHANGE_MP),
+
     (357, PLUGIN_COMMAND),
 
     (401, TEXT_DATA),
