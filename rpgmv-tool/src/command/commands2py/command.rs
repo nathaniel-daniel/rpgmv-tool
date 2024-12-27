@@ -398,6 +398,23 @@ impl Command {
         })
     }
 
+    fn parse_change_party_member(
+        event_command: &rpgmv_types::EventCommand,
+    ) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(3)?;
+
+        let actor_id = reader.read_at(0, "actor_id")?;
+        let IntBool(is_add) = reader.read_at(1, "is_add")?;
+        let initialize = reader.read_at(2, "initialize")?;
+
+        Ok(Self::ChangePartyMember {
+            actor_id,
+            is_add,
+            initialize,
+        })
+    }
+
     fn parse_fadeout_screen(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::FadeoutScreen)
@@ -893,27 +910,8 @@ pub fn parse_event_command_list(
                 }
             }
             (_, CommandCode::CHANGE_PARTY_MEMBER) => {
-                ensure!(event_command.parameters.len() == 3);
-
-                let actor_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`actor_id` is not a `u32`")?;
-                let is_add = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_add` is not a `u8`")?;
-                ensure!(is_add <= 1);
-                let is_add = is_add == 0;
-                let initialize = event_command.parameters[2]
-                    .as_bool()
-                    .context("`initialize` is not a `bool`")?;
-
-                Command::ChangePartyMember {
-                    actor_id,
-                    is_add,
-                    initialize,
-                }
+                Command::parse_change_party_member(event_command)
+                    .context("failed to parse CHANGE_PARTY_MEMBER command")?
             }
             (_, CommandCode::CHANGE_SAVE_ACCESS) => {
                 ensure!(event_command.parameters.len() == 1);

@@ -359,15 +359,15 @@ where
             } else {
                 "remove_party_member"
             };
-            let initialize = stringify_bool(*initialize);
 
-            write_indent(&mut writer, indent)?;
-            write!(&mut writer, "{fn_name}(actor={actor_name}")?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, fn_name)?;
+            writer.set_multiline(false);
+            writer.write_param("actor", &Ident(&actor_name))?;
             // The argument is always provided, but ignored by remove ops.
             if *is_add {
-                write!(&mut writer, ", initialize={initialize}")?;
+                writer.write_param("initialize", initialize)?;
             }
-            writeln!(&mut writer, ")")?;
+            writer.finish()?;
         }
         Command::ChangeSaveAccess { disable } => {
             let fn_name = if *disable {
@@ -375,8 +375,9 @@ where
             } else {
                 "enable_saving"
             };
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "{fn_name}()")?;
+
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, fn_name)?;
+            writer.finish()?;
         }
         Command::SetEventLocation {
             character_id,
