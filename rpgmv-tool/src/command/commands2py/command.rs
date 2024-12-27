@@ -415,6 +415,15 @@ impl Command {
         })
     }
 
+    fn parse_change_save_access(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let IntBool(disable) = reader.read_at(0, "disable")?;
+
+        Ok(Self::ChangeSaveAccess { disable })
+    }
+
     fn parse_fadeout_screen(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::FadeoutScreen)
@@ -914,15 +923,8 @@ pub fn parse_event_command_list(
                     .context("failed to parse CHANGE_PARTY_MEMBER command")?
             }
             (_, CommandCode::CHANGE_SAVE_ACCESS) => {
-                ensure!(event_command.parameters.len() == 1);
-                let disable = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`disable` is not a `u8`")?;
-                ensure!(disable <= 1);
-                let disable = disable == 0;
-
-                Command::ChangeSaveAccess { disable }
+                Command::parse_change_save_access(event_command)
+                    .context("failed to parse CHANGE_SAVE_ACCESS command")?
             }
             (_, CommandCode::SET_EVENT_LOCATION) => {
                 ensure!(event_command.parameters.len() == 5);
