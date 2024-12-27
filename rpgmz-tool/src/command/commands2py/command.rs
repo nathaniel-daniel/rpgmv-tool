@@ -72,6 +72,11 @@ pub enum Command {
         is_add: bool,
         value: MaybeRef<u32>,
     },
+    ChangePartyMember {
+        actor_id: u32,
+        is_add: bool,
+        initialize: bool,
+    },
     TransferPlayer {
         map_id: MaybeRef<u32>,
         x: MaybeRef<u32>,
@@ -254,6 +259,23 @@ impl Command {
             item_id,
             is_add,
             value,
+        })
+    }
+    
+    fn parse_change_party_member(
+        event_command: &rpgmz_types::EventCommand,
+    ) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(3)?;
+
+        let actor_id = reader.read_at(0, "actor_id")?;
+        let IntBool(is_add) = reader.read_at(1, "is_add")?;
+        let initialize = reader.read_at(2, "initialize")?;
+
+        Ok(Self::ChangePartyMember {
+            actor_id,
+            is_add,
+            initialize,
         })
     }
 
@@ -570,6 +592,10 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::CHANGE_ITEMS) => Command::parse_change_items(event_command)
                 .context("failed to parse CHANGE_ITEMS command")?,
+             (_, CommandCode::CHANGE_PARTY_MEMBER) => {
+                Command::parse_change_party_member(event_command)
+                    .context("failed to parse CHANGE_PARTY_MEMBER command")?
+            }
             (_, CommandCode::TRANSFER_PLAYER) => Command::parse_transfer_player(event_command)
                 .context("failed to parse TRANSFER_PLAYER command")?,
             (_, CommandCode::SET_MOVEMENT_ROUTE) => {

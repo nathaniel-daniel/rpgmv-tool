@@ -276,6 +276,27 @@ where
             writer.write_param("value", &Ident(&value))?;
             writer.finish()?;
         }
+        Command::ChangePartyMember {
+            actor_id,
+            is_add,
+            initialize,
+        } => {
+            let actor_name = config.get_actor_name(*actor_id);
+            let fn_name = if *is_add {
+                "add_party_member"
+            } else {
+                "remove_party_member"
+            };
+
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, fn_name)?;
+            writer.set_multiline(false);
+            writer.write_param("actor", &Ident(&actor_name))?;
+            // The argument is always provided, but ignored by remove ops.
+            if *is_add {
+                writer.write_param("initialize", initialize)?;
+            }
+            writer.finish()?;
+        }
         Command::TransferPlayer {
             map_id,
             x,
