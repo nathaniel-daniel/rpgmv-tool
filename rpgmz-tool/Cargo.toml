@@ -7,6 +7,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 anyhow = "1.0.94"
 argh = "0.1.12"
+flate2 = { version = "1.0.35" }
 nd-util = { git = "https://github.com/nathaniel-daniel/nd-util-rs", version = "0.0.0" }
 rpgmz-types = { version = "0.0.0", path = "../rpgmz-types" }
 serde = { version = "1.0.216", features = [ "derive" ] }

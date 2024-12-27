@@ -11,6 +11,7 @@ struct Options {
 #[argh(subcommand)]
 enum SubCommand {
     Commands2Py(self::command::commands2py::Options),
+    UnpackSave(self::command::unpack_save::Options),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -18,6 +19,7 @@ fn main() -> anyhow::Result<()> {
 
     match options.subcommand {
         SubCommand::Commands2Py(options) => self::command::commands2py::exec(options)?,
+        SubCommand::UnpackSave(options) => self::command::unpack_save::exec(options)?,
     }
 
     Ok(())

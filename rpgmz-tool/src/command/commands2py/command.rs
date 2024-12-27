@@ -264,7 +264,7 @@ impl Command {
             value,
         })
     }
-    
+
     fn parse_change_party_member(
         event_command: &rpgmz_types::EventCommand,
     ) -> anyhow::Result<Self> {
@@ -281,7 +281,7 @@ impl Command {
             initialize,
         })
     }
-    
+
     fn parse_change_save_access(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(1)?;
