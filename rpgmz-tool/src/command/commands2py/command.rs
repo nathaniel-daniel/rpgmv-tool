@@ -77,6 +77,9 @@ pub enum Command {
         is_add: bool,
         initialize: bool,
     },
+    ChangeSaveAccess {
+        disable: bool,
+    },
     TransferPlayer {
         map_id: MaybeRef<u32>,
         x: MaybeRef<u32>,
@@ -277,6 +280,15 @@ impl Command {
             is_add,
             initialize,
         })
+    }
+    
+    fn parse_change_save_access(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let IntBool(disable) = reader.read_at(0, "disable")?;
+
+        Ok(Self::ChangeSaveAccess { disable })
     }
 
     fn parse_transfer_player(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
@@ -592,9 +604,13 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::CHANGE_ITEMS) => Command::parse_change_items(event_command)
                 .context("failed to parse CHANGE_ITEMS command")?,
-             (_, CommandCode::CHANGE_PARTY_MEMBER) => {
+            (_, CommandCode::CHANGE_PARTY_MEMBER) => {
                 Command::parse_change_party_member(event_command)
                     .context("failed to parse CHANGE_PARTY_MEMBER command")?
+            }
+            (_, CommandCode::CHANGE_SAVE_ACCESS) => {
+                Command::parse_change_save_access(event_command)
+                    .context("failed to parse CHANGE_SAVE_ACCESS command")?
             }
             (_, CommandCode::TRANSFER_PLAYER) => Command::parse_transfer_player(event_command)
                 .context("failed to parse TRANSFER_PLAYER command")?,

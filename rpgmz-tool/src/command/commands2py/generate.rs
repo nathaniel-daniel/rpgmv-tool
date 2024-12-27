@@ -297,6 +297,16 @@ where
             }
             writer.finish()?;
         }
+        Command::ChangeSaveAccess { disable } => {
+            let fn_name = if *disable {
+                "disable_saving"
+            } else {
+                "enable_saving"
+            };
+
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, fn_name)?;
+            writer.finish()?;
+        }
         Command::TransferPlayer {
             map_id,
             x,

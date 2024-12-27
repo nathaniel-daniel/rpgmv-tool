@@ -49,6 +49,8 @@ command_codes! {
     (126, CHANGE_ITEMS),
     
     (129, CHANGE_PARTY_MEMBER),
+    
+    (134, CHANGE_SAVE_ACCESS),
 
     (201, TRANSFER_PLAYER),
 
