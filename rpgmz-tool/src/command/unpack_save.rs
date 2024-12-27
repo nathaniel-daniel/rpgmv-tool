@@ -36,7 +36,6 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
         .with_context(|| format!("failed to read file at \"{}\"", options.input.display()))?;
     let input = prepare_decompress_input(&input).context("failed to prepare decompress input")?;
 
-    let tmp_out_path = nd_util::with_push_extension(&options.output, "tmp");
     let mut decoder = ZlibDecoder::new(std::io::Cursor::new(input));
 
     let mut output_string = String::new();
@@ -47,6 +46,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
         output_string = serde_json::to_string_pretty(&parsed)?;
     }
 
+    let tmp_out_path = nd_util::with_push_extension(&options.output, "tmp");
     let mut out_file = File::create(&tmp_out_path)
         .with_context(|| format!("failed to create file at \"{}\"", tmp_out_path.display()))?;
     out_file.write_all(output_string.as_bytes())?;
