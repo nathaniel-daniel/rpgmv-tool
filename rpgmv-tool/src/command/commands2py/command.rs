@@ -747,6 +747,26 @@ impl Command {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::RepeatAbove)
     }
+
+    fn parse_if_win(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::IfWin)
+    }
+
+    fn parse_if_escape(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::IfEscape)
+    }
+
+    fn parse_if_lose(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::IfLose)
+    }
+
+    fn parse_battle_result_end(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::BattleResultEnd)
+    }
 }
 
 #[derive(Debug, Copy, Clone, Hash)]
@@ -1455,21 +1475,15 @@ pub fn parse_event_command_list(
             (_, CommandCode::REPEAT_ABOVE) => Command::parse_repeat_above(event_command)
                 .context("failed to parse REPEAT_ABOVE command")?,
             (_, CommandCode::IF_WIN) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::IfWin
+                Command::parse_if_win(event_command).context("failed to parse IF_WIN command")?
             }
-            (_, CommandCode::IF_ESCAPE) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::IfEscape
-            }
+            (_, CommandCode::IF_ESCAPE) => Command::parse_if_escape(event_command)
+                .context("failed to parse IF_ESCAPE command")?,
             (_, CommandCode::IF_LOSE) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::IfLose
+                Command::parse_if_lose(event_command).context("failed to parse IF_LOSE command")?
             }
-            (_, CommandCode::BATTLE_RESULT_END) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::BattleResultEnd
-            }
+            (_, CommandCode::BATTLE_RESULT_END) => Command::parse_battle_result_end(event_command)
+                .context("failed to parse BATTLE_RESULT_END command")?,
             (_, _) => Command::Unknown {
                 code: command_code,
                 parameters: event_command.parameters.clone(),
