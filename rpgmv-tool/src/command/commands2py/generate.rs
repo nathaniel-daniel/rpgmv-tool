@@ -727,14 +727,16 @@ where
             value,
             allow_death,
         } => {
-            let actor_arg = match actor_id {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "gain_hp")?;
+            writer.set_multiline(false);
+            match actor_id {
                 MaybeRef::Constant(actor_id) => {
                     let name = config.get_actor_name(*actor_id);
-                    format!("actor={name}")
+                    writer.write_param("actor", &Ident(&name))?;
                 }
                 MaybeRef::Ref(variable_id) => {
                     let name = config.get_variable_name(*variable_id);
-                    format!("actor_id={name}")
+                    writer.write_param("actor_id", &Ident(&name))?;
                 }
             };
             let sign = if *is_add { "" } else { "-" };
@@ -742,13 +744,10 @@ where
                 MaybeRef::Constant(value) => value.to_string(),
                 MaybeRef::Ref(id) => config.get_variable_name(*id),
             };
-            let allow_death = stringify_bool(*allow_death);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(
-                &mut writer,
-                "gain_hp({actor_arg}, value={sign}{value}, allow_death={allow_death})"
-            )?;
+            let value = format!("{sign}{value}");
+            writer.write_param("value", &Ident(&value))?;
+            writer.write_param("allow_death", allow_death)?;
+            writer.finish()?;
         }
         Command::ChangeMp {
             actor_id,
