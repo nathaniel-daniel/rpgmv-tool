@@ -37,6 +37,7 @@ command_codes! {
     (108, COMMENT),
 
     (111, CONDITONAL_BRANCH),
+    (112, LOOP),
 
     (117, COMMON_EVENT),
     (118, LABEL),

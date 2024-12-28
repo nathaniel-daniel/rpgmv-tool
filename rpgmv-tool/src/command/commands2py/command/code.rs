@@ -40,6 +40,7 @@ command_codes! {
     (108, COMMENT),
 
     (111, CONDITONAL_BRANCH),
+    (112, LOOP),
 
     (115, EXIT_EVENT_PROCESSING),
 

@@ -173,6 +173,10 @@ where
                 }
             }
         }
+        Command::Loop => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "while True:")?;
+        }
         Command::CommonEvent { id } => {
             let name = config.get_common_event_name(*id);
             FunctionCallWriter::new(&mut writer, indent, &name)?.finish()?;

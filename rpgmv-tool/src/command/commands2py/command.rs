@@ -59,6 +59,7 @@ pub enum Command {
         lines: Vec<String>,
     },
     ConditionalBranch(ConditionalBranchCommand),
+    Loop,
     ExitEventProcessing,
     CommonEvent {
         id: u32,
@@ -320,6 +321,12 @@ impl Command {
         let line = reader.read_at(0, "line")?;
 
         Ok(Self::Comment { lines: vec![line] })
+    }
+
+    fn parse_loop(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(0)?;
+        Ok(Self::Loop)
     }
 
     fn parse_common_event(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
@@ -838,6 +845,9 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::CONDITONAL_BRANCH) => Command::parse_conditional_branch(event_command)
                 .context("failed to parse CONDITONAL_BRANCH command")?,
+            (_, CommandCode::LOOP) => {
+                Command::parse_loop(event_command).context("failed to parse LOOP command")?
+            }
             (_, CommandCode::EXIT_EVENT_PROCESSING) => {
                 ensure!(event_command.parameters.is_empty());
                 Command::ExitEventProcessing

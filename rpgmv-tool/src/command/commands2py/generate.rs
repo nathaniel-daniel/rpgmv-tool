@@ -205,6 +205,10 @@ where
                 }
             }
         }
+        Command::Loop => {
+            write_indent(&mut writer, indent)?;
+            writeln!(&mut writer, "while True:")?;
+        }
         Command::ExitEventProcessing => {
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "exit_event_processing()")?;
