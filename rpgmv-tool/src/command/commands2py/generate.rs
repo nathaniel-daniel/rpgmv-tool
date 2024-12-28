@@ -695,15 +695,17 @@ where
             can_lose,
         } => {
             let mut writer = FunctionCallWriter::new(&mut writer, indent, "battle_processing")?;
-            writer.set_multiline(false);
             match troop_id {
-                MaybeRef::Constant(id) => {
+                Some(MaybeRef::Constant(id)) => {
                     let name = config.get_troop_name(*id);
                     writer.write_param("troop", &Ident(&name))?;
                 }
-                MaybeRef::Ref(id) => {
+                Some(MaybeRef::Ref(id)) => {
                     let name = config.get_variable_name(*id);
                     writer.write_param("troop_id", &Ident(&name))?;
+                }
+                None => {
+                    writer.write_param("troop_id", &Ident("game.random_encounter_troop_id()"))?;
                 }
             }
             writer.write_param("can_escape", can_escape)?;

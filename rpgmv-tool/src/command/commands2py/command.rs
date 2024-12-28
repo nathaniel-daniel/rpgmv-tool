@@ -1,3 +1,4 @@
+mod battle_processing;
 mod code;
 mod conditional_branch;
 mod control_variables;
@@ -203,7 +204,7 @@ pub enum Command {
         y: MaybeRef<u32>,
     },
     BattleProcessing {
-        troop_id: MaybeRef<u32>,
+        troop_id: Option<MaybeRef<u32>>,
         can_escape: bool,
         can_lose: bool,
     },
@@ -576,28 +577,6 @@ impl Command {
         let audio = reader.read_at(0, "audio")?;
 
         Ok(Self::PlaySe { audio })
-    }
-
-    fn parse_battle_processing(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
-        let reader = ParamReader::new(event_command);
-        reader.ensure_len_is(4)?;
-
-        // TODO: This can be another value, meaning the troop id is random.
-        let IntBool(is_constant) = reader.read_at(0, "is_constant")?;
-        let troop_id = reader.read_at(1, "troop_id")?;
-        let troop_id = if is_constant {
-            MaybeRef::Constant(troop_id)
-        } else {
-            MaybeRef::Ref(troop_id)
-        };
-        let can_escape = reader.read_at(2, "can_escape")?;
-        let can_lose = reader.read_at(3, "can_lose")?;
-
-        Ok(Self::BattleProcessing {
-            troop_id,
-            can_escape,
-            can_lose,
-        })
     }
 
     fn parse_show_picture(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
