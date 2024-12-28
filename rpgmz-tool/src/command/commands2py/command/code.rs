@@ -80,6 +80,7 @@ command_codes! {
 
     (303, NAME_INPUT_PROCESSING),
 
+    (311, CHANGE_HP),
     (312, CHANGE_MP),
 
     (357, PLUGIN_COMMAND),
