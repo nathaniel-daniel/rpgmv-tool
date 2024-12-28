@@ -111,6 +111,14 @@ command_codes! {
     /// Its data always duplicates the data of the SET_MOVEMENT_ROUTE command.
     (505, SET_MOVEMENT_ROUTE_EXTRA),
 
+    (601, IF_WIN),
+    (602, IF_ESCAPE),
+    (603, IF_LOSE),
+    /// I think this is an end for an IF_WIN, IF_ESCAPE, or IF_LOSE block.
+    /// I can't be sure as the game doesn't actually care if this exists;
+    /// it just ignores it, only taking into account indents.
+    (604, BATTLE_RESULT_END),
+
     /// This is likely related to plugin commands somehow,
     /// like how the TEXT_DATA command extends the SHOW_TEXT command.
     /// However, I can't find the implementation of this instruction.

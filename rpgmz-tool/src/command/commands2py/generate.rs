@@ -564,6 +564,18 @@ where
         Command::RepeatAbove => {
             // This is just a loop end
         }
+        Command::IfWin => {
+            writeln!(&mut writer, "if game_battle_result.is_win():")?;
+        }
+        Command::IfEscape => {
+            writeln!(&mut writer, "if game_battle_result.is_escape():")?;
+        }
+        Command::IfLose => {
+            writeln!(&mut writer, "if game_battle_result.is_lose():")?;
+        }
+        Command::BattleResultEnd => {
+            // Trust indents over end commands
+        }
         Command::Unknown { code, parameters } => {
             write_indent(&mut writer, indent)?;
             writeln!(

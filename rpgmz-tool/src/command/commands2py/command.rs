@@ -163,6 +163,10 @@ pub enum Command {
     Else,
     ConditionalBranchEnd,
     RepeatAbove,
+    IfWin,
+    IfEscape,
+    IfLose,
+    BattleResultEnd,
     Unknown {
         code: CommandCode,
         parameters: Vec<serde_json::Value>,
@@ -575,6 +579,26 @@ impl Command {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::RepeatAbove)
     }
+
+    fn parse_if_win(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::IfWin)
+    }
+
+    fn parse_if_escape(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::IfEscape)
+    }
+
+    fn parse_if_lose(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::IfLose)
+    }
+
+    fn parse_battle_result_end(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::BattleResultEnd)
+    }
 }
 
 pub fn parse_event_command_list(
@@ -726,6 +750,16 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::REPEAT_ABOVE) => Command::parse_repeat_above(event_command)
                 .context("failed to parse REPEAT_ABOVE command")?,
+            (_, CommandCode::IF_WIN) => {
+                Command::parse_if_win(event_command).context("failed to parse IF_WIN command")?
+            }
+            (_, CommandCode::IF_ESCAPE) => Command::parse_if_escape(event_command)
+                .context("failed to parse IF_ESCAPE command")?,
+            (_, CommandCode::IF_LOSE) => {
+                Command::parse_if_lose(event_command).context("failed to parse IF_LOSE command")?
+            }
+            (_, CommandCode::BATTLE_RESULT_END) => Command::parse_battle_result_end(event_command)
+                .context("failed to parse BATTLE_RESULT_END command")?,
             (_, _) => Command::Unknown {
                 code: command_code,
                 parameters: event_command.parameters.clone(),
