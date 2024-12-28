@@ -424,6 +424,34 @@ impl Command {
         Ok(Self::ChangeSaveAccess { disable })
     }
 
+    fn parse_set_event_location(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(5)?;
+
+        let character_id = reader.read_at(0, "character_id")?;
+        let IntBool(is_constant) = reader.read_at(1, "is_constant")?;
+        let x = reader.read_at(2, "x")?;
+        let y = reader.read_at(3, "y")?;
+        let (x, y) = if is_constant {
+            (MaybeRef::Constant(x), MaybeRef::Constant(y))
+        } else {
+            (MaybeRef::Ref(x), MaybeRef::Ref(y))
+        };
+        let direction = reader.read_at(4, "y")?;
+        let direction = if direction == 0 {
+            None
+        } else {
+            Some(direction)
+        };
+
+        Ok(Self::SetEventLocation {
+            character_id,
+            x,
+            y,
+            direction,
+        })
+    }
+
     fn parse_fadeout_screen(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::FadeoutScreen)
@@ -927,50 +955,8 @@ pub fn parse_event_command_list(
                     .context("failed to parse CHANGE_SAVE_ACCESS command")?
             }
             (_, CommandCode::SET_EVENT_LOCATION) => {
-                ensure!(event_command.parameters.len() == 5);
-
-                let character_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| i32::try_from(value).ok())
-                    .context("`value` is not an `i32`")?;
-                let is_constant = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_constant` is not a `u8`")?;
-                ensure!(
-                    is_constant <= 1,
-                    "a non 0 or 1 `is_constant` value is currently unsupported"
-                );
-                let is_constant = is_constant == 0;
-                let x = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`x` is not a `u32`")?;
-                let y = event_command.parameters[3]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`x` is not a `u32`")?;
-                let (x, y) = if is_constant {
-                    (MaybeRef::Constant(x), MaybeRef::Constant(y))
-                } else {
-                    (MaybeRef::Ref(x), MaybeRef::Ref(y))
-                };
-                let direction = event_command.parameters[4]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`direction` is not a `u8`")?;
-                let direction = if direction == 0 {
-                    None
-                } else {
-                    Some(direction)
-                };
-
-                Command::SetEventLocation {
-                    character_id,
-                    x,
-                    y,
-                    direction,
-                }
+                Command::parse_set_event_location(event_command)
+                    .context("failed to parse SET_EVENT_LOCATION command")?
             }
             (_, CommandCode::TRANSFER_PLAYER) => Command::parse_transfer_player(event_command)
                 .context("failed to parse TRANSFER_PLAYER command")?,

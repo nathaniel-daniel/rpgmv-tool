@@ -385,24 +385,30 @@ where
             y,
             direction,
         } => {
-            let x = match x {
-                MaybeRef::Constant(x) => x.to_string(),
-                MaybeRef::Ref(x) => config.get_variable_name(*x),
-            };
-            let y = match y {
-                MaybeRef::Constant(y) => y.to_string(),
-                MaybeRef::Ref(y) => config.get_variable_name(*y),
-            };
-
-            write_indent(&mut writer, indent)?;
-            write!(
-                &mut writer,
-                "set_event_location(character_id={character_id}, x={x}, y={y}"
-            )?;
-            if let Some(direction) = direction {
-                write!(&mut writer, ", direction={direction}")?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "set_event_location")?;
+            writer.write_param("character_id", character_id)?;
+            match x {
+                MaybeRef::Constant(x) => {
+                    writer.write_param("x", x)?;
+                }
+                MaybeRef::Ref(x) => {
+                    let x = config.get_variable_name(*x);
+                    writer.write_param("x", &Ident(&x))?;
+                }
             }
-            writeln!(&mut writer, ")")?;
+            match y {
+                MaybeRef::Constant(y) => {
+                    writer.write_param("y", y)?;
+                }
+                MaybeRef::Ref(y) => {
+                    let y = config.get_variable_name(*y);
+                    writer.write_param("y", &Ident(&y))?;
+                }
+            }
+            if let Some(direction) = direction {
+                writer.write_param("direction", direction)?;
+            }
+            writer.finish()?;
         }
         Command::TransferPlayer {
             map_id,
