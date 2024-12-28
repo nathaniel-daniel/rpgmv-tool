@@ -156,6 +156,7 @@ pub enum Command {
     WhenEnd,
     Else,
     ConditionalBranchEnd,
+    RepeatAbove,
     Unknown {
         code: CommandCode,
         parameters: Vec<serde_json::Value>,
@@ -195,7 +196,7 @@ impl Command {
 
         Ok(Self::Comment { lines: vec![line] })
     }
-    
+
     fn parse_loop(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(0)?;
@@ -303,7 +304,7 @@ impl Command {
 
         Ok(Self::ChangeSaveAccess { disable })
     }
-    
+
     fn parse_set_event_location(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(5)?;
@@ -563,6 +564,11 @@ impl Command {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::ConditionalBranchEnd)
     }
+
+    fn parse_repeat_above(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::RepeatAbove)
+    }
 }
 
 pub fn parse_event_command_list(
@@ -628,8 +634,9 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::CONDITONAL_BRANCH) => Command::parse_conditional_branch(event_command)
                 .context("failed to parse CONDITONAL_BRANCH command")?,
-            (_, CommandCode::LOOP) => Command::parse_loop(event_command)
-                .context("failed to parse LOOP command")?,
+            (_, CommandCode::LOOP) => {
+                Command::parse_loop(event_command).context("failed to parse LOOP command")?
+            }
             (_, CommandCode::COMMON_EVENT) => Command::parse_common_event(event_command)
                 .context("failed to parse COMMON_EVENT command")?,
             (_, CommandCode::LABEL) => {
@@ -709,6 +716,8 @@ pub fn parse_event_command_list(
                 Command::parse_conditional_branch_end(event_command)
                     .context("failed to parse CONDITONAL_BRANCH_END command")?
             }
+            (_, CommandCode::REPEAT_ABOVE) => Command::parse_repeat_above(event_command)
+                .context("failed to parse REPEAT_ABOVE command")?,
             (_, _) => Command::Unknown {
                 code: command_code,
                 parameters: event_command.parameters.clone(),

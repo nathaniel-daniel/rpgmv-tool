@@ -54,7 +54,7 @@ command_codes! {
     (134, CHANGE_SAVE_ACCESS),
 
     (201, TRANSFER_PLAYER),
-    
+
     (203, SET_EVENT_LOCATION),
 
     (205, SET_MOVEMENT_ROUTE),
@@ -97,6 +97,10 @@ command_codes! {
     /// I can't be sure as the game doesn't actually care if this exists;
     /// it just ignores it, only taking into account indents.
     (412, CONDITONAL_BRANCH_END),
+     /// This is an end for the LOOP command.
+    /// In contrast with the other block ends, most of logic is here.
+    /// All this does is reset the command index to the top LOOP marker command.
+    (413, REPEAT_ABOVE),
 
     /// This is likely related to move routes somehow,
     /// like how the TEXT_DATA command extends the SHOW_TEXT command.

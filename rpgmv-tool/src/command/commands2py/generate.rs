@@ -1004,6 +1004,9 @@ where
         Command::ConditionalBranchEnd => {
             // Trust indents over end commands
         }
+        Command::RepeatAbove => {
+            // This is just a loop end
+        }
         Command::IfWin => {
             writeln!(&mut writer, "if game_battle_result.is_win():")?;
         }

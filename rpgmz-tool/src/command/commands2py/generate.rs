@@ -538,6 +538,9 @@ where
         Command::ConditionalBranchEnd => {
             // Trust indents over end commands
         }
+        Command::RepeatAbove => {
+            // This is just a loop end
+        }
         Command::Unknown { code, parameters } => {
             write_indent(&mut writer, indent)?;
             writeln!(

@@ -279,6 +279,7 @@ pub enum Command {
     WhenEnd,
     Else,
     ConditionalBranchEnd,
+    RepeatAbove,
     IfWin,
     IfEscape,
     IfLose,
@@ -739,6 +740,11 @@ impl Command {
     ) -> anyhow::Result<Self> {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::ConditionalBranchEnd)
+    }
+
+    fn parse_repeat_above(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::RepeatAbove)
     }
 }
 
@@ -1474,6 +1480,8 @@ pub fn parse_event_command_list(
                 Command::parse_conditional_branch_end(event_command)
                     .context("failed to parse CONDITONAL_BRANCH_END command")?
             }
+            (_, CommandCode::REPEAT_ABOVE) => Command::parse_repeat_above(event_command)
+                .context("failed to parse REPEAT_ABOVE command")?,
             (_, CommandCode::IF_WIN) => {
                 ensure!(event_command.parameters.is_empty());
                 Command::IfWin
