@@ -53,6 +53,8 @@ command_codes! {
     (134, CHANGE_SAVE_ACCESS),
 
     (201, TRANSFER_PLAYER),
+    
+    (203, SET_EVENT_LOCATION),
 
     (205, SET_MOVEMENT_ROUTE),
 

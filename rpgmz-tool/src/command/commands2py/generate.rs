@@ -307,6 +307,37 @@ where
             let mut writer = FunctionCallWriter::new(&mut writer, indent, fn_name)?;
             writer.finish()?;
         }
+        Command::SetEventLocation {
+            character_id,
+            x,
+            y,
+            direction,
+        } => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "set_event_location")?;
+            writer.write_param("character_id", character_id)?;
+            match x {
+                MaybeRef::Constant(x) => {
+                    writer.write_param("x", x)?;
+                }
+                MaybeRef::Ref(x) => {
+                    let x = config.get_variable_name(*x);
+                    writer.write_param("x", &Ident(&x))?;
+                }
+            }
+            match y {
+                MaybeRef::Constant(y) => {
+                    writer.write_param("y", y)?;
+                }
+                MaybeRef::Ref(y) => {
+                    let y = config.get_variable_name(*y);
+                    writer.write_param("y", &Ident(&y))?;
+                }
+            }
+            if let Some(direction) = direction {
+                writer.write_param("direction", direction)?;
+            }
+            writer.finish()?;
+        }
         Command::TransferPlayer {
             map_id,
             x,

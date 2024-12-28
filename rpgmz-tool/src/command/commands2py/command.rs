@@ -80,6 +80,12 @@ pub enum Command {
     ChangeSaveAccess {
         disable: bool,
     },
+    SetEventLocation {
+        character_id: i32,
+        x: MaybeRef<u32>,
+        y: MaybeRef<u32>,
+        direction: Option<u8>,
+    },
     TransferPlayer {
         map_id: MaybeRef<u32>,
         x: MaybeRef<u32>,
@@ -289,6 +295,34 @@ impl Command {
         let IntBool(disable) = reader.read_at(0, "disable")?;
 
         Ok(Self::ChangeSaveAccess { disable })
+    }
+    
+    fn parse_set_event_location(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(5)?;
+
+        let character_id = reader.read_at(0, "character_id")?;
+        let IntBool(is_constant) = reader.read_at(1, "is_constant")?;
+        let x = reader.read_at(2, "x")?;
+        let y = reader.read_at(3, "y")?;
+        let (x, y) = if is_constant {
+            (MaybeRef::Constant(x), MaybeRef::Constant(y))
+        } else {
+            (MaybeRef::Ref(x), MaybeRef::Ref(y))
+        };
+        let direction = reader.read_at(4, "y")?;
+        let direction = if direction == 0 {
+            None
+        } else {
+            Some(direction)
+        };
+
+        Ok(Self::SetEventLocation {
+            character_id,
+            x,
+            y,
+            direction,
+        })
     }
 
     fn parse_transfer_player(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
@@ -611,6 +645,10 @@ pub fn parse_event_command_list(
             (_, CommandCode::CHANGE_SAVE_ACCESS) => {
                 Command::parse_change_save_access(event_command)
                     .context("failed to parse CHANGE_SAVE_ACCESS command")?
+            }
+            (_, CommandCode::SET_EVENT_LOCATION) => {
+                Command::parse_set_event_location(event_command)
+                    .context("failed to parse SET_EVENT_LOCATION command")?
             }
             (_, CommandCode::TRANSFER_PLAYER) => Command::parse_transfer_player(event_command)
                 .context("failed to parse TRANSFER_PLAYER command")?,
