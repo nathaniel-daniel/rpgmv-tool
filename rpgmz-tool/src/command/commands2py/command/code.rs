@@ -76,6 +76,8 @@ command_codes! {
 
     (250, PLAY_SE),
 
+    (301, BATTLE_PROCESSING),
+
     (303, NAME_INPUT_PROCESSING),
 
     (312, CHANGE_MP),

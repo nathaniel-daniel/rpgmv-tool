@@ -467,6 +467,27 @@ where
             writer.write_param("audio", audio)?;
             writer.finish()?;
         }
+        Command::BattleProcessing {
+            troop_id,
+            can_escape,
+            can_lose,
+        } => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "battle_processing")?;
+            writer.set_multiline(false);
+            match troop_id {
+                MaybeRef::Constant(id) => {
+                    let name = config.get_troop_name(*id);
+                    writer.write_param("troop", &Ident(&name))?;
+                }
+                MaybeRef::Ref(id) => {
+                    let name = config.get_variable_name(*id);
+                    writer.write_param("troop_id", &Ident(&name))?;
+                }
+            }
+            writer.write_param("can_escape", can_escape)?;
+            writer.write_param("can_lose", can_lose)?;
+            writer.finish()?;
+        }
         Command::NameInputProcessing { actor_id, max_len } => {
             let actor = config.get_actor_name(*actor_id);
 

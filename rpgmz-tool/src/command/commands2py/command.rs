@@ -131,6 +131,11 @@ pub enum Command {
     PlaySe {
         audio: rpgmz_types::AudioFile,
     },
+    BattleProcessing {
+        troop_id: MaybeRef<u32>,
+        can_escape: bool,
+        can_lose: bool,
+    },
     NameInputProcessing {
         actor_id: u32,
         max_len: u32,
@@ -478,6 +483,28 @@ impl Command {
         Ok(Self::PlaySe { audio })
     }
 
+    fn parse_battle_processing(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(4)?;
+
+        // TODO: This can be another value, meaning the troop id is random.
+        let IntBool(is_constant) = reader.read_at(0, "is_constant")?;
+        let troop_id = reader.read_at(1, "troop_id")?;
+        let troop_id = if is_constant {
+            MaybeRef::Constant(troop_id)
+        } else {
+            MaybeRef::Ref(troop_id)
+        };
+        let can_escape = reader.read_at(2, "can_escape")?;
+        let can_lose = reader.read_at(3, "can_lose")?;
+
+        Ok(Self::BattleProcessing {
+            troop_id,
+            can_escape,
+            can_lose,
+        })
+    }
+
     fn parse_name_input_processing(
         event_command: &rpgmz_types::EventCommand,
     ) -> anyhow::Result<Self> {
@@ -696,6 +723,8 @@ pub fn parse_event_command_list(
             (_, CommandCode::PLAY_SE) => {
                 Command::parse_play_se(event_command).context("failed to parse PLAY_SE command")?
             }
+            (_, CommandCode::BATTLE_PROCESSING) => Command::parse_battle_processing(event_command)
+                .context("failed to parse BATTLE_PROCESSING command")?,
             (_, CommandCode::NAME_INPUT_PROCESSING) => {
                 Command::parse_name_input_processing(event_command)
                     .context("failed to parse NAME_INPUT_PROCESSING command")?
