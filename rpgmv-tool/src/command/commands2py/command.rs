@@ -578,6 +578,28 @@ impl Command {
         Ok(Self::PlaySe { audio })
     }
 
+    fn parse_battle_processing(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(4)?;
+
+        // TODO: This can be another value, meaning the troop id is random.
+        let IntBool(is_constant) = reader.read_at(0, "is_constant")?;
+        let troop_id = reader.read_at(1, "troop_id")?;
+        let troop_id = if is_constant {
+            MaybeRef::Constant(troop_id)
+        } else {
+            MaybeRef::Ref(troop_id)
+        };
+        let can_escape = reader.read_at(2, "can_escape")?;
+        let can_lose = reader.read_at(3, "can_lose")?;
+
+        Ok(Self::BattleProcessing {
+            troop_id,
+            can_escape,
+            can_lose,
+        })
+    }
+
     fn parse_show_picture(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         ensure!(event_command.parameters.len() == 10);
         let picture_id = event_command.parameters[0]
@@ -1133,37 +1155,8 @@ pub fn parse_event_command_list(
                     y,
                 }
             }
-            (_, CommandCode::BATTLE_PROCESSING) => {
-                ensure!(event_command.parameters.len() == 4);
-                let is_constant = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_constant` is not a `u8`")?;
-                ensure!(is_constant <= 1);
-                // TODO: This can be another value, meaning the troop id is random.
-                let is_constant = is_constant == 0;
-                let troop_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`troop_id` is not a `u32`")?;
-                let troop_id = if is_constant {
-                    MaybeRef::Constant(troop_id)
-                } else {
-                    MaybeRef::Ref(troop_id)
-                };
-                let can_escape = event_command.parameters[2]
-                    .as_bool()
-                    .context("`can_escape` is not a `bool`")?;
-                let can_lose = event_command.parameters[3]
-                    .as_bool()
-                    .context("`can_lose` is not a `bool`")?;
-
-                Command::BattleProcessing {
-                    troop_id,
-                    can_escape,
-                    can_lose,
-                }
-            }
+            (_, CommandCode::BATTLE_PROCESSING) => Command::parse_battle_processing(event_command)
+                .context("failed to parse BATTLE_PROCESSING command")?,
             (_, CommandCode::NAME_INPUT_PROCESSING) => {
                 Command::parse_name_input_processing(event_command)
                     .context("failed to parse NAME_INPUT_PROCESSING command")?

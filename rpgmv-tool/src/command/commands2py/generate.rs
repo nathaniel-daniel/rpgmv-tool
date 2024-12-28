@@ -694,25 +694,21 @@ where
             can_escape,
             can_lose,
         } => {
-            let troop_arg = match troop_id {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "battle_processing")?;
+            writer.set_multiline(false);
+            match troop_id {
                 MaybeRef::Constant(id) => {
                     let name = config.get_troop_name(*id);
-                    format!("troop={name}")
+                    writer.write_param("troop", &Ident(&name))?;
                 }
                 MaybeRef::Ref(id) => {
                     let name = config.get_variable_name(*id);
-
-                    format!("troop_id={name}")
+                    writer.write_param("troop_id", &Ident(&name))?;
                 }
-            };
-            let can_escape = stringify_bool(*can_escape);
-            let can_lose = stringify_bool(*can_lose);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(
-                &mut writer,
-                "battle_processing({troop_arg}, can_escape={can_escape}, can_lose={can_lose})"
-            )?;
+            }
+            writer.write_param("can_escape", can_escape)?;
+            writer.write_param("can_lose", can_lose)?;
+            writer.finish()?;
         }
         Command::NameInputProcessing { actor_id, max_len } => {
             let actor = config.get_actor_name(*actor_id);
