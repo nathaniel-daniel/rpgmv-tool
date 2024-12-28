@@ -930,12 +930,17 @@ where
             )?;
         }
         Command::AbortBattle => {
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "abort_battle()")?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "abort_battle")?;
+            writer.finish()?;
+        }
+        Command::GameOver => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "game_over")?;
+            writer.finish()?;
         }
         Command::ReturnToTitleScreen => {
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "return_to_title_screen()")?;
+            let mut writer =
+                FunctionCallWriter::new(&mut writer, indent, "return_to_title_screen")?;
+            writer.finish()?;
         }
         Command::Script { lines } => {
             write_indent(&mut writer, indent)?;

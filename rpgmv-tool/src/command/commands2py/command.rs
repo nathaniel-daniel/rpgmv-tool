@@ -259,6 +259,7 @@ pub enum Command {
         target_index: u32,
     },
     AbortBattle,
+    GameOver,
     ReturnToTitleScreen,
     Script {
         lines: Vec<String>,
@@ -740,6 +741,22 @@ impl Command {
             is_add,
             value,
         })
+    }
+
+    fn parse_game_over(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(0)?;
+
+        Ok(Self::GameOver)
+    }
+
+    fn parse_return_to_title_screen(
+        event_command: &rpgmv_types::EventCommand,
+    ) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(0)?;
+
+        Ok(Self::ReturnToTitleScreen)
     }
 
     fn parse_when(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
@@ -1402,10 +1419,11 @@ pub fn parse_event_command_list(
 
                 Command::AbortBattle
             }
+            (_, CommandCode::GAME_OVER) => Command::parse_game_over(event_command)
+                .context("failed to parse GAME_OVER command")?,
             (_, CommandCode::RETURN_TO_TITLE_SCREEN) => {
-                ensure!(event_command.parameters.is_empty());
-
-                Command::ReturnToTitleScreen
+                Command::parse_return_to_title_screen(event_command)
+                    .context("failed to parse RETURN_TO_TITLE_SCREEN command")?
             }
             (_, CommandCode::SCRIPT) => {
                 ensure!(event_command.parameters.len() == 1);

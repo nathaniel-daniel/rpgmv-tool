@@ -83,6 +83,9 @@ command_codes! {
     (311, CHANGE_HP),
     (312, CHANGE_MP),
 
+    (353, GAME_OVER),
+    (354, RETURN_TO_TITLE_SCREEN),
+
     (357, PLUGIN_COMMAND),
 
     (401, TEXT_DATA),

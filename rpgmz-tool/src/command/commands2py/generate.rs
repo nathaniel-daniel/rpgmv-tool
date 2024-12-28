@@ -554,6 +554,15 @@ where
             writer.write_param("value", &Ident(&value))?;
             writer.finish()?;
         }
+        Command::GameOver => {
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "game_over")?;
+            writer.finish()?;
+        }
+        Command::ReturnToTitleScreen => {
+            let mut writer =
+                FunctionCallWriter::new(&mut writer, indent, "return_to_title_screen")?;
+            writer.finish()?;
+        }
         Command::PluginCommand {
             plugin_name,
             command_name,

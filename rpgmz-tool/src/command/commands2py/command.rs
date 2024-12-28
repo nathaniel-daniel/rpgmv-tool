@@ -152,6 +152,8 @@ pub enum Command {
         is_add: bool,
         value: MaybeRef<u32>,
     },
+    GameOver,
+    ReturnToTitleScreen,
     // We create these names based on how they are annotated in the RPGMaker code.
     // We want to follow this naming.
     #[expect(clippy::enum_variant_names)]
@@ -505,7 +507,7 @@ impl Command {
 
         Ok(Self::NameInputProcessing { actor_id, max_len })
     }
-    
+
     fn parse_change_hp(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(6)?;
@@ -560,6 +562,22 @@ impl Command {
             is_add,
             value,
         })
+    }
+
+    fn parse_game_over(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(0)?;
+
+        Ok(Self::GameOver)
+    }
+
+    fn parse_return_to_title_screen(
+        event_command: &rpgmz_types::EventCommand,
+    ) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(0)?;
+
+        Ok(Self::ReturnToTitleScreen)
     }
 
     fn parse_plugin_command(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
@@ -771,6 +789,12 @@ pub fn parse_event_command_list(
                 .context("failed to parse CHANGE_HP command")?,
             (_, CommandCode::CHANGE_MP) => Command::parse_change_mp(event_command)
                 .context("failed to parse CHANGE_MP command")?,
+            (_, CommandCode::GAME_OVER) => Command::parse_game_over(event_command)
+                .context("failed to parse GAME_OVER command")?,
+            (_, CommandCode::RETURN_TO_TITLE_SCREEN) => {
+                Command::parse_return_to_title_screen(event_command)
+                    .context("failed to parse RETURN_TO_TITLE_SCREEN command")?
+            }
             (_, CommandCode::PLUGIN_COMMAND) => Command::parse_plugin_command(event_command)
                 .context("failed to parse PLUGIN_COMMAND command")?,
             (_, CommandCode::WHEN) => {
