@@ -1,3 +1,4 @@
+mod battle_processing;
 mod code;
 mod conditional_branch;
 mod control_variables;
@@ -9,6 +10,7 @@ pub use self::conditional_branch::ConditionalBranchCommand;
 pub use self::control_variables::ControlVariablesValue;
 pub use self::control_variables::ControlVariablesValueGameData;
 pub use self::control_variables::OperateVariableOperation;
+use self::param_reader::IntBool;
 use self::param_reader::ParamReader;
 use anyhow::bail;
 use anyhow::ensure;
@@ -55,9 +57,10 @@ pub enum Command {
         lines: Vec<String>,
     },
     Comment {
-        comment: String,
+        lines: Vec<String>,
     },
     ConditionalBranch(ConditionalBranchCommand),
+    Loop,
     ExitEventProcessing,
     CommonEvent {
         id: u32,
@@ -201,7 +204,7 @@ pub enum Command {
         y: MaybeRef<u32>,
     },
     BattleProcessing {
-        troop_id: MaybeRef<u32>,
+        troop_id: Option<MaybeRef<u32>>,
         can_escape: bool,
         can_lose: bool,
     },
@@ -256,6 +259,7 @@ pub enum Command {
         target_index: u32,
     },
     AbortBattle,
+    GameOver,
     ReturnToTitleScreen,
     Script {
         lines: Vec<String>,
@@ -277,6 +281,7 @@ pub enum Command {
     WhenEnd,
     Else,
     ConditionalBranchEnd,
+    RepeatAbove,
     IfWin,
     IfEscape,
     IfLose,
@@ -293,6 +298,40 @@ impl Command {
         Ok(Self::Nop)
     }
 
+    fn parse_show_choices(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(5)?;
+
+        let choices = reader.read_at(0, "choices")?;
+        let cancel_type = reader.read_at(1, "cancel_type")?;
+        let default_type = reader.read_at(2, "default_type")?;
+        let position_type = reader.read_at(3, "position_type")?;
+        let background = reader.read_at(4, "background")?;
+
+        Ok(Command::ShowChoices {
+            choices,
+            cancel_type,
+            default_type,
+            position_type,
+            background,
+        })
+    }
+
+    fn parse_comment(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let line = reader.read_at(0, "line")?;
+
+        Ok(Self::Comment { lines: vec![line] })
+    }
+
+    fn parse_loop(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(0)?;
+        Ok(Self::Loop)
+    }
+
     fn parse_common_event(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is(1)?;
@@ -302,39 +341,147 @@ impl Command {
         Ok(Self::CommonEvent { id })
     }
 
+    fn parse_label(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let name = reader.read_at(0, "name")?;
+
+        Ok(Self::Label { name })
+    }
+
+    fn parse_jump_to_label(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let name = reader.read_at(0, "name")?;
+
+        Ok(Self::JumpToLabel { name })
+    }
+
+    fn parse_control_switches(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(3)?;
+
+        let start_id = reader.read_at(0, "start_id")?;
+        let end_id = reader.read_at(1, "end_id")?;
+        let IntBool(value) = reader.read_at(2, "value")?;
+
+        Ok(Self::ControlSwitches {
+            start_id,
+            end_id,
+            value,
+        })
+    }
+
+    fn parse_control_self_switch(
+        event_command: &rpgmv_types::EventCommand,
+    ) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(2)?;
+
+        let key = reader.read_at(0, "key")?;
+        let value: IntBool = reader.read_at(1, "value")?;
+        let value = value.0;
+
+        Ok(Self::ControlSelfSwitch { key, value })
+    }
+
+    fn parse_change_items(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(4)?;
+
+        let item_id = reader.read_at(0, "item_id")?;
+        let IntBool(is_add) = reader.read_at(1, "is_add")?;
+        let IntBool(is_constant) = reader.read_at(2, "is_constant")?;
+        let value = reader.read_at(3, "is_constant")?;
+        let value = if is_constant {
+            MaybeRef::Constant(value)
+        } else {
+            MaybeRef::Ref(value)
+        };
+
+        Ok(Self::ChangeItems {
+            item_id,
+            is_add,
+            value,
+        })
+    }
+
+    fn parse_change_party_member(
+        event_command: &rpgmv_types::EventCommand,
+    ) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(3)?;
+
+        let actor_id = reader.read_at(0, "actor_id")?;
+        let IntBool(is_add) = reader.read_at(1, "is_add")?;
+        let initialize = reader.read_at(2, "initialize")?;
+
+        Ok(Self::ChangePartyMember {
+            actor_id,
+            is_add,
+            initialize,
+        })
+    }
+
+    fn parse_change_save_access(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let IntBool(disable) = reader.read_at(0, "disable")?;
+
+        Ok(Self::ChangeSaveAccess { disable })
+    }
+
+    fn parse_set_event_location(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(5)?;
+
+        let character_id = reader.read_at(0, "character_id")?;
+        let IntBool(is_constant) = reader.read_at(1, "is_constant")?;
+        let x = reader.read_at(2, "x")?;
+        let y = reader.read_at(3, "y")?;
+        let (x, y) = if is_constant {
+            (MaybeRef::Constant(x), MaybeRef::Constant(y))
+        } else {
+            (MaybeRef::Ref(x), MaybeRef::Ref(y))
+        };
+        let direction = reader.read_at(4, "y")?;
+        let direction = if direction == 0 {
+            None
+        } else {
+            Some(direction)
+        };
+
+        Ok(Self::SetEventLocation {
+            character_id,
+            x,
+            y,
+            direction,
+        })
+    }
+
+    fn parse_fadeout_screen(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::FadeoutScreen)
+    }
+
     fn parse_fadein_screen(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
         ParamReader::new(event_command).ensure_len_is(0)?;
         Ok(Self::FadeinScreen)
     }
 
     fn parse_transfer_player(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
-        ensure!(event_command.parameters.len() == 6);
-        let is_constant = event_command.parameters[0]
-            .as_i64()
-            .and_then(|value| u8::try_from(value).ok())
-            .context("`is_constant` is not a `u8`")?;
-        ensure!(is_constant <= 1);
-        let is_constant = is_constant == 0;
-        let map_id = event_command.parameters[1]
-            .as_i64()
-            .and_then(|value| u32::try_from(value).ok())
-            .context("`y` is not a `u32`")?;
-        let x = event_command.parameters[2]
-            .as_i64()
-            .and_then(|value| u32::try_from(value).ok())
-            .context("`x` is not a `u32`")?;
-        let y = event_command.parameters[3]
-            .as_i64()
-            .and_then(|value| u32::try_from(value).ok())
-            .context("`y` is not a `u32`")?;
-        let direction = event_command.parameters[3]
-            .as_i64()
-            .and_then(|value| u8::try_from(value).ok())
-            .context("`direction` is not a `u8`")?;
-        let fade_type = event_command.parameters[3]
-            .as_i64()
-            .and_then(|value| u8::try_from(value).ok())
-            .context("`fade_type` is not a `u8`")?;
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(6)?;
+
+        let IntBool(is_constant) = reader.read_at(0, "is_constant")?;
+        let map_id = reader.read_at(1, "map_id")?;
+        let x = reader.read_at(2, "x")?;
+        let y = reader.read_at(3, "y")?;
+        let direction = reader.read_at(4, "direction")?;
+        let fade_type = reader.read_at(5, "fade_type")?;
 
         let (map_id, x, y) = if is_constant {
             (
@@ -346,13 +493,91 @@ impl Command {
             (MaybeRef::Ref(map_id), MaybeRef::Ref(x), MaybeRef::Ref(y))
         };
 
-        Ok(Command::TransferPlayer {
+        Ok(Self::TransferPlayer {
             map_id,
             x,
             y,
             direction,
             fade_type,
         })
+    }
+
+    fn parse_set_movement_route(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(2)?;
+
+        let character_id = reader.read_at(0, "character_id")?;
+        let route = reader.read_at(1, "route")?;
+
+        Ok(Self::SetMovementRoute {
+            character_id,
+            route,
+        })
+    }
+
+    fn parse_show_animation(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(3)?;
+
+        let character_id = reader.read_at(0, "character_id")?;
+        let animation_id = reader.read_at(1, "animation_id")?;
+        let wait = reader.read_at(2, "animation_id")?;
+
+        Ok(Self::ShowAnimation {
+            character_id,
+            animation_id,
+            wait,
+        })
+    }
+
+    fn parse_show_balloon_icon(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(3)?;
+
+        let character_id = reader.read_at(0, "character_id")?;
+        let balloon_id = reader.read_at(1, "balloon_id")?;
+        let wait = reader.read_at(2, "wait")?;
+
+        Ok(Self::ShowBalloonIcon {
+            character_id,
+            balloon_id,
+            wait,
+        })
+    }
+
+    fn parse_shake_screen(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(4)?;
+
+        let power = reader.read_at(0, "power")?;
+        let speed = reader.read_at(1, "speed")?;
+        let duration = reader.read_at(2, "duration")?;
+        let wait = reader.read_at(3, "wait")?;
+
+        Ok(Self::ShakeScreen {
+            power,
+            speed,
+            duration,
+            wait,
+        })
+    }
+
+    fn parse_wait(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let duration = reader.read_at(0, "duration")?;
+
+        Ok(Self::Wait { duration })
+    }
+
+    fn parse_play_se(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let audio = reader.read_at(0, "audio")?;
+
+        Ok(Self::PlaySe { audio })
     }
 
     fn parse_show_picture(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
@@ -410,7 +635,7 @@ impl Command {
             (MaybeRef::Ref(x), MaybeRef::Ref(y))
         };
 
-        Ok(Command::ShowPicture {
+        Ok(Self::ShowPicture {
             picture_id,
             picture_name,
             origin,
@@ -421,6 +646,172 @@ impl Command {
             opacity,
             blend_mode,
         })
+    }
+
+    fn parse_erase_picture(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let picture_id = reader.read_at(0, "picture_id")?;
+
+        Ok(Self::ErasePicture { picture_id })
+    }
+
+    fn parse_play_bgm(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let audio = reader.read_at(0, "audio")?;
+
+        Ok(Self::PlayBgm { audio })
+    }
+
+    fn parse_fadeout_bgm(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(1)?;
+
+        let duration = reader.read_at(0, "duration")?;
+
+        Ok(Self::FadeoutBgm { duration })
+    }
+
+    fn parse_name_input_processing(
+        event_command: &rpgmv_types::EventCommand,
+    ) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(2)?;
+
+        let actor_id = reader.read_at(0, "actor_id")?;
+        let max_len = reader.read_at(1, "max_len")?;
+
+        Ok(Self::NameInputProcessing { actor_id, max_len })
+    }
+
+    fn parse_change_hp(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(6)?;
+
+        let IntBool(is_actor_constant) = reader.read_at(0, "is_actor_constant")?;
+        let actor_id = reader.read_at(1, "actor_id")?;
+        let actor_id = if is_actor_constant {
+            MaybeRef::Constant(actor_id)
+        } else {
+            MaybeRef::Ref(actor_id)
+        };
+        let IntBool(is_add) = reader.read_at(2, "is_add")?;
+        let IntBool(is_constant) = reader.read_at(3, "is_constant")?;
+        let value = reader.read_at(4, "value")?;
+        let value = if is_constant {
+            MaybeRef::Constant(value)
+        } else {
+            MaybeRef::Ref(value)
+        };
+        let allow_death = reader.read_at(5, "allow_death")?;
+
+        Ok(Self::ChangeHp {
+            actor_id,
+            is_add,
+            value,
+            allow_death,
+        })
+    }
+
+    fn parse_change_mp(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(5)?;
+
+        let IntBool(is_actor_constant) = reader.read_at(0, "is_actor_constant")?;
+        let actor_id = reader.read_at(1, "actor_id")?;
+        let actor_id = if is_actor_constant {
+            MaybeRef::Constant(actor_id)
+        } else {
+            MaybeRef::Ref(actor_id)
+        };
+        let IntBool(is_add) = reader.read_at(2, "is_add")?;
+        let IntBool(is_constant) = reader.read_at(3, "is_constant")?;
+        let value = reader.read_at(4, "value")?;
+        let value = if is_constant {
+            MaybeRef::Constant(value)
+        } else {
+            MaybeRef::Ref(value)
+        };
+
+        Ok(Self::ChangeMp {
+            actor_id,
+            is_add,
+            value,
+        })
+    }
+
+    fn parse_game_over(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(0)?;
+
+        Ok(Self::GameOver)
+    }
+
+    fn parse_return_to_title_screen(
+        event_command: &rpgmv_types::EventCommand,
+    ) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(0)?;
+
+        Ok(Self::ReturnToTitleScreen)
+    }
+
+    fn parse_when(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(2)?;
+
+        let choice_index = reader.read_at(0, "choice_index")?;
+        let choice_name = reader.read_at(1, "choice_name")?;
+
+        Ok(Self::When {
+            choice_index,
+            choice_name,
+        })
+    }
+
+    fn parse_when_end(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::WhenEnd)
+    }
+
+    fn parse_else(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::Else)
+    }
+
+    fn parse_conditional_branch_end(
+        event_command: &rpgmv_types::EventCommand,
+    ) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::ConditionalBranchEnd)
+    }
+
+    fn parse_repeat_above(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::RepeatAbove)
+    }
+
+    fn parse_if_win(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::IfWin)
+    }
+
+    fn parse_if_escape(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::IfEscape)
+    }
+
+    fn parse_if_lose(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::IfLose)
+    }
+
+    fn parse_battle_result_end(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        ParamReader::new(event_command).ensure_len_is(0)?;
+        Ok(Self::BattleResultEnd)
     }
 }
 
@@ -455,11 +846,20 @@ pub fn parse_event_command_list(
                 Some(Command::ShowScrollingText { lines, .. }),
                 CommandCode::SHOW_SCROLLING_TEXT_EXTRA,
             ) => {
-                ensure!(event_command.parameters.len() == 1);
-                let line = event_command.parameters[0]
-                    .as_str()
-                    .context("`line` is not a string")?
-                    .to_string();
+                let reader = ParamReader::new(event_command);
+                reader.ensure_len_is(1)?;
+
+                let line = reader.read_at(0, "line")?;
+
+                lines.push(line);
+
+                continue;
+            }
+            (Some(Command::Comment { lines }), CommandCode::COMMENT_EXTRA) => {
+                let reader = ParamReader::new(event_command);
+                reader.ensure_len_is(1)?;
+
+                let line = reader.read_at(0, "line")?;
 
                 lines.push(line);
 
@@ -469,10 +869,10 @@ pub fn parse_event_command_list(
                 Some(Command::SetMovementRoute { route, .. }),
                 CommandCode::SET_MOVEMENT_ROUTE_EXTRA,
             ) if move_command_index < route.list.len() => {
-                ensure!(event_command.parameters.len() == 1);
-                let command: rpgmv_types::MoveCommand =
-                    serde_json::from_value(event_command.parameters[0].clone())
-                        .context("invalid `command` parameter")?;
+                let reader = ParamReader::new(event_command);
+                reader.ensure_len_is(1)?;
+
+                let command: rpgmv_types::MoveCommand = reader.read_at(0, "command")?;
 
                 ensure!(command == route.list[move_command_index]);
 
@@ -496,36 +896,8 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::SHOW_TEXT) => Command::parse_show_text(event_command)
                 .context("failed to parse SHOW_TEXT command")?,
-            (_, CommandCode::SHOW_CHOICES) => {
-                ensure!(event_command.parameters.len() == 5);
-
-                let choices: Vec<String> =
-                    serde_json::from_value(event_command.parameters[0].clone())
-                        .context("invalid `choices` parameter")?;
-                let cancel_type = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| i32::try_from(value).ok())
-                    .context("`cancel_type` is not an `i32`")?;
-                let default_type = event_command.parameters[2]
-                    .as_i64()
-                    .context("`default_type` is not an `i64`")?;
-                let position_type = event_command.parameters[3]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`position_type` is not a `u32`")?;
-                let background = event_command.parameters[4]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`background` is not a `u32`")?;
-
-                Command::ShowChoices {
-                    choices,
-                    cancel_type,
-                    default_type,
-                    position_type,
-                    background,
-                }
-            }
+            (_, CommandCode::SHOW_CHOICES) => Command::parse_show_choices(event_command)
+                .context("failed to parse SHOW_CHOICES command")?,
             (_, CommandCode::SHOW_SCROLLING_TEXT) => {
                 let speed = event_command.parameters[0]
                     .as_i64()
@@ -542,15 +914,13 @@ pub fn parse_event_command_list(
                 }
             }
             (_, CommandCode::COMMENT) => {
-                ensure!(event_command.parameters.len() == 1);
-                let comment = event_command.parameters[0]
-                    .as_str()
-                    .context("`comment` is not a str")?
-                    .to_string();
-                Command::Comment { comment }
+                Command::parse_comment(event_command).context("failed to parse COMMENT command")?
             }
             (_, CommandCode::CONDITONAL_BRANCH) => Command::parse_conditional_branch(event_command)
                 .context("failed to parse CONDITONAL_BRANCH command")?,
+            (_, CommandCode::LOOP) => {
+                Command::parse_loop(event_command).context("failed to parse LOOP command")?
+            }
             (_, CommandCode::EXIT_EVENT_PROCESSING) => {
                 ensure!(event_command.parameters.is_empty());
                 Command::ExitEventProcessing
@@ -558,65 +928,17 @@ pub fn parse_event_command_list(
             (_, CommandCode::COMMON_EVENT) => Command::parse_common_event(event_command)
                 .context("failed to parse COMMON_EVENT command")?,
             (_, CommandCode::LABEL) => {
-                ensure!(event_command.parameters.len() == 1);
-
-                let name = event_command.parameters[0]
-                    .as_str()
-                    .context("`name` is not a `String`")?
-                    .to_string();
-
-                Command::Label { name }
+                Command::parse_label(event_command).context("failed to parse LABEL command")?
             }
-            (_, CommandCode::JUMP_TO_LABEL) => {
-                ensure!(event_command.parameters.len() == 1);
-
-                let name = event_command.parameters[0]
-                    .as_str()
-                    .context("`name` is not a `String`")?
-                    .to_string();
-
-                Command::JumpToLabel { name }
-            }
-            (_, CommandCode::CONTROL_SWITCHES) => {
-                ensure!(event_command.parameters.len() == 3);
-
-                let start_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`start_id` is not a `u32`")?;
-                let end_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`end_id` is not a `u32`")?;
-                let value = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`value` is not a `u32`")?;
-                ensure!(value <= 1);
-                let value = value == 0;
-
-                Command::ControlSwitches {
-                    start_id,
-                    end_id,
-                    value,
-                }
-            }
+            (_, CommandCode::JUMP_TO_LABEL) => Command::parse_jump_to_label(event_command)
+                .context("failed to parse JUMP_TO_LABEL command")?,
+            (_, CommandCode::CONTROL_SWITCHES) => Command::parse_control_switches(event_command)
+                .context("failed to parse CONTROL_SWITCHES command")?,
             (_, CommandCode::CONTROL_VARIABLES) => Command::parse_control_variables(event_command)
                 .context("failed to parse CONTROL_VARIABLES command")?,
             (_, CommandCode::CONTROL_SELF_SWITCH) => {
-                ensure!(event_command.parameters.len() == 2);
-                let key = event_command.parameters[0]
-                    .as_str()
-                    .context("`key` is not a `str`")?
-                    .to_string();
-                let value = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`value` is not a `u8`")?;
-                ensure!(value <= 1);
-                let value = value == 0;
-
-                Command::ControlSelfSwitch { key, value }
+                Command::parse_control_self_switch(event_command)
+                    .context("failed to parse CONTROL_SELF_SWITCH command")?
             }
             (_, CommandCode::CONTROL_TIMER) => {
                 ensure!(!event_command.parameters.is_empty());
@@ -667,40 +989,8 @@ pub fn parse_event_command_list(
 
                 Command::ChangeGold { is_add, value }
             }
-            (_, CommandCode::CHANGE_ITEMS) => {
-                ensure!(event_command.parameters.len() == 4);
-                let item_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`item_id` is not a `u32`")?;
-                let is_add = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_add` is not a `u8`")?;
-                ensure!(is_add <= 1);
-                let is_add = is_add == 0;
-                let is_constant = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_constant` is not a `u8`")?;
-                ensure!(is_constant <= 1);
-                let is_constant = is_constant == 0;
-                let value = event_command.parameters[3]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`value` is not a `u32`")?;
-                let value = if is_constant {
-                    MaybeRef::Constant(value)
-                } else {
-                    MaybeRef::Ref(value)
-                };
-
-                Command::ChangeItems {
-                    item_id,
-                    is_add,
-                    value,
-                }
-            }
+            (_, CommandCode::CHANGE_ITEMS) => Command::parse_change_items(event_command)
+                .context("failed to parse CHANGE_ITEMS command")?,
             (_, CommandCode::CHANGE_ARMORS) => {
                 ensure!(event_command.parameters.len() == 5);
                 let armor_id = event_command.parameters[0]
@@ -740,104 +1030,29 @@ pub fn parse_event_command_list(
                 }
             }
             (_, CommandCode::CHANGE_PARTY_MEMBER) => {
-                ensure!(event_command.parameters.len() == 3);
-
-                let actor_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`actor_id` is not a `u32`")?;
-                let is_add = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_add` is not a `u8`")?;
-                ensure!(is_add <= 1);
-                let is_add = is_add == 0;
-                let initialize = event_command.parameters[2]
-                    .as_bool()
-                    .context("`initialize` is not a `bool`")?;
-
-                Command::ChangePartyMember {
-                    actor_id,
-                    is_add,
-                    initialize,
-                }
+                Command::parse_change_party_member(event_command)
+                    .context("failed to parse CHANGE_PARTY_MEMBER command")?
             }
             (_, CommandCode::CHANGE_SAVE_ACCESS) => {
-                ensure!(event_command.parameters.len() == 1);
-                let disable = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`disable` is not a `u8`")?;
-                ensure!(disable <= 1);
-                let disable = disable == 0;
-
-                Command::ChangeSaveAccess { disable }
+                Command::parse_change_save_access(event_command)
+                    .context("failed to parse CHANGE_SAVE_ACCESS command")?
             }
             (_, CommandCode::SET_EVENT_LOCATION) => {
-                ensure!(event_command.parameters.len() == 5);
-
-                let character_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| i32::try_from(value).ok())
-                    .context("`value` is not an `i32`")?;
-                let is_constant = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_constant` is not a `u8`")?;
-                ensure!(
-                    is_constant <= 1,
-                    "a non 0 or 1 `is_constant` value is currently unsupported"
-                );
-                let is_constant = is_constant == 0;
-                let x = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`x` is not a `u32`")?;
-                let y = event_command.parameters[3]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`x` is not a `u32`")?;
-                let (x, y) = if is_constant {
-                    (MaybeRef::Constant(x), MaybeRef::Constant(y))
-                } else {
-                    (MaybeRef::Ref(x), MaybeRef::Ref(y))
-                };
-                let direction = event_command.parameters[4]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`direction` is not a `u8`")?;
-                let direction = if direction == 0 {
-                    None
-                } else {
-                    Some(direction)
-                };
-
-                Command::SetEventLocation {
-                    character_id,
-                    x,
-                    y,
-                    direction,
-                }
+                Command::parse_set_event_location(event_command)
+                    .context("failed to parse SET_EVENT_LOCATION command")?
             }
             (_, CommandCode::TRANSFER_PLAYER) => Command::parse_transfer_player(event_command)
                 .context("failed to parse TRANSFER_PLAYER command")?,
             (_, CommandCode::SET_MOVEMENT_ROUTE) => {
-                ensure!(event_command.parameters.len() == 2);
-                let character_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| i32::try_from(value).ok())
-                    .context("`value` is not an `i32`")?;
-                let route: rpgmv_types::MoveRoute =
-                    serde_json::from_value(event_command.parameters[1].clone())
-                        .context("invalid `route` parameter")?;
-
                 move_command_index = 0;
 
-                Command::SetMovementRoute {
-                    character_id,
-                    route,
-                }
+                Command::parse_set_movement_route(event_command)
+                    .context("failed to parse SET_MOVEMENT_ROUTE command")?
             }
+            (_, CommandCode::SHOW_ANIMATION) => Command::parse_show_animation(event_command)
+                .context("failed to parse SHOW_ANIMATION command")?,
+            (_, CommandCode::SHOW_BALLOON_ICON) => Command::parse_show_balloon_icon(event_command)
+                .context("failed to parse SHOW_BALLOON_ICON command")?,
             (_, CommandCode::CHANGE_TRANSPARENCY) => {
                 ensure!(event_command.parameters.len() == 1);
                 let value = event_command.parameters[0]
@@ -848,46 +1063,6 @@ pub fn parse_event_command_list(
 
                 let set_transparent = value == 0;
                 Command::ChangeTransparency { set_transparent }
-            }
-            (_, CommandCode::SHOW_ANIMATION) => {
-                ensure!(event_command.parameters.len() == 3);
-                let character_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| i32::try_from(value).ok())
-                    .context("`character_id` is not a `i32`")?;
-                let animation_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`animation_id` is not a `u32`")?;
-                let wait = event_command.parameters[2]
-                    .as_bool()
-                    .context("`wait` is not a `bool`")?;
-
-                Command::ShowAnimation {
-                    character_id,
-                    animation_id,
-                    wait,
-                }
-            }
-            (_, CommandCode::SHOW_BALLOON_ICON) => {
-                ensure!(event_command.parameters.len() == 3);
-                let character_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| i32::try_from(value).ok())
-                    .context("`character_id` is not a `i32`")?;
-                let balloon_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`balloon_id` is not a `u32`")?;
-                let wait = event_command.parameters[2]
-                    .as_bool()
-                    .context("`wait` is not a `bool`")?;
-
-                Command::ShowBalloonIcon {
-                    character_id,
-                    balloon_id,
-                    wait,
-                }
             }
             (_, CommandCode::CHANGE_PLAYER_FOLLOWERS) => {
                 ensure!(event_command.parameters.len() == 1);
@@ -901,10 +1076,8 @@ pub fn parse_event_command_list(
 
                 Command::ChangePlayerFollowers { is_show }
             }
-            (_, CommandCode::FADEOUT_SCREEN) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::FadeoutScreen
-            }
+            (_, CommandCode::FADEOUT_SCREEN) => Command::parse_fadeout_screen(event_command)
+                .context("failed to parse FADEOUT_SCREEN command")?,
             (_, CommandCode::FADEIN_SCREEN) => Command::parse_fadein_screen(event_command)
                 .context("failed to parse FADEIN_SCREEN command")?,
             (_, CommandCode::TINT_SCREEN) => {
@@ -943,70 +1116,19 @@ pub fn parse_event_command_list(
                     wait,
                 }
             }
-            (_, CommandCode::SHAKE_SCREEN) => {
-                ensure!(event_command.parameters.len() == 4);
-                let power = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`power` is not a `u32`")?;
-                let speed = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`speed` is not a `u32`")?;
-                let duration = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`duration` is not a `u32`")?;
-                let wait = event_command.parameters[3]
-                    .as_bool()
-                    .context("`wait` is not a `bool`")?;
-
-                Command::ShakeScreen {
-                    power,
-                    speed,
-                    duration,
-                    wait,
-                }
-            }
+            (_, CommandCode::SHAKE_SCREEN) => Command::parse_shake_screen(event_command)
+                .context("failed to parse SHAKE_SCREEN command")?,
             (_, CommandCode::WAIT) => {
-                ensure!(event_command.parameters.len() == 1);
-                let duration = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`duration` is not a `u32`")?;
-
-                Command::Wait { duration }
+                Command::parse_wait(event_command).context("failed to parse WAIT command")?
             }
             (_, CommandCode::SHOW_PICTURE) => Command::parse_show_picture(event_command)
                 .context("failed to parse SHOW_PICTURE command")?,
-            (_, CommandCode::ERASE_PICTURE) => {
-                ensure!(event_command.parameters.len() == 1);
-
-                let picture_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`picture_id` is not a `u32`")?;
-
-                Command::ErasePicture { picture_id }
-            }
-            (_, CommandCode::PLAY_BGM) => {
-                ensure!(event_command.parameters.len() == 1);
-                let audio: rpgmv_types::AudioFile =
-                    serde_json::from_value(event_command.parameters[0].clone())
-                        .context("invalid `audio` parameter")?;
-
-                Command::PlayBgm { audio }
-            }
-            (_, CommandCode::FADEOUT_BGM) => {
-                ensure!(event_command.parameters.len() == 1);
-
-                let duration = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`duration` is not a `u32`")?;
-
-                Command::FadeoutBgm { duration }
-            }
+            (_, CommandCode::ERASE_PICTURE) => Command::parse_erase_picture(event_command)
+                .context("failed to parse ERASE_PICTURE command")?,
+            (_, CommandCode::PLAY_BGM) => Command::parse_play_bgm(event_command)
+                .context("failed to parse PLAY_BGM command")?,
+            (_, CommandCode::FADEOUT_BGM) => Command::parse_fadeout_bgm(event_command)
+                .context("failed to parse FADEOUT_BGM command")?,
             (_, CommandCode::SAVE_BGM) => {
                 ensure!(event_command.parameters.is_empty());
                 Command::SaveBgm
@@ -1034,12 +1156,7 @@ pub fn parse_event_command_list(
                 Command::ResumeBgm
             }
             (_, CommandCode::PLAY_SE) => {
-                ensure!(event_command.parameters.len() == 1);
-                let audio: rpgmv_types::AudioFile =
-                    serde_json::from_value(event_command.parameters[0].clone())
-                        .context("invalid `audio` parameter")?;
-
-                Command::PlaySe { audio }
+                Command::parse_play_se(event_command).context("failed to parse PLAY_SE command")?
             }
             (_, CommandCode::GET_LOCATION_INFO) => {
                 ensure!(event_command.parameters.len() == 5);
@@ -1083,146 +1200,16 @@ pub fn parse_event_command_list(
                     y,
                 }
             }
-            (_, CommandCode::BATTLE_PROCESSING) => {
-                ensure!(event_command.parameters.len() == 4);
-                let is_constant = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_constant` is not a `u8`")?;
-                ensure!(is_constant <= 1);
-                // TODO: This can be another value, meaning the troop id is random.
-                let is_constant = is_constant == 0;
-                let troop_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`troop_id` is not a `u32`")?;
-                let troop_id = if is_constant {
-                    MaybeRef::Constant(troop_id)
-                } else {
-                    MaybeRef::Ref(troop_id)
-                };
-                let can_escape = event_command.parameters[2]
-                    .as_bool()
-                    .context("`can_escape` is not a `bool`")?;
-                let can_lose = event_command.parameters[3]
-                    .as_bool()
-                    .context("`can_lose` is not a `bool`")?;
-
-                Command::BattleProcessing {
-                    troop_id,
-                    can_escape,
-                    can_lose,
-                }
-            }
+            (_, CommandCode::BATTLE_PROCESSING) => Command::parse_battle_processing(event_command)
+                .context("failed to parse BATTLE_PROCESSING command")?,
             (_, CommandCode::NAME_INPUT_PROCESSING) => {
-                ensure!(event_command.parameters.len() == 2);
-                let actor_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`actor_id` is not a `u32`")?;
-                let max_len = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`max_len` is not a `u32`")?;
-
-                Command::NameInputProcessing { actor_id, max_len }
+                Command::parse_name_input_processing(event_command)
+                    .context("failed to parse NAME_INPUT_PROCESSING command")?
             }
-            (_, CommandCode::CHANGE_HP) => {
-                ensure!(event_command.parameters.len() == 6);
-
-                let is_actor_constant = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_actor_constant` is not a `u8`")?;
-                ensure!(is_actor_constant <= 1);
-                let is_actor_constant = is_actor_constant == 0;
-                let actor_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`actor_id` is not a `u32`")?;
-                let actor_id = if is_actor_constant {
-                    MaybeRef::Constant(actor_id)
-                } else {
-                    MaybeRef::Ref(actor_id)
-                };
-                let is_add = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_add` is not a `u8`")?;
-                ensure!(is_add <= 1);
-                let is_add = is_add == 0;
-                let is_constant = event_command.parameters[3]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_constant` is not a `u8`")?;
-                ensure!(is_constant <= 1);
-                let is_constant = is_constant == 0;
-                let value = event_command.parameters[4]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`value` is not a `u32`")?;
-                let value = if is_constant {
-                    MaybeRef::Constant(value)
-                } else {
-                    MaybeRef::Ref(value)
-                };
-                let allow_death = event_command.parameters[5]
-                    .as_bool()
-                    .context("`allow_death` is not a `u32`")?;
-
-                Command::ChangeHp {
-                    actor_id,
-                    is_add,
-                    value,
-                    allow_death,
-                }
-            }
-            (_, CommandCode::CHANGE_MP) => {
-                ensure!(event_command.parameters.len() == 5);
-
-                let is_actor_constant = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_actor_constant` is not a `u8`")?;
-                ensure!(is_actor_constant <= 1);
-                let is_actor_constant = is_actor_constant == 0;
-                let actor_id = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`actor_id` is not a `u32`")?;
-                let actor_id = if is_actor_constant {
-                    MaybeRef::Constant(actor_id)
-                } else {
-                    MaybeRef::Ref(actor_id)
-                };
-                let is_add = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_add` is not a `u8`")?;
-                ensure!(is_add <= 1);
-                let is_add = is_add == 0;
-                let is_constant = event_command.parameters[3]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_constant` is not a `u8`")?;
-                ensure!(is_constant <= 1);
-                let is_constant = is_constant == 0;
-                let value = event_command.parameters[4]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`value` is not a `u32`")?;
-                let value = if is_constant {
-                    MaybeRef::Constant(value)
-                } else {
-                    MaybeRef::Ref(value)
-                };
-
-                Command::ChangeMp {
-                    actor_id,
-                    is_add,
-                    value,
-                }
-            }
+            (_, CommandCode::CHANGE_HP) => Command::parse_change_hp(event_command)
+                .context("failed to parse CHANGE_HP command")?,
+            (_, CommandCode::CHANGE_MP) => Command::parse_change_mp(event_command)
+                .context("failed to parse CHANGE_MP command")?,
             (_, CommandCode::CHANGE_STATE) => {
                 ensure!(event_command.parameters.len() == 4);
                 let is_constant = event_command.parameters[0]
@@ -1432,10 +1419,11 @@ pub fn parse_event_command_list(
 
                 Command::AbortBattle
             }
+            (_, CommandCode::GAME_OVER) => Command::parse_game_over(event_command)
+                .context("failed to parse GAME_OVER command")?,
             (_, CommandCode::RETURN_TO_TITLE_SCREEN) => {
-                ensure!(event_command.parameters.is_empty());
-
-                Command::ReturnToTitleScreen
+                Command::parse_return_to_title_screen(event_command)
+                    .context("failed to parse RETURN_TO_TITLE_SCREEN command")?
             }
             (_, CommandCode::SCRIPT) => {
                 ensure!(event_command.parameters.len() == 1);
@@ -1457,20 +1445,7 @@ pub fn parse_event_command_list(
                 }
             }
             (_, CommandCode::WHEN) => {
-                ensure!(event_command.parameters.len() == 2);
-                let choice_index = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`choice_index` is not a `u32`")?;
-                let choice_name = event_command.parameters[1]
-                    .as_str()
-                    .context("`choice_name` is not a string")?
-                    .to_string();
-
-                Command::When {
-                    choice_index,
-                    choice_name,
-                }
+                Command::parse_when(event_command).context("failed to parse WHEN command")?
             }
             (_, CommandCode::WHEN_CANCEL) => {
                 ensure!(event_command.parameters.len() == 2);
@@ -1487,34 +1462,27 @@ pub fn parse_event_command_list(
                     choice_name,
                 }
             }
-            (_, CommandCode::WHEN_END) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::WhenEnd
-            }
+            (_, CommandCode::WHEN_END) => Command::parse_when_end(event_command)
+                .context("failed to parse WHEN_END command")?,
             (_, CommandCode::ELSE) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::Else
+                Command::parse_else(event_command).context("failed to parse ELSE command")?
             }
             (_, CommandCode::CONDITONAL_BRANCH_END) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::ConditionalBranchEnd
+                Command::parse_conditional_branch_end(event_command)
+                    .context("failed to parse CONDITONAL_BRANCH_END command")?
             }
+            (_, CommandCode::REPEAT_ABOVE) => Command::parse_repeat_above(event_command)
+                .context("failed to parse REPEAT_ABOVE command")?,
             (_, CommandCode::IF_WIN) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::IfWin
+                Command::parse_if_win(event_command).context("failed to parse IF_WIN command")?
             }
-            (_, CommandCode::IF_ESCAPE) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::IfEscape
-            }
+            (_, CommandCode::IF_ESCAPE) => Command::parse_if_escape(event_command)
+                .context("failed to parse IF_ESCAPE command")?,
             (_, CommandCode::IF_LOSE) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::IfLose
+                Command::parse_if_lose(event_command).context("failed to parse IF_LOSE command")?
             }
-            (_, CommandCode::BATTLE_RESULT_END) => {
-                ensure!(event_command.parameters.is_empty());
-                Command::BattleResultEnd
-            }
+            (_, CommandCode::BATTLE_RESULT_END) => Command::parse_battle_result_end(event_command)
+                .context("failed to parse BATTLE_RESULT_END command")?,
             (_, _) => Command::Unknown {
                 code: command_code,
                 parameters: event_command.parameters.clone(),

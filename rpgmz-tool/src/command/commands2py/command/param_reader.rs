@@ -3,11 +3,11 @@ use anyhow::Context;
 
 #[derive(Debug)]
 pub struct ParamReader<'a> {
-    command: &'a rpgmv_types::EventCommand,
+    command: &'a rpgmz_types::EventCommand,
 }
 
 impl<'a> ParamReader<'a> {
-    pub fn new(command: &'a rpgmv_types::EventCommand) -> Self {
+    pub fn new(command: &'a rpgmz_types::EventCommand) -> Self {
         Self { command }
     }
 
@@ -29,6 +29,10 @@ impl<'a> ParamReader<'a> {
         );
 
         Ok(())
+    }
+
+    pub fn len(&self) -> usize {
+        self.command.parameters.len()
     }
 
     pub fn read_at<T>(&self, index: usize, parameter_name: &str) -> anyhow::Result<T>
@@ -80,21 +84,21 @@ impl ParamReaderOutput for i64 {
 impl ParamReaderOutput for u32 {
     fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
         let value = i64::from_param(value)?;
-        Self::try_from(value).context("i64 value out of range for u32")
+        u32::try_from(value).context("i64 value out of range for u32")
     }
 }
 
 impl ParamReaderOutput for i32 {
     fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
         let value = i64::from_param(value)?;
-        Self::try_from(value).context("i64 value out of range for i32")
+        i32::try_from(value).context("i64 value out of range for i32")
     }
 }
 
 impl ParamReaderOutput for u8 {
     fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
         let value = i64::from_param(value)?;
-        Self::try_from(value).context("i64 value out of range for u8")
+        u8::try_from(value).context("i64 value out of range for u8")
     }
 }
 
@@ -111,19 +115,25 @@ impl ParamReaderOutput for IntBool {
     }
 }
 
-impl ParamReaderOutput for rpgmv_types::MoveRoute {
+impl ParamReaderOutput for serde_json::Value {
+    fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
+        Ok(value.clone())
+    }
+}
+
+impl ParamReaderOutput for rpgmz_types::MoveRoute {
     fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
         serde_json::from_value(value.clone()).context("invalid route")
     }
 }
 
-impl ParamReaderOutput for rpgmv_types::MoveCommand {
+impl ParamReaderOutput for rpgmz_types::MoveCommand {
     fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
         serde_json::from_value(value.clone()).context("invalid command")
     }
 }
 
-impl ParamReaderOutput for rpgmv_types::AudioFile {
+impl ParamReaderOutput for rpgmz_types::AudioFile {
     fn from_param(value: &serde_json::Value) -> anyhow::Result<Self> {
         serde_json::from_value(value.clone()).context("invalid audio file")
     }

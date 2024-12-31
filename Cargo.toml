@@ -1,9 +1,14 @@
 [workspace]
 resolver = "2"
 members = [
+    # MV
     "rpgmvp",
     "rpgmv-tool",
     "rpgmv-types",
+    
+    # MZ
+    "rpgmz-tool",
+    "rpgmz-types",
 ]
 
 [profile.release]

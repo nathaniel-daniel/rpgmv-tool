@@ -199,7 +199,7 @@ pub enum ControlVariablesValueGameData {
 
 impl Command {
     pub(super) fn parse_control_variables(
-        event_command: &rpgmv_types::EventCommand,
+        event_command: &rpgmz_types::EventCommand,
     ) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
         reader.ensure_len_is_at_least(4)?;

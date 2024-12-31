@@ -7,9 +7,7 @@ use super::ConditionalBranchCommand;
 use super::Config;
 use super::ControlVariablesValue;
 use super::ControlVariablesValueGameData;
-use super::GetLocationInfoKind;
 use super::MaybeRef;
-use anyhow::ensure;
 use std::io::Write;
 
 pub fn commands2py<W>(
@@ -43,6 +41,7 @@ where
             face_index,
             background,
             position_type,
+            speaker_name,
             lines,
         } => {
             let mut writer = FunctionCallWriter::new(&mut writer, indent, "show_text")?;
@@ -50,6 +49,7 @@ where
             writer.write_param("face_index", face_index)?;
             writer.write_param("background", background)?;
             writer.write_param("position_type", position_type)?;
+            writer.write_param("speaker_name", speaker_name)?;
             writer.write_param("lines", lines)?;
             writer.finish()?;
         }
@@ -67,38 +67,6 @@ where
             writer.write_param("position_type", position_type)?;
             writer.write_param("background", background)?;
             writer.finish()?;
-        }
-        Command::ShowScrollingText {
-            speed,
-            no_fast,
-            lines,
-        } => {
-            let no_fast = stringify_bool(*no_fast);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "show_scrolling_text(")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "speed={speed},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "no_fast={no_fast},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "lines=[")?;
-
-            for line in lines {
-                let line = escape_string(line);
-
-                write_indent(&mut writer, indent + 2)?;
-                writeln!(&mut writer, "'{line}',")?;
-            }
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "],")?;
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, ")")?;
         }
         Command::Comment { lines } => {
             for line in lines.iter() {
@@ -209,10 +177,6 @@ where
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "while True:")?;
         }
-        Command::ExitEventProcessing => {
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "exit_event_processing()")?;
-        }
         Command::CommonEvent { id } => {
             let name = config.get_common_event_name(*id);
             FunctionCallWriter::new(&mut writer, indent, &name)?.finish()?;
@@ -228,19 +192,6 @@ where
             writer.set_multiline(false);
             writer.write_param("name", name)?;
             writer.finish()?;
-        }
-        Command::ControlSwitches {
-            start_id,
-            end_id,
-            value,
-        } => {
-            for id in *start_id..(*end_id + 1) {
-                let name = config.get_switch_name(id);
-                let value = stringify_bool(*value);
-
-                write_indent(&mut writer, indent)?;
-                writeln!(&mut writer, "{name} = {value}")?;
-            }
         }
         Command::ControlVariables {
             start_variable_id,
@@ -291,30 +242,24 @@ where
                 writeln!(&mut writer, "{name} {operation} {value}")?;
             }
         }
+        Command::ControlSwitches {
+            start_id,
+            end_id,
+            value,
+        } => {
+            for id in *start_id..(*end_id + 1) {
+                let name = config.get_switch_name(id);
+                let value = stringify_bool(*value);
+
+                write_indent(&mut writer, indent)?;
+                writeln!(&mut writer, "{name} = {value}")?;
+            }
+        }
         Command::ControlSelfSwitch { key, value } => {
             let value = stringify_bool(*value);
 
             write_indent(&mut writer, indent)?;
             writeln!(&mut writer, "game_self_switches['{key}'] = {value}")?;
-        }
-        Command::ControlTimer { start_seconds } => {
-            write_indent(&mut writer, indent)?;
-            match start_seconds {
-                Some(start_seconds) => {
-                    writeln!(&mut writer, "game_timer.start(seconds={start_seconds})")?
-                }
-                None => writeln!(&mut writer, "game_timer.stop()")?,
-            }
-        }
-        Command::ChangeGold { is_add, value } => {
-            let op = if *is_add { "+=" } else { "-=" };
-            let value = match value {
-                MaybeRef::Constant(value) => value.to_string(),
-                MaybeRef::Ref(id) => config.get_variable_name(*id),
-            };
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "game_party.gold {op} {value}")?;
         }
         Command::ChangeItems {
             item_id,
@@ -334,23 +279,6 @@ where
             writer.write_param("item", &Ident(&item))?;
             writer.write_param("value", &Ident(&value))?;
             writer.finish()?;
-        }
-        Command::ChangeArmors {
-            armor_id,
-            is_add,
-            value,
-            include_equipped,
-        } => {
-            let armor = config.get_armor_name(*armor_id);
-            let sign = if *is_add { "" } else { "-" };
-            let value = match value {
-                MaybeRef::Constant(value) => value.to_string(),
-                MaybeRef::Ref(id) => config.get_variable_name(*id),
-            };
-            let include_equipped = stringify_bool(*include_equipped);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "gain_armor(item={armor}, value={sign}{value}, include_equipped={include_equipped})")?;
         }
         Command::ChangePartyMember {
             actor_id,
@@ -467,15 +395,6 @@ where
             writer.write_param("route", route)?;
             writer.finish()?;
         }
-        Command::ChangeTransparency { set_transparent } => {
-            let set_transparent = stringify_bool(*set_transparent);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(
-                &mut writer,
-                "change_transparency(set_transparent={set_transparent})"
-            )?
-        }
         Command::ShowAnimation {
             character_id,
             animation_id,
@@ -500,47 +419,11 @@ where
             writer.write_param("wait", wait)?;
             writer.finish()?;
         }
-        Command::ChangePlayerFollowers { is_show } => {
-            let fn_name = if *is_show {
-                "show_player_followers"
-            } else {
-                "hide_player_followers"
-            };
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "{fn_name}()")?
-        }
         Command::FadeoutScreen => {
             FunctionCallWriter::new(&mut writer, indent, "fadeout_screen")?.finish()?;
         }
         Command::FadeinScreen => {
             FunctionCallWriter::new(&mut writer, indent, "fadein_screen")?.finish()?;
-        }
-        Command::TintScreen {
-            tone,
-            duration,
-            wait,
-        } => {
-            let wait = stringify_bool(*wait);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(
-                &mut writer,
-                "tint_screen(tone={tone:?}, duration={duration}, wait={wait})"
-            )?
-        }
-        Command::FlashScreen {
-            color,
-            duration,
-            wait,
-        } => {
-            let wait = stringify_bool(*wait);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(
-                &mut writer,
-                "flash_screen(color={color:?}, duration={duration}, wait={wait})"
-            )?
         }
         Command::ShakeScreen {
             power,
@@ -562,60 +445,6 @@ where
             writer.write_param("duration", duration)?;
             writer.finish()?;
         }
-        Command::ShowPicture {
-            picture_id,
-            picture_name,
-            origin,
-            x,
-            y,
-            scale_x,
-            scale_y,
-            opacity,
-            blend_mode,
-        } => {
-            let picture_name = escape_string(picture_name);
-            let x = match x {
-                MaybeRef::Constant(value) => value.to_string(),
-                MaybeRef::Ref(id) => config.get_variable_name(*id),
-            };
-            let y = match y {
-                MaybeRef::Constant(value) => value.to_string(),
-                MaybeRef::Ref(id) => config.get_variable_name(*id),
-            };
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "show_picture(")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "picture_id={picture_id},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "picture_name='{picture_name}',")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "origin={origin},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "x={x},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "y={y},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "scale_x={scale_x},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "scale_y={scale_y},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "opacity={opacity},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "blend_mode={blend_mode},")?;
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, ")")?;
-        }
         Command::ErasePicture { picture_id } => {
             let mut writer = FunctionCallWriter::new(&mut writer, indent, "erase_picture")?;
             writer.set_multiline(false);
@@ -633,61 +462,10 @@ where
             writer.write_param("duration", duration)?;
             writer.finish()?;
         }
-        Command::SaveBgm => {
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "save_bgm()")?;
-        }
-        Command::ResumeBgm => {
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "resume_bgm()")?;
-        }
-        Command::PlayBgs { audio } => {
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "play_bgs(")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            write!(&mut writer, "audio=")?;
-            write_audio_file(&mut writer, indent + 1, audio)?;
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, ")")?;
-        }
-        Command::FadeoutBgs { duration } => {
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "fadeout_bgs(duration={duration})")?;
-        }
         Command::PlaySe { audio } => {
             let mut writer = FunctionCallWriter::new(&mut writer, indent, "play_se")?;
             writer.write_param("audio", audio)?;
             writer.finish()?;
-        }
-        Command::GetLocationInfo {
-            variable_id,
-            kind,
-            x,
-            y,
-        } => {
-            let variable = config.get_variable_name(*variable_id);
-            let x = match x {
-                MaybeRef::Constant(x) => x.to_string(),
-                MaybeRef::Ref(x) => config.get_variable_name(*x),
-            };
-            let y = match y {
-                MaybeRef::Constant(y) => y.to_string(),
-                MaybeRef::Ref(y) => config.get_variable_name(*y),
-            };
-
-            let value = match kind {
-                GetLocationInfoKind::TerrainTag => {
-                    format!("game_map.get_terrain_tag(x={x}, y={y})")
-                }
-                GetLocationInfoKind::EventId => {
-                    format!("game_map.get_event_id(x={x}, y={y})")
-                }
-            };
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "{variable} = {value}")?;
         }
         Command::BattleProcessing {
             troop_id,
@@ -776,163 +554,6 @@ where
             writer.write_param("value", &Ident(&value))?;
             writer.finish()?;
         }
-        Command::ChangeState {
-            actor_id,
-            is_add_state,
-            state_id,
-        } => {
-            let actor_arg = match actor_id {
-                MaybeRef::Constant(0) => "actors=game_party".to_string(),
-                MaybeRef::Constant(actor_id) => {
-                    let name = config.get_actor_name(*actor_id);
-                    format!("actor={name}")
-                }
-                MaybeRef::Ref(variable_id) => {
-                    let name = config.get_variable_name(*variable_id);
-                    format!("actor_id={name}")
-                }
-            };
-
-            let fn_name = if *is_add_state {
-                "add_state"
-            } else {
-                "remove_state"
-            };
-            let state = config.get_state_name(*state_id);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "{fn_name}({actor_arg}, state={state})")?;
-        }
-        Command::ChangeLevel {
-            actor_id,
-            is_add,
-            value,
-            show_level_up,
-        } => {
-            let actor_arg = match actor_id {
-                MaybeRef::Constant(actor_id) => {
-                    let name = config.get_actor_name(*actor_id);
-                    format!("actor={name}")
-                }
-                MaybeRef::Ref(variable_id) => {
-                    let name = config.get_variable_name(*variable_id);
-                    format!("actor_id={name}")
-                }
-            };
-            let sign = if *is_add { "" } else { "-" };
-            let value = match value {
-                MaybeRef::Constant(value) => value.to_string(),
-                MaybeRef::Ref(id) => config.get_variable_name(*id),
-            };
-            let show_level_up = stringify_bool(*show_level_up);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(
-                &mut writer,
-                "gain_level({actor_arg}, value={sign}{value}, show_level_up={show_level_up})"
-            )?;
-        }
-        Command::ChangeSkill {
-            actor_id,
-            is_learn_skill,
-            skill_id,
-        } => {
-            let actor_arg = match actor_id {
-                MaybeRef::Constant(actor_id) => {
-                    let name = config.get_actor_name(*actor_id);
-                    format!("actor={name}")
-                }
-                MaybeRef::Ref(variable_id) => {
-                    let name = config.get_variable_name(*variable_id);
-                    format!("actor_id={name}")
-                }
-            };
-            let fn_name = if *is_learn_skill {
-                "learn_skill"
-            } else {
-                "forget_skill"
-            };
-            let skill = config.get_skill_name(*skill_id);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "{fn_name}({actor_arg}, skill={skill})")?;
-        }
-        Command::ChangeClass {
-            actor_id,
-            class_id,
-            keep_exp,
-        } => {
-            let actor = config.get_actor_name(*actor_id);
-            let class = config.get_class_name(*class_id);
-            let keep_exp = stringify_bool(*keep_exp);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(
-                &mut writer,
-                "change_class(actor={actor}, klass={class}, keep_exp={keep_exp})"
-            )?;
-        }
-        Command::ChangeActorImages {
-            actor_id,
-            character_name,
-            character_index,
-            face_name,
-            face_index,
-            battler_name,
-        } => {
-            let actor_name = config.get_actor_name(*actor_id);
-            let character_name = escape_string(character_name);
-            let face_name = escape_string(face_name);
-            let battler_name = escape_string(battler_name);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "change_actor_images(")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "actor={actor_name},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "character_name='{character_name}',")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "character_index={character_index},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "face_name='{face_name}',")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "face_index={face_index},")?;
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "battler_name='{battler_name}',")?;
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, ")")?;
-        }
-        Command::ForceAction {
-            is_enemy,
-            id,
-            skill_id,
-            target_index,
-        } => {
-            let arg_0 = if *is_enemy {
-                format!("enemy_index={id}")
-            } else {
-                let actor = config.get_actor_name(*id);
-                format!("actor={actor}")
-            };
-            let skill = config.get_skill_name(*skill_id);
-
-            write_indent(&mut writer, indent)?;
-            writeln!(
-                &mut writer,
-                "force_action({arg_0}, skill={skill}, target_index={target_index})"
-            )?;
-        }
-        Command::AbortBattle => {
-            let mut writer = FunctionCallWriter::new(&mut writer, indent, "abort_battle")?;
-            writer.finish()?;
-        }
         Command::GameOver => {
             let mut writer = FunctionCallWriter::new(&mut writer, indent, "game_over")?;
             writer.finish()?;
@@ -942,37 +563,20 @@ where
                 FunctionCallWriter::new(&mut writer, indent, "return_to_title_screen")?;
             writer.finish()?;
         }
-        Command::Script { lines } => {
+        Command::PluginCommand {
+            plugin_name,
+            command_name,
+            comment,
+            args,
+        } => {
             write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "script(")?;
+            writeln!(&mut writer, "# {comment}")?;
 
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(writer, "lines=[")?;
-
-            for line in lines {
-                let line = escape_string(line);
-
-                write_indent(&mut writer, indent + 2)?;
-                writeln!(writer, "'{line}',")?;
-            }
-
-            write_indent(&mut writer, indent + 1)?;
-            writeln!(&mut writer, "],")?;
-
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, ")")?;
-        }
-        Command::PluginCommand { params } => {
-            write_indent(&mut writer, indent)?;
-            write!(&mut writer, "plugin_command(")?;
-            for (i, param) in params.iter().enumerate() {
-                if i != 0 {
-                    write!(&mut writer, ", ")?;
-                }
-                let param = escape_string(param);
-                write!(&mut writer, "'{param}'")?;
-            }
-            writeln!(&mut writer, ")")?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "plugin_command")?;
+            writer.write_param("plugin_name", plugin_name)?;
+            writer.write_param("command_name", command_name)?;
+            writer.write_param("args", args)?;
+            writer.finish()?;
         }
         Command::When {
             choice_index,
@@ -982,18 +586,6 @@ where
             writeln!(
                 &mut writer,
                 "if get_choice_index() == {choice_index}: # {choice_name}"
-            )?;
-        }
-        Command::WhenCancel {
-            choice_index,
-            choice_name,
-        } => {
-            ensure!(choice_name.is_none());
-
-            write_indent(&mut writer, indent)?;
-            writeln!(
-                &mut writer,
-                "if get_choice_index() == -1: # Cancel, index={choice_index}"
             )?;
         }
         Command::WhenEnd => {
@@ -1029,6 +621,7 @@ where
             )?;
         }
     }
+
     Ok(())
 }
 
@@ -1052,34 +645,4 @@ where
 
 fn escape_string(input: &str) -> String {
     input.replace('\'', "\\'")
-}
-
-fn write_audio_file<W>(
-    mut writer: W,
-    indent: u16,
-    audio: &rpgmv_types::AudioFile,
-) -> std::io::Result<()>
-where
-    W: Write,
-{
-    let audio_name = escape_string(&audio.name);
-
-    writeln!(&mut writer, "AudioFile(")?;
-
-    write_indent(&mut writer, indent + 1)?;
-    writeln!(&mut writer, "name='{audio_name}',")?;
-
-    write_indent(&mut writer, indent + 1)?;
-    writeln!(&mut writer, "pan={},", audio.pan)?;
-
-    write_indent(&mut writer, indent + 1)?;
-    writeln!(&mut writer, "pitch={},", audio.pitch)?;
-
-    write_indent(&mut writer, indent + 1)?;
-    writeln!(&mut writer, "volume={},", audio.volume)?;
-
-    write_indent(&mut writer, indent)?;
-    writeln!(&mut writer, "),")?;
-
-    Ok(())
 }
