@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["commands2py","pack_save","unpack_save"]};
