@@ -134,10 +134,11 @@ impl GameDataOperandKindOtherCheck {
 
 #[derive(Debug, Copy, Clone)]
 pub enum GameDataOperandKindActorCheck {
-    Level = 0,
-    Exp = 1,
-    Hp = 2,
-    Mp = 3,
+    Level,
+    Exp,
+    Hp,
+    Mp,
+    Param(u8),
 }
 
 impl GameDataOperandKindActorCheck {
@@ -148,6 +149,7 @@ impl GameDataOperandKindActorCheck {
             1 => Ok(Self::Exp),
             2 => Ok(Self::Hp),
             3 => Ok(Self::Mp),
+            value if (4..=11).contains(&value) => Ok(Self::Param(value - 4)),
             _ => bail!("{value} is not a valid GameDataOperandKindActorCheck"),
         }
     }
@@ -190,6 +192,7 @@ pub enum ControlVariablesValueGameData {
     ActorLevel { actor_id: u32 },
     ActorHp { actor_id: u32 },
     ActorMp { actor_id: u32 },
+    ActorParam { param_index: u8 },
     CharacterMapX { character_id: i32 },
     CharacterMapY { character_id: i32 },
     MapId,
@@ -265,6 +268,9 @@ impl Command {
                             }
                             GameDataOperandKindActorCheck::Mp => {
                                 ControlVariablesValueGameData::ActorMp { actor_id }
+                            }
+                            GameDataOperandKindActorCheck::Param(index) => {
+                                ControlVariablesValueGameData::ActorParam { param_index: index }
                             }
                             _ => bail!("GameDataOperandKindActorCheck {check:?} is not supported"),
                         }
