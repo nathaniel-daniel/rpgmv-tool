@@ -49,6 +49,7 @@ command_codes! {
 
     (126, CHANGE_ITEMS),
 
+    (128, CHANGE_ARMORS),
     (129, CHANGE_PARTY_MEMBER),
 
     (134, CHANGE_SAVE_ACCESS),
