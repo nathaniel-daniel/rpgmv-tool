@@ -394,7 +394,7 @@ impl Command {
         let item_id = reader.read_at(0, "item_id")?;
         let IntBool(is_add) = reader.read_at(1, "is_add")?;
         let IntBool(is_constant) = reader.read_at(2, "is_constant")?;
-        let value = reader.read_at(3, "is_constant")?;
+        let value = reader.read_at(3, "value")?;
         let value = if is_constant {
             MaybeRef::Constant(value)
         } else {
@@ -405,6 +405,29 @@ impl Command {
             item_id,
             is_add,
             value,
+        })
+    }
+
+    fn parse_change_armors(event_command: &rpgmv_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is(5)?;
+
+        let armor_id = reader.read_at(0, "armor_id")?;
+        let IntBool(is_add) = reader.read_at(1, "is_add")?;
+        let IntBool(is_constant) = reader.read_at(2, "is_constant")?;
+        let value = reader.read_at(3, "value")?;
+        let value = if is_constant {
+            MaybeRef::Constant(value)
+        } else {
+            MaybeRef::Ref(value)
+        };
+        let include_equipped = reader.read_at(4, "include_equipped")?;
+
+        Ok(Command::ChangeArmors {
+            armor_id,
+            is_add,
+            value,
+            include_equipped,
         })
     }
 
@@ -991,44 +1014,8 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::CHANGE_ITEMS) => Command::parse_change_items(event_command)
                 .context("failed to parse CHANGE_ITEMS command")?,
-            (_, CommandCode::CHANGE_ARMORS) => {
-                ensure!(event_command.parameters.len() == 5);
-                let armor_id = event_command.parameters[0]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`armor_id` is not a `u32`")?;
-                let is_add = event_command.parameters[1]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_add` is not a `u8`")?;
-                ensure!(is_add <= 1);
-                let is_add = is_add == 0;
-                let is_constant = event_command.parameters[2]
-                    .as_i64()
-                    .and_then(|value| u8::try_from(value).ok())
-                    .context("`is_constant` is not a `u8`")?;
-                ensure!(is_constant <= 1);
-                let is_constant = is_constant == 0;
-                let value = event_command.parameters[3]
-                    .as_i64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .context("`value` is not a `u32`")?;
-                let value = if is_constant {
-                    MaybeRef::Constant(value)
-                } else {
-                    MaybeRef::Ref(value)
-                };
-                let include_equipped = event_command.parameters[4]
-                    .as_bool()
-                    .context("`include_equipped` is not a `bool`")?;
-
-                Command::ChangeArmors {
-                    armor_id,
-                    is_add,
-                    value,
-                    include_equipped,
-                }
-            }
+            (_, CommandCode::CHANGE_ARMORS) => Command::parse_change_armors(event_command)
+                .context("failed to parse CHANGE_ARMORS command")?,
             (_, CommandCode::CHANGE_PARTY_MEMBER) => {
                 Command::parse_change_party_member(event_command)
                     .context("failed to parse CHANGE_PARTY_MEMBER command")?

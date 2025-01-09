@@ -350,10 +350,14 @@ where
                 MaybeRef::Constant(value) => value.to_string(),
                 MaybeRef::Ref(id) => config.get_variable_name(*id),
             };
-            let include_equipped = stringify_bool(*include_equipped);
+            let value = format!("{sign}{value}");
 
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "gain_armor(item={armor}, value={sign}{value}, include_equipped={include_equipped})")?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "gain_armor")?;
+            writer.set_multiline(false);
+            writer.write_param("armor", &Ident(&armor))?;
+            writer.write_param("value", &Ident(&value))?;
+            writer.write_param("include_equipped", include_equipped)?;
+            writer.finish()?;
         }
         Command::ChangePartyMember {
             actor_id,

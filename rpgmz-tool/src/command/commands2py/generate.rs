@@ -283,6 +283,27 @@ where
             writer.write_param("value", &Ident(&value))?;
             writer.finish()?;
         }
+        Command::ChangeArmors {
+            armor_id,
+            is_add,
+            value,
+            include_equipped,
+        } => {
+            let armor = config.get_armor_name(*armor_id);
+            let sign = if *is_add { "" } else { "-" };
+            let value = match value {
+                MaybeRef::Constant(value) => value.to_string(),
+                MaybeRef::Ref(id) => config.get_variable_name(*id),
+            };
+            let value = format!("{sign}{value}");
+
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "gain_armor")?;
+            writer.set_multiline(false);
+            writer.write_param("armor", &Ident(&armor))?;
+            writer.write_param("value", &Ident(&value))?;
+            writer.write_param("include_equipped", include_equipped)?;
+            writer.finish()?;
+        }
         Command::ChangePartyMember {
             actor_id,
             is_add,
