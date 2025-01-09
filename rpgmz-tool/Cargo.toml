@@ -7,9 +7,12 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 anyhow = "1.0.95"
 argh = "0.1.13"
+base16ct = { version = "0.2.0", features = [ "std", "alloc" ] }
 flate2 = { version = "1.0.35" }
+glob = "0.3.2"
 nd-util = { git = "https://github.com/nathaniel-daniel/nd-util-rs", version = "0.0.0" }
+rpgmvp = { version = "0.0.0", path = "../rpgmvp" }
 rpgmz-types = { version = "0.0.0", path = "../rpgmz-types" }
 serde = { version = "1.0.217", features = [ "derive" ] }
-serde_json = "1.0.134"
+serde_json = "1.0.135"
 toml = "0.8.19"
