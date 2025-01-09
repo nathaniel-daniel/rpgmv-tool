@@ -305,7 +305,7 @@ impl Command {
 
     fn parse_change_armors(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
         let reader = ParamReader::new(event_command);
-        reader.ensure_len_is(5)?;
+        reader.ensure_len_is_at_least(4)?;
 
         let armor_id = reader.read_at(0, "armor_id")?;
         let IntBool(is_add) = reader.read_at(1, "is_add")?;
@@ -316,7 +316,14 @@ impl Command {
         } else {
             MaybeRef::Ref(value)
         };
-        let include_equipped = reader.read_at(4, "include_equipped")?;
+        let include_equipped = if reader.len() != 4 {
+            reader.ensure_len_is(5)?;
+
+            // TODO: Do a truthy check
+            reader.read_at(4, "include_equipped")?
+        } else {
+            false
+        };
 
         Ok(Command::ChangeArmors {
             armor_id,
