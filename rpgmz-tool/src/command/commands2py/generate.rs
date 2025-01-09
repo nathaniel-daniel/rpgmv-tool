@@ -166,6 +166,11 @@ where
 
                     writeln!(&mut writer, "game_party.has_item(item={name}):")?;
                 }
+                ConditionalBranchCommand::Button { key_name } => {
+                    let key_name = escape_string(key_name);
+
+                    writeln!(&mut writer, "game_input.is_pressed(key_name='{key_name}'):")?;
+                }
                 ConditionalBranchCommand::Script { value } => {
                     let value = escape_string(value);
 
