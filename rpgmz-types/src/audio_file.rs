@@ -5,7 +5,7 @@ pub struct AudioFile {
     pub name: String,
 
     /// ?
-    pub pan: u8,
+    pub pan: i8,
 
     /// ?
     pub pitch: u8,
