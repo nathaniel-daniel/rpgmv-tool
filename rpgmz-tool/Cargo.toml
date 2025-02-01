@@ -14,5 +14,5 @@ nd-util = { git = "https://github.com/nathaniel-daniel/nd-util-rs", version = "0
 rpgmvp = { version = "0.0.0", path = "../rpgmvp" }
 rpgmz-types = { version = "0.0.0", path = "../rpgmz-types" }
 serde = { version = "1.0.217", features = [ "derive" ] }
-serde_json = "1.0.135"
+serde_json = "1.0.138"
 toml = "0.8.19"
