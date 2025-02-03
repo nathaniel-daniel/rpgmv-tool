@@ -184,6 +184,7 @@ pub enum ControlVariablesValue {
     Variable { id: u32 },
     Random { start: i32, stop: i32 },
     GameData(ControlVariablesValueGameData),
+    Script { value: String },
 }
 
 #[derive(Debug)]
@@ -316,9 +317,12 @@ impl Command {
 
                 ControlVariablesValue::GameData(inner)
             }
-            _ => {
-                let name = "ControlVariablesOperation";
-                bail!("{name} {control_variables_operation:?} is not supported")
+            ControlVariablesOperation::Script => {
+                reader.ensure_len_is(5)?;
+
+                let value = reader.read_at(4, "value")?;
+
+                ControlVariablesValue::Script { value }
             }
         };
 

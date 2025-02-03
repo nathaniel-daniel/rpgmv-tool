@@ -291,6 +291,10 @@ where
                     ControlVariablesValueGameData::Gold => "game_party.gold".to_string(),
                     ControlVariablesValueGameData::Steps => "game_party.steps".to_string(),
                 },
+                ControlVariablesValue::Script { value } => {
+                    let value = escape_string(value);
+                    format!("execute_script('{value}')")
+                }
             };
             for variable_id in *start_variable_id..(*end_variable_id + 1) {
                 let name = config.get_variable_name(variable_id);
