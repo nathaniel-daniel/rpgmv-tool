@@ -31,6 +31,10 @@ impl<'a> ParamReader<'a> {
         Ok(())
     }
 
+    pub fn len(&self) -> usize {
+        self.command.parameters.len()
+    }
+
     pub fn read_at<T>(&self, index: usize, parameter_name: &str) -> anyhow::Result<T>
     where
         T: ParamReaderOutput,

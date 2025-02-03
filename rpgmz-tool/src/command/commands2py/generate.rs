@@ -166,6 +166,11 @@ where
 
                     writeln!(&mut writer, "game_party.has_item(item={name}):")?;
                 }
+                ConditionalBranchCommand::Button { key_name } => {
+                    let key_name = escape_string(key_name);
+
+                    writeln!(&mut writer, "game_input.is_pressed(key_name='{key_name}'):")?;
+                }
                 ConditionalBranchCommand::Script { value } => {
                     let value = escape_string(value);
 
@@ -224,6 +229,9 @@ where
                         let name = config.get_actor_name(*actor_id);
                         format!("{name}.mp")
                     }
+                    ControlVariablesValueGameData::ActorParam { param_index } => {
+                        format!("game_param_{param_index}")
+                    }
                     ControlVariablesValueGameData::CharacterMapX { character_id } => {
                         format!("game.get_character(id={character_id}).map_x")
                     }
@@ -234,6 +242,10 @@ where
                     ControlVariablesValueGameData::Gold => "game_party.gold".to_string(),
                     ControlVariablesValueGameData::Steps => "game_party.steps".to_string(),
                 },
+                ControlVariablesValue::Script { value } => {
+                    let value = escape_string(value);
+                    format!("execute_script('{value}')")
+                }
             };
             for variable_id in *start_variable_id..(*end_variable_id + 1) {
                 let name = config.get_variable_name(variable_id);
@@ -278,6 +290,27 @@ where
             writer.set_multiline(false);
             writer.write_param("item", &Ident(&item))?;
             writer.write_param("value", &Ident(&value))?;
+            writer.finish()?;
+        }
+        Command::ChangeArmors {
+            armor_id,
+            is_add,
+            value,
+            include_equipped,
+        } => {
+            let armor = config.get_armor_name(*armor_id);
+            let sign = if *is_add { "" } else { "-" };
+            let value = match value {
+                MaybeRef::Constant(value) => value.to_string(),
+                MaybeRef::Ref(id) => config.get_variable_name(*id),
+            };
+            let value = format!("{sign}{value}");
+
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "gain_armor")?;
+            writer.set_multiline(false);
+            writer.write_param("armor", &Ident(&armor))?;
+            writer.write_param("value", &Ident(&value))?;
+            writer.write_param("include_equipped", include_equipped)?;
             writer.finish()?;
         }
         Command::ChangePartyMember {

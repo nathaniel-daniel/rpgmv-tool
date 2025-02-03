@@ -326,6 +326,13 @@ impl Command {
 
                 ConditionalBranchCommand::Item { item_id }
             }
+            ConditionalBranchKind::Button => {
+                reader.ensure_len_is(2)?;
+
+                let key_name = reader.read_at(1, "key_name")?;
+
+                ConditionalBranchCommand::Button { key_name }
+            }
             ConditionalBranchKind::Script => {
                 reader.ensure_len_is(2)?;
 
@@ -388,6 +395,9 @@ pub enum ConditionalBranchCommand {
     },
     Item {
         item_id: u32,
+    },
+    Button {
+        key_name: String,
     },
     Script {
         value: String,

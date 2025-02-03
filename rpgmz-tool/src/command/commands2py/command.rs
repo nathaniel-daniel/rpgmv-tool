@@ -74,6 +74,12 @@ pub enum Command {
         is_add: bool,
         value: MaybeRef<u32>,
     },
+    ChangeArmors {
+        armor_id: u32,
+        is_add: bool,
+        value: MaybeRef<u32>,
+        include_equipped: bool,
+    },
     ChangePartyMember {
         actor_id: u32,
         is_add: bool,
@@ -294,6 +300,36 @@ impl Command {
             item_id,
             is_add,
             value,
+        })
+    }
+
+    fn parse_change_armors(event_command: &rpgmz_types::EventCommand) -> anyhow::Result<Self> {
+        let reader = ParamReader::new(event_command);
+        reader.ensure_len_is_at_least(4)?;
+
+        let armor_id = reader.read_at(0, "armor_id")?;
+        let IntBool(is_add) = reader.read_at(1, "is_add")?;
+        let IntBool(is_constant) = reader.read_at(2, "is_constant")?;
+        let value = reader.read_at(3, "value")?;
+        let value = if is_constant {
+            MaybeRef::Constant(value)
+        } else {
+            MaybeRef::Ref(value)
+        };
+        let include_equipped = if reader.len() != 4 {
+            reader.ensure_len_is(5)?;
+
+            // TODO: Do a truthy check
+            reader.read_at(4, "include_equipped")?
+        } else {
+            false
+        };
+
+        Ok(Command::ChangeArmors {
+            armor_id,
+            is_add,
+            value,
+            include_equipped,
         })
     }
 
@@ -737,6 +773,8 @@ pub fn parse_event_command_list(
             }
             (_, CommandCode::CHANGE_ITEMS) => Command::parse_change_items(event_command)
                 .context("failed to parse CHANGE_ITEMS command")?,
+            (_, CommandCode::CHANGE_ARMORS) => Command::parse_change_armors(event_command)
+                .context("failed to parse CHANGE_ARMORS command")?,
             (_, CommandCode::CHANGE_PARTY_MEMBER) => {
                 Command::parse_change_party_member(event_command)
                     .context("failed to parse CHANGE_PARTY_MEMBER command")?

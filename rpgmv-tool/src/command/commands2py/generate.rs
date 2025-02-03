@@ -198,6 +198,11 @@ where
 
                     writeln!(&mut writer, "game_party.has_item(item={name}):")?;
                 }
+                ConditionalBranchCommand::Button { key_name } => {
+                    let key_name = escape_string(key_name);
+
+                    writeln!(&mut writer, "game_input.is_pressed(key_name='{key_name}'):")?;
+                }
                 ConditionalBranchCommand::Script { value } => {
                     let value = escape_string(value);
 
@@ -273,6 +278,9 @@ where
                         let name = config.get_actor_name(*actor_id);
                         format!("{name}.mp")
                     }
+                    ControlVariablesValueGameData::ActorParam { param_index } => {
+                        format!("game_param_{param_index}")
+                    }
                     ControlVariablesValueGameData::CharacterMapX { character_id } => {
                         format!("game.get_character(id={character_id}).map_x")
                     }
@@ -283,6 +291,10 @@ where
                     ControlVariablesValueGameData::Gold => "game_party.gold".to_string(),
                     ControlVariablesValueGameData::Steps => "game_party.steps".to_string(),
                 },
+                ControlVariablesValue::Script { value } => {
+                    let value = escape_string(value);
+                    format!("execute_script('{value}')")
+                }
             };
             for variable_id in *start_variable_id..(*end_variable_id + 1) {
                 let name = config.get_variable_name(variable_id);
@@ -347,10 +359,14 @@ where
                 MaybeRef::Constant(value) => value.to_string(),
                 MaybeRef::Ref(id) => config.get_variable_name(*id),
             };
-            let include_equipped = stringify_bool(*include_equipped);
+            let value = format!("{sign}{value}");
 
-            write_indent(&mut writer, indent)?;
-            writeln!(&mut writer, "gain_armor(item={armor}, value={sign}{value}, include_equipped={include_equipped})")?;
+            let mut writer = FunctionCallWriter::new(&mut writer, indent, "gain_armor")?;
+            writer.set_multiline(false);
+            writer.write_param("armor", &Ident(&armor))?;
+            writer.write_param("value", &Ident(&value))?;
+            writer.write_param("include_equipped", include_equipped)?;
+            writer.finish()?;
         }
         Command::ChangePartyMember {
             actor_id,
