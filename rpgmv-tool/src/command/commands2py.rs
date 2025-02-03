@@ -192,6 +192,9 @@ fn dump_dir(
         }
 
         let input = dir_entry.path();
+        if input.extension() != Some("json".as_ref()) {
+            continue;
+        }
         let input_file_kind = FileKind::new(&input, false).with_context(|| {
             format!("failed to determine file kind for \"{}\"", input.display())
         })?;
