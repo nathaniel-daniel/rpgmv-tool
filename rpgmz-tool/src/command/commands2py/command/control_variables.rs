@@ -20,6 +20,9 @@ pub enum OperateVariableOperation {
 
     /// /=
     Div = 4,
+
+    /// %=
+    Mod = 5,
 }
 
 impl OperateVariableOperation {
@@ -31,6 +34,7 @@ impl OperateVariableOperation {
             2 => Ok(Self::Sub),
             3 => Ok(Self::Mul),
             4 => Ok(Self::Div),
+            5 => Ok(Self::Mod),
             _ => bail!("{value} is not a valid OperateVariableOperation"),
         }
     }
@@ -43,6 +47,7 @@ impl OperateVariableOperation {
             Self::Sub => "-=",
             Self::Mul => "*=",
             Self::Div => "/=",
+            Self::Mod => "%=",
         }
     }
 }
