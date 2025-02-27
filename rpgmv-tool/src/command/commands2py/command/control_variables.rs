@@ -201,6 +201,8 @@ pub enum ControlVariablesValueGameData {
     ActorParam { param_index: u8 },
     CharacterMapX { character_id: i32 },
     CharacterMapY { character_id: i32 },
+    CharacterScreenX { character_id: i32 },
+    CharacterScreenY { character_id: i32 },
     MapId,
     Gold,
     Steps,
@@ -292,6 +294,12 @@ impl Command {
                             }
                             GameDataOperandKindCharacterCheck::MapY => {
                                 ControlVariablesValueGameData::CharacterMapY { character_id }
+                            }
+                            GameDataOperandKindCharacterCheck::ScreenX => {
+                                ControlVariablesValueGameData::CharacterScreenX { character_id }
+                            }
+                            GameDataOperandKindCharacterCheck::ScreenY => {
+                                ControlVariablesValueGameData::CharacterScreenY { character_id }
                             }
                             _ => bail!(
                                 "GameDataOperandKindCharacterCheck {check:?} is not supported"

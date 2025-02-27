@@ -238,6 +238,12 @@ where
                     ControlVariablesValueGameData::CharacterMapY { character_id } => {
                         format!("game.get_character(id={character_id}).map_y")
                     }
+                    ControlVariablesValueGameData::CharacterScreenX { character_id } => {
+                        format!("game.get_character(id={character_id}).screen_x")
+                    }
+                    ControlVariablesValueGameData::CharacterScreenY { character_id } => {
+                        format!("game.get_character(id={character_id}).screen_y")
+                    }
                     ControlVariablesValueGameData::MapId => "game_map.map_id()".to_string(),
                     ControlVariablesValueGameData::Gold => "game_party.gold".to_string(),
                     ControlVariablesValueGameData::Steps => "game_party.steps".to_string(),
