@@ -80,7 +80,16 @@ skip = [
     { name = "windows_x86_64_msvc", version = "0.52.6" },
     { name = "windows_x86_64_gnu", version = "0.52.6" },
     { name = "windows-targets", version = "0.52.6" },
-           
+    { name = "zvariant_utils", version = "2.1.0" },
+    { name = "zvariant_derive", version = "4.2.0" },
+    { name = "zvariant", version = "4.2.0" },
+    { name = "zbus_names", version = "3.0.0" },
+    { name = "zbus_macros", version = "4.4.0" },
+    { name = "zbus", version = "4.4.0" },
+    { name = "rand_core", version = "0.6.4" },
+    { name = "rand_chacha", version = "0.3.1" },
+    { name = "rand", version = "0.8.5" },
+    { name = "nix", version = "0.29.0" },
 ]
 
 [sources]
