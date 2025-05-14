@@ -25,10 +25,10 @@ jobs:
           key: ${{ runner.os }}-nightly-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build
-        run: cargo build -p rpgmv-image-viewer --release
+        run: make build-release-windows
 
       - name: Release nightly
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           prerelease: true
           name: nightly
