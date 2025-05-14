@@ -4,8 +4,8 @@ Contrary to its name, it also supports RPGMaker MZ images since they are the sam
 This program supports being used as the default program to open ".rpgmvp" and ".png_" files on Windows.
 
 ## Previews
-![Preview 1][docs/preview_1.png]
-![Preview 2][docs/preview_2.png]
+![Preview 1](docs/preview_1.png)
+![Preview 2](docs/preview_2.png)
 
 ## Installation
 You may download this program [here](https://github.com/nathaniel-daniel/rpgmv-tool/releases/download/nightly/rpgmv-image-viewer.exe).
