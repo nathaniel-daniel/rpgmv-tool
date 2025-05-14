@@ -1,5 +1,5 @@
 name: Rust
-'on':
+"on":
   push:
     branches:
       - master
@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
+
       - name: Cache
         uses: actions/cache@v4
         with:
@@ -24,20 +24,20 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-lint-cargo-${{ hashFiles('**/Cargo.lock') }}
-        
+
       - name: Clippy
         run: cargo clippy --tests -- -D warnings
-          
+
   deny:
     name: Deny
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
+
       - name: Deny
         uses: EmbarkStudios/cargo-deny-action@v2
-        
+
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -46,7 +46,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
-        
+
       - name: Cache
         uses: actions/cache@v4
         with:
@@ -57,9 +57,9 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-build-cargo-${{ hashFiles('**/Cargo.lock') }}
-        
+
       - name: Build
         run: cargo build --verbose
-        
+
       - name: Test
         run: cargo test --all --verbose
