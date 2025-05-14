@@ -152,6 +152,13 @@ impl eframe::App for App {
             self.process_message(ctx, message);
         }
 
+        if !self.loading_image {
+            let dropped_file = ctx.input(|input| input.raw.dropped_files.first()?.path.clone());
+            if let Some(dropped_file) = dropped_file {
+                self.load_image(ctx, dropped_file);
+            }
+        }
+
         egui::TopBottomPanel::top("my_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
@@ -210,7 +217,9 @@ fn main() -> anyhow::Result<()> {
     let image_path = std::env::args().nth(1);
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_icon(icon),
+        viewport: egui::ViewportBuilder::default()
+            .with_icon(icon)
+            .with_drag_and_drop(true),
         centered: true,
         ..Default::default()
     };
