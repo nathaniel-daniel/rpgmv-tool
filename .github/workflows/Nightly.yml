@@ -3,35 +3,35 @@ on:
   push:
     branches:
       - master
-  
+
 jobs:
   build:
     name: Build Windows
     runs-on: windows-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      
-    - name: Cache
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ runner.os }}-nightly-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Build
-      run: cargo build -p rpgmv-image-viewer --release
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-nightly-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    - name: Release nightly
-      uses: softprops/action-gh-release@v1
-      with:
-        prerelease: true
-        name: nightly
-        tag_name: nightly
-        files: target/x86_64-pc-windows-msvc/release/rpgmv-image-viewer.exe
-        fail_on_unmatched_files: true
+      - name: Build
+        run: cargo build -p rpgmv-image-viewer --release
+
+      - name: Release nightly
+        uses: softprops/action-gh-release@v1
+        with:
+          prerelease: true
+          name: nightly
+          tag_name: nightly
+          files: target/x86_64-pc-windows-msvc/release/rpgmv-image-viewer.exe
+          fail_on_unmatched_files: true
