@@ -186,6 +186,8 @@ impl eframe::App for App {
                 ui.menu_button("File", |ui| {
                     ui.add_enabled_ui(!self.loading_image, |ui| {
                         if ui.add(Button::new("Open")).clicked() {
+                            ui.close_menu();
+
                             self.loading_image = true;
 
                             let ctx = ctx.clone();
