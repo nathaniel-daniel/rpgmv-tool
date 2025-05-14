@@ -52,7 +52,7 @@ enum Message {
     },
 }
 
-struct MyApp {
+struct App {
     messages_rx: std::sync::mpsc::Receiver<Message>,
     messages_tx: std::sync::mpsc::Sender<Message>,
     toasts: Toasts,
@@ -61,7 +61,7 @@ struct MyApp {
     image: Option<(SizedTexture, TextureHandle)>,
 }
 
-impl MyApp {
+impl App {
     fn new() -> Self {
         let (messages_tx, messages_rx) = std::sync::mpsc::channel();
 
@@ -76,70 +76,80 @@ impl MyApp {
             image: None,
         }
     }
+
+    fn load_image(&mut self, ctx: &egui::Context, path: PathBuf) {
+        self.loading_image = true;
+
+        let ctx = ctx.clone();
+        let messages_tx = self.messages_tx.clone();
+        rayon::spawn(move || {
+            let result = load_image(&ctx, &path)
+                .with_context(|| format!("failed to open file \"{}\"", path.display()));
+
+            let _ = messages_tx.send(Message::LoadedImage { result }).is_ok();
+            ctx.request_repaint();
+        });
+    }
+
+    fn process_message(&mut self, ctx: &egui::Context, message: Message) {
+        match message {
+            Message::SelectedImageFile { path } => {
+                let path = match path {
+                    Some(path) => path,
+                    None => return,
+                };
+
+                self.load_image(ctx, path);
+            }
+            Message::LoadedImage { result } => {
+                self.loading_image = false;
+
+                let texture_handle = match result {
+                    Ok(texture_handle) => texture_handle,
+                    Err(error) => {
+                        let mut job = LayoutJob::default();
+                        job.append(
+                            "Failed to load image\n",
+                            0.0,
+                            TextFormat {
+                                font_id: FontId::new(14.0, FontFamily::Proportional),
+                                color: Color32::WHITE,
+                                ..Default::default()
+                            },
+                        );
+                        job.append(
+                            format!("{error:?}").as_str(),
+                            0.0,
+                            TextFormat {
+                                font_id: FontId::new(15.0, FontFamily::Proportional),
+                                color: Color32::WHITE,
+                                ..Default::default()
+                            },
+                        );
+
+                        self.toasts.add(Toast {
+                            text: job.into(),
+                            kind: ToastKind::Error,
+                            options: ToastOptions::default()
+                                .duration_in_seconds(5.0)
+                                .show_progress(true),
+                            ..Default::default()
+                        });
+                        return;
+                    }
+                };
+
+                let sized_texture = egui::load::SizedTexture::from_handle(&texture_handle);
+                self.image = Some((sized_texture, texture_handle));
+            }
+        }
+    }
 }
 
-impl eframe::App for MyApp {
+impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         while let Ok(message) = self.messages_rx.try_recv() {
-            match message {
-                Message::SelectedImageFile { path } => {
-                    let path = match path {
-                        Some(path) => path,
-                        None => continue,
-                    };
-
-                    let ctx = ctx.clone();
-                    let messages_tx = self.messages_tx.clone();
-                    rayon::spawn(move || {
-                        let result = load_image(&ctx, &path)
-                            .with_context(|| format!("failed to open file \"{}\"", path.display()));
-
-                        let _ = messages_tx.send(Message::LoadedImage { result }).is_ok();
-                        ctx.request_repaint();
-                    });
-                }
-                Message::LoadedImage { result } => {
-                    self.loading_image = false;
-
-                    let texture_handle = match result {
-                        Ok(texture_handle) => texture_handle,
-                        Err(error) => {
-                            let mut job = LayoutJob::default();
-                            job.append(
-                                "Failed to load image\n",
-                                0.0,
-                                TextFormat {
-                                    font_id: FontId::new(14.0, FontFamily::Proportional),
-                                    color: Color32::WHITE,
-                                    ..Default::default()
-                                },
-                            );
-                            job.append(
-                                format!("{error:?}").as_str(),
-                                0.0,
-                                TextFormat {
-                                    font_id: FontId::new(15.0, FontFamily::Proportional),
-                                    color: Color32::WHITE,
-                                    ..Default::default()
-                                },
-                            );
-
-                            self.toasts.add(Toast {
-                                text: job.into(),
-                                kind: ToastKind::Error,
-                                options: ToastOptions::default()
-                                    .duration_in_seconds(5.0)
-                                    .show_progress(true),
-                                ..Default::default()
-                            });
-                            continue;
-                        }
-                    };
-
-                    let sized_texture = egui::load::SizedTexture::from_handle(&texture_handle);
-                    self.image = Some((sized_texture, texture_handle));
-                }
-            }
+            self.process_message(ctx, message);
         }
 
         egui::TopBottomPanel::top("my_panel").show(ctx, |ui| {
@@ -197,6 +207,8 @@ fn main() -> anyhow::Result<()> {
         rgba: icon_rgba8.into_raw(),
     };
 
+    let image_path = std::env::args().nth(1);
+
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_icon(icon),
         centered: true,
@@ -208,7 +220,12 @@ fn main() -> anyhow::Result<()> {
         Box::new(|ctx| {
             egui_extras::install_image_loaders(&ctx.egui_ctx);
 
-            Ok(Box::new(MyApp::new()))
+            let mut app = Box::new(App::new());
+            if let Some(image_path) = image_path {
+                app.load_image(&ctx.egui_ctx, PathBuf::from(image_path));
+            }
+
+            Ok(app)
         }),
     )
     .map_err(|error| anyhow::Error::msg(error.to_string()))?;
