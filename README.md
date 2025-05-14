@@ -1,5 +1,6 @@
 # rpgmv-tool
 A tool with utilities for interacting with RPGMaker MV assets.
+Also see [rpgmv-image-viewer](rpgmv-image-viewer/README.md) for a graphical application to view encrypted images.
 
 ## Subcommands
 

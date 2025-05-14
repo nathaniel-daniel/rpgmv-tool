@@ -18,3 +18,7 @@ tokio = "1.45.0"
 
 [build-dependencies]
 winres = "0.1.12"
+
+[features]
+default = []
+force-console-subsystem = []
