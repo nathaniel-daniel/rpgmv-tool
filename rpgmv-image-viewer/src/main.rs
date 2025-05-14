@@ -1,4 +1,11 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(
+    all(
+        not(debug_assertions),
+        windows,
+        not(feature = "force-console-subsystem")
+    ),
+    windows_subsystem = "windows"
+)]
 
 use anyhow::Context;
 use eframe::egui;
@@ -8,8 +15,10 @@ use egui::Color32;
 use egui::ColorImage;
 use egui::FontFamily;
 use egui::FontId;
+use egui::Rect;
 use egui::TextFormat;
 use egui::TextureHandle;
+use egui::containers::Scene;
 use egui::load::SizedTexture;
 use egui::text::LayoutJob;
 use egui::viewport::IconData;
@@ -24,6 +33,12 @@ use std::path::PathBuf;
 const TITLE: &str = "RPGMaker Image Viewer";
 
 fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<TextureHandle> {
+    let file_name = path
+        .file_name()
+        .context("missing file name")?
+        .to_string_lossy()
+        .to_lowercase();
+
     let file = std::fs::File::open(path)?;
     let metadata = file.metadata()?;
 
@@ -38,7 +53,11 @@ fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<TextureHandle>
     let pixels = rgba8_image.as_flat_samples();
     let color_image = ColorImage::from_rgba_unmultiplied(image_size, pixels.as_slice());
 
-    let texture_handle = ctx.load_texture("current-image", color_image, Default::default());
+    let texture_handle = ctx.load_texture(
+        format!("image-{file_name}"),
+        color_image,
+        Default::default(),
+    );
 
     anyhow::Ok(texture_handle)
 }
@@ -59,6 +78,7 @@ struct App {
 
     loading_image: bool,
     image: Option<(SizedTexture, TextureHandle)>,
+    scene_rect: Rect,
 }
 
 impl App {
@@ -74,6 +94,7 @@ impl App {
 
             loading_image: false,
             image: None,
+            scene_rect: Rect::ZERO,
         }
     }
 
@@ -112,7 +133,7 @@ impl App {
                             "Failed to load image\n",
                             0.0,
                             TextFormat {
-                                font_id: FontId::new(14.0, FontFamily::Proportional),
+                                font_id: FontId::new(15.0, FontFamily::Proportional),
                                 color: Color32::WHITE,
                                 ..Default::default()
                             },
@@ -139,8 +160,9 @@ impl App {
                     }
                 };
 
-                let sized_texture = egui::load::SizedTexture::from_handle(&texture_handle);
+                let sized_texture = SizedTexture::from_handle(&texture_handle);
                 self.image = Some((sized_texture, texture_handle));
+                self.scene_rect = Rect::ZERO;
             }
         }
     }
@@ -188,13 +210,19 @@ impl eframe::App for App {
 
         egui::CentralPanel::default().show(ctx, |ui| match self.image.as_ref() {
             Some((sized_texture, _)) => {
-                ui.centered_and_justified(|ui| {
-                    ui.image(*sized_texture);
-                });
+                let response = Scene::new().zoom_range(f32::EPSILON..=50.0_f32).show(
+                    ui,
+                    &mut self.scene_rect,
+                    |ui| ui.add(egui::Image::new(*sized_texture)),
+                );
+                if response.response.double_clicked() {
+                    self.scene_rect = Rect::ZERO;
+                }
             }
             None => {
                 ui.heading(TITLE);
-                ui.label("Welcome! Use File > Load to open an image.");
+                ui.label("Welcome!");
+                ui.label("Use File > Load to open an image.");
             }
         });
 
@@ -226,12 +254,13 @@ fn main() -> anyhow::Result<()> {
     eframe::run_native(
         TITLE,
         options,
-        Box::new(|ctx| {
-            egui_extras::install_image_loaders(&ctx.egui_ctx);
+        Box::new(|cc| {
+            egui_extras::install_image_loaders(&cc.egui_ctx);
 
             let mut app = Box::new(App::new());
             if let Some(image_path) = image_path {
-                app.load_image(&ctx.egui_ctx, PathBuf::from(image_path));
+                let image_path = PathBuf::from(image_path);
+                app.load_image(&cc.egui_ctx, image_path);
             }
 
             Ok(app)
