@@ -30,6 +30,10 @@ jobs:
       - name: List
         run: ls target/x86_64-pc-windows-msvc/release/rpgmv-image-viewer.exe
 
+      - name: Update tag
+        run: |
+          git tag --force nightly && git push --force origin tag nightly
+
       - name: Release nightly
         uses: softprops/action-gh-release@v2
         with:
@@ -38,3 +42,4 @@ jobs:
           tag_name: nightly
           files: target/x86_64-pc-windows-msvc/release/rpgmv-image-viewer.exe
           fail_on_unmatched_files: true
+          target_commitish: ${{ github.sha }}
