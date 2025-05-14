@@ -1,0 +1,19 @@
+[package]
+name = "rpgmv-image-viewer"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+anyhow = "1.0.98"
+iced = { version = "0.13.1", features = [ "tokio", "image" ] }
+iced_aw = { version = "0.12.2", default-features = false, features = ["menu"] }
+iced_toasts = "0.1.0"
+image = { version = "0.25.6", features = [ "png" ], default-features = false }
+nd-util = { git = "https://github.com/nathaniel-daniel/nd-util-rs", version = "0.0.0", features = ["arc-anyhow-error"] }
+rfd = "0.15.3"
+rpgmvp = { version = "0.0.0", path = "../rpgmvp" }
+tokio = "1.45.0"
+
+[build-dependencies]
+winres = "0.1.0"
