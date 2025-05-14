@@ -194,7 +194,7 @@ impl eframe::App for App {
                             let messages_tx = self.messages_tx.clone();
                             rayon::spawn(move || {
                                 let picked_file = rfd::FileDialog::new()
-                                    .add_filter("RPGMaker MV Image File", &["rpgmvp"])
+                                    .add_filter("RPGMaker Image Files", &["rpgmvp", "png_"])
                                     .add_filter("All types", &["*"])
                                     .pick_file()
                                     .map(|file| file.as_path().to_path_buf());
@@ -225,6 +225,8 @@ impl eframe::App for App {
                 ui.heading(TITLE);
                 ui.label("Welcome!");
                 ui.label("Use File > Load to open an image.");
+                ui.label("You can also drag and drop an image onto this window to load it.");
+                ui.label("This program was created by Nathaniel Daniel.");
             }
         });
 
