@@ -17,4 +17,4 @@ rpgmvp = { version = "0.0.0", path = "../rpgmvp" }
 tokio = "1.45.0"
 
 [build-dependencies]
-winres = "0.1.0"
+winres = "0.1.12"
