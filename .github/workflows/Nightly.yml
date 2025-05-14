@@ -27,6 +27,9 @@ jobs:
       - name: Build
         run: make build-release-windows
 
+      - name: List
+        run: ls target/x86_64-pc-windows-msvc/release/rpgmv-image-viewer.exe
+
       - name: Release nightly
         uses: softprops/action-gh-release@v2
         with:
