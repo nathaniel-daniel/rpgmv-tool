@@ -9,6 +9,9 @@ members = [
     # MZ
     "rpgmz-tool",
     "rpgmz-types",
+    
+    # Both
+    "rpgmv-image-viewer",
 ]
 
 [profile.release]

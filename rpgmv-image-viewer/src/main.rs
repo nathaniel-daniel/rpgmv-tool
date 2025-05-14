@@ -1,188 +1,217 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use anyhow::Context;
-use iced::Center;
-use iced::Element;
-use iced::Length;
-use iced::Task;
-use iced::advanced::image::Handle as IcedImageHandle;
-use iced::widget::Column;
-use iced::widget::Container;
-use iced::widget::Row;
-use iced::widget::button;
-use iced::widget::column;
-use iced::widget::image::Viewer as ImageViewer;
-use iced::widget::row;
-use iced::window::Settings as WindowSettings;
-use iced_aw::Menu;
-use iced_aw::MenuBar;
-use iced_aw::menu::Item as MenuItem;
-use iced_toasts::ToastContainer;
-use iced_toasts::ToastId;
-use iced_toasts::ToastLevel;
-use iced_toasts::toast;
-use iced_toasts::toast_container;
-use nd_util::ArcAnyhowError;
+use eframe::egui;
+use egui::Align2;
+use egui::Button;
+use egui::Color32;
+use egui::ColorImage;
+use egui::FontFamily;
+use egui::FontId;
+use egui::TextFormat;
+use egui::TextureHandle;
+use egui::load::SizedTexture;
+use egui::text::LayoutJob;
+use egui::viewport::IconData;
+use egui_toast::Toast;
+use egui_toast::ToastKind;
+use egui_toast::ToastOptions;
+use egui_toast::Toasts;
 use std::io::Read;
+use std::path::Path;
 use std::path::PathBuf;
 
-async fn open_image_file_picker() -> Option<PathBuf> {
-    let picked_file = rfd::AsyncFileDialog::new()
-        .add_filter("RPGMaker MV Image File", &["rpgmvp"])
-        .add_filter("All types", &["*"])
-        .pick_file()
-        .await?;
+const TITLE: &str = "RPGMaker Image Viewer";
 
-    Some(picked_file.path().into())
+fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<TextureHandle> {
+    let file = std::fs::File::open(path)?;
+    let metadata = file.metadata()?;
+
+    let mut encrypted_reader = rpgmvp::Reader::new(std::io::BufReader::new(file));
+    let mut raw_image = Vec::with_capacity(usize::try_from(metadata.len())?);
+    encrypted_reader.read_to_end(&mut raw_image)?;
+
+    let image = image::load_from_memory(&raw_image)?;
+    let rgba8_image = image.into_rgba8();
+
+    let image_size = [rgba8_image.width() as _, rgba8_image.height() as _];
+    let pixels = rgba8_image.as_flat_samples();
+    let color_image = ColorImage::from_rgba_unmultiplied(image_size, pixels.as_slice());
+
+    let texture_handle = ctx.load_texture("current-image", color_image, Default::default());
+
+    anyhow::Ok(texture_handle)
 }
 
-async fn load_image(path: PathBuf) -> Result<IcedImageHandle, ArcAnyhowError> {
-    let path1 = path.clone();
-    tokio::task::spawn_blocking(move || {
-        let file = std::fs::File::open(path1)?;
-        let metadata = file.metadata()?;
-
-        let mut encrypted_reader = rpgmvp::Reader::new(std::io::BufReader::new(file));
-        let mut raw_image = Vec::with_capacity(usize::try_from(metadata.len())?);
-        encrypted_reader.read_to_end(&mut raw_image)?;
-
-        let image = image::load_from_memory(&raw_image)?;
-        let rgba8_image = image.into_rgba8();
-
-        let handle = IcedImageHandle::from_rgba(
-            rgba8_image.width(),
-            rgba8_image.height(),
-            rgba8_image.into_raw(),
-        );
-
-        anyhow::Ok(handle)
-    })
-    .await
-    .context("failed to join task")
-    .and_then(std::convert::identity)
-    .with_context(|| format!("failed to open file \"{}\"", path.display()))
-    .map_err(ArcAnyhowError::new)
-}
-
-#[derive(Debug, Clone)]
 enum Message {
-    OpenImageFilePicker,
-    SelectedImageFile(Option<PathBuf>),
-    ImageLoaded(Result<IcedImageHandle, ArcAnyhowError>),
-
-    DismissToast(ToastId),
+    SelectedImageFile {
+        path: Option<PathBuf>,
+    },
+    LoadedImage {
+        result: anyhow::Result<egui::TextureHandle>,
+    },
 }
 
-struct App<'a> {
+struct MyApp {
+    messages_rx: std::sync::mpsc::Receiver<Message>,
+    messages_tx: std::sync::mpsc::Sender<Message>,
+    toasts: Toasts,
+
     loading_image: bool,
-    image: Option<IcedImageHandle>,
-
-    toasts: ToastContainer<'a, Message>,
+    image: Option<(SizedTexture, TextureHandle)>,
 }
 
-impl Default for App<'_> {
-    fn default() -> Self {
+impl MyApp {
+    fn new() -> Self {
+        let (messages_tx, messages_rx) = std::sync::mpsc::channel();
+
         Self {
+            messages_rx,
+            messages_tx,
+            toasts: Toasts::new()
+                .anchor(Align2::LEFT_BOTTOM, (20.0, -20.0))
+                .direction(egui::Direction::BottomUp),
+
             loading_image: false,
             image: None,
-
-            toasts: toast_container(Message::DismissToast)
-                .alignment_x(iced_toasts::alignment::Horizontal::Left)
-                .alignment_y(iced_toasts::alignment::Vertical::Bottom),
         }
     }
 }
 
-impl App<'_> {
-    fn update(&mut self, message: Message) -> Task<Message> {
-        match message {
-            Message::OpenImageFilePicker => {
-                if self.loading_image {
-                    return Task::none();
+impl eframe::App for MyApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        while let Ok(message) = self.messages_rx.try_recv() {
+            match message {
+                Message::SelectedImageFile { path } => {
+                    let path = match path {
+                        Some(path) => path,
+                        None => continue,
+                    };
+
+                    let ctx = ctx.clone();
+                    let messages_tx = self.messages_tx.clone();
+                    rayon::spawn(move || {
+                        let result = load_image(&ctx, &path)
+                            .with_context(|| format!("failed to open file \"{}\"", path.display()));
+
+                        let _ = messages_tx.send(Message::LoadedImage { result }).is_ok();
+                        ctx.request_repaint();
+                    });
                 }
+                Message::LoadedImage { result } => {
+                    self.loading_image = false;
 
-                Task::perform(open_image_file_picker(), Message::SelectedImageFile)
-            }
-            Message::SelectedImageFile(result) => {
-                if self.loading_image {
-                    return Task::none();
+                    let texture_handle = match result {
+                        Ok(texture_handle) => texture_handle,
+                        Err(error) => {
+                            let mut job = LayoutJob::default();
+                            job.append(
+                                "Failed to load image\n",
+                                0.0,
+                                TextFormat {
+                                    font_id: FontId::new(14.0, FontFamily::Proportional),
+                                    color: Color32::WHITE,
+                                    ..Default::default()
+                                },
+                            );
+                            job.append(
+                                format!("{error:?}").as_str(),
+                                0.0,
+                                TextFormat {
+                                    font_id: FontId::new(15.0, FontFamily::Proportional),
+                                    color: Color32::WHITE,
+                                    ..Default::default()
+                                },
+                            );
+
+                            self.toasts.add(Toast {
+                                text: job.into(),
+                                kind: ToastKind::Error,
+                                options: ToastOptions::default()
+                                    .duration_in_seconds(5.0)
+                                    .show_progress(true),
+                                ..Default::default()
+                            });
+                            continue;
+                        }
+                    };
+
+                    let sized_texture = egui::load::SizedTexture::from_handle(&texture_handle);
+                    self.image = Some((sized_texture, texture_handle));
                 }
-                let path = match result {
-                    Some(path) => path,
-                    None => return Task::none(),
-                };
-
-                self.loading_image = true;
-                Task::perform(load_image(path), Message::ImageLoaded)
-            }
-            Message::ImageLoaded(result) => {
-                self.loading_image = false;
-                let image = match result {
-                    Ok(image) => image,
-                    Err(error) => {
-                        self.toasts.push(
-                            toast(&format!("{error:?}"))
-                                .title("Failed to load image")
-                                .level(ToastLevel::Error),
-                        );
-                        return Task::none();
-                    }
-                };
-                self.image = Some(image);
-
-                Task::none()
-            }
-            Message::DismissToast(id) => {
-                self.toasts.dismiss(id);
-                Task::none()
             }
         }
-    }
 
-    fn view(&self) -> Element<Message> {
-        let main_content = match self.image.as_ref() {
-            Some(image) => Container::new(
-                ImageViewer::new(image)
-                    .width(Length::Fill)
-                    .height(Length::Fill),
-            ),
-            None => Container::new(Container::new(
-                button("Load Image").on_press(Message::OpenImageFilePicker),
-            ))
-            .center(Length::Fill),
-        };
+        egui::TopBottomPanel::top("my_panel").show(ctx, |ui| {
+            egui::menu::bar(ui, |ui| {
+                ui.menu_button("File", |ui| {
+                    ui.add_enabled_ui(!self.loading_image, |ui| {
+                        if ui.add(Button::new("Open")).clicked() {
+                            self.loading_image = true;
 
-        self.toasts.view(main_content)
-        
+                            let ctx = ctx.clone();
+                            let messages_tx = self.messages_tx.clone();
+                            rayon::spawn(move || {
+                                let picked_file = rfd::FileDialog::new()
+                                    .add_filter("RPGMaker MV Image File", &["rpgmvp"])
+                                    .add_filter("All types", &["*"])
+                                    .pick_file()
+                                    .map(|file| file.as_path().to_path_buf());
+
+                                let _ = messages_tx
+                                    .send(Message::SelectedImageFile { path: picked_file })
+                                    .is_ok();
+                                ctx.request_repaint();
+                            });
+                        }
+                    });
+                });
+            });
+        });
+
+        egui::CentralPanel::default().show(ctx, |ui| match self.image.as_ref() {
+            Some((sized_texture, _)) => {
+                ui.centered_and_justified(|ui| {
+                    ui.image(*sized_texture);
+                });
+            }
+            None => {
+                ui.heading(TITLE);
+                ui.label("Welcome! Use File > Load to open an image.");
+            }
+        });
+
+        self.toasts.show(ctx);
     }
 }
 
 fn main() -> anyhow::Result<()> {
-    unsafe {
-        std::env::set_var("WGPU_POWER_PREF", "low");
-
-        // Iced resizes poorly on the default "vulkan" backend.
-        // The "gl" backend works the best.
-        // The "dx12" backend shows some flickering while resizing.
-        // The "metal" backend is unavailable.
-        #[cfg(windows)]
-        std::env::set_var("WGPU_BACKEND", "gl");
-    }
-
-    let file = std::env::args().nth(1);
-    dbg!(file);
+    env_logger::init();
 
     let icon_raw = include_bytes!("../assets/icon.ico");
-    let icon = iced::window::icon::from_file_data(icon_raw, None)?;
+    let icon_image = image::load_from_memory(icon_raw)?;
+    let icon_rgba8 = icon_image.into_rgba8();
+    let icon = IconData {
+        width: icon_rgba8.width(),
+        height: icon_rgba8.height(),
+        rgba: icon_rgba8.into_raw(),
+    };
 
-    let title = "RPGMaker Image Viewer";
-    let window_settings = WindowSettings {
-        icon: Some(icon),
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_icon(icon),
+        centered: true,
         ..Default::default()
     };
-    iced::application(title, App::update, App::view)
-        .window(window_settings)
-        .run_with(|| (App::default(), Task::none()))?;
+    eframe::run_native(
+        TITLE,
+        options,
+        Box::new(|ctx| {
+            egui_extras::install_image_loaders(&ctx.egui_ctx);
+
+            Ok(Box::new(MyApp::new()))
+        }),
+    )
+    .map_err(|error| anyhow::Error::msg(error.to_string()))?;
 
     Ok(())
 }

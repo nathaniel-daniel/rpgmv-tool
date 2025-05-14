@@ -6,12 +6,13 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1.0.98"
-iced = { version = "0.13.1", features = [ "tokio", "image" ] }
-iced_aw = { version = "0.12.2", default-features = false, features = ["menu"] }
-iced_toasts = "0.1.0"
-image = { version = "0.25.6", features = [ "png" ], default-features = false }
-nd-util = { git = "https://github.com/nathaniel-daniel/nd-util-rs", version = "0.0.0", features = ["arc-anyhow-error"] }
-rfd = "0.15.3"
+eframe = "0.31.1"
+egui-toast = "0.17.0"
+egui_extras = { version = "0.31.1", features = ["all_loaders"] }
+env_logger = "0.11.8"
+image = { version = "0.25.6", features = [ "png", "ico" ], default-features = false }
+rayon = "1.10.0"
+rfd = { version = "0.15.3", default-features = false }
 rpgmvp = { version = "0.0.0", path = "../rpgmvp" }
 tokio = "1.45.0"
 
