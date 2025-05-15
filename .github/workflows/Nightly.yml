@@ -28,11 +28,11 @@ jobs:
         run: make build-release-windows
 
       - name: List
-        run: ls target/x86_64-pc-windows-msvc/release/rpgmv-image-viewer.exe
+        run: ls target/x86_64-pc-windows-msvc/release/
 
-      - name: Update tag
+      - name: Remove old nightly release
         run: |
-          git tag --force nightly && git push --force origin tag nightly
+          make rm-nightly-release
 
       - name: Release nightly
         uses: softprops/action-gh-release@v2
@@ -40,6 +40,8 @@ jobs:
           prerelease: true
           name: nightly
           tag_name: nightly
-          files: target/x86_64-pc-windows-msvc/release/rpgmv-image-viewer.exe
+          files: |
+            target/x86_64-pc-windows-msvc/release/rpgmv-image-viewer.exe
+            target/x86_64-pc-windows-msvc/release/rpgmv-tool.exe
           fail_on_unmatched_files: true
           target_commitish: ${{ github.sha }}
