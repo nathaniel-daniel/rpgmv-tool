@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FileKind"],"fn":["dump_dir","dump_file","exec","extract_map_id","sanitize_file_name","try_create_dir"],"mod":["command","config","file_sink","generate"],"struct":["DumpFileOptions","Options"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ControlVariablesOperation","ControlVariablesValue","ControlVariablesValueGameData","GameDataOperandKind","GameDataOperandKindActorCheck","GameDataOperandKindCharacterCheck","GameDataOperandKindOtherCheck","OperateVariableOperation"]};
