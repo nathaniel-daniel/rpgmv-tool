@@ -5,16 +5,16 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-anyhow = "1.0.98"
-eframe = "0.31.1"
-egui-toast = "0.17.0"
-egui_extras = { version = "0.31.1", features = ["all_loaders"] }
+anyhow = "1.0.100"
+eframe = "0.32.3"
+egui-toast = "0.18.0"
+egui_extras = { version = "0.32.3", features = ["all_loaders"] }
 env_logger = "0.11.8"
-image = { version = "0.25.6", features = [ "png", "ico" ], default-features = false }
-rayon = "1.10.0"
-rfd = { version = "0.15.3", features = [ "xdg-portal", "tokio" ], default-features = false }
+image = { version = "0.25.8", features = [ "png", "ico" ], default-features = false }
+rayon = "1.11.0"
+rfd = { version = "0.15.4", features = [ "xdg-portal", "tokio" ], default-features = false }
 rpgmvp = { version = "0.0.0", path = "../rpgmvp" }
-tokio = "1.45.1"
+tokio = "1.47.1"
 
 [build-dependencies]
 winres = "0.1.12"
