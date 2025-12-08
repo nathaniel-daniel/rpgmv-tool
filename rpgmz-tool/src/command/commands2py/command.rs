@@ -12,8 +12,8 @@ pub use self::control_variables::ControlVariablesValueGameData;
 pub use self::control_variables::OperateVariableOperation;
 use self::param_reader::IntBool;
 use self::param_reader::ParamReader;
-use anyhow::ensure;
 use anyhow::Context;
+use anyhow::ensure;
 
 #[derive(Debug, Copy, Clone, Hash)]
 pub enum MaybeRef<T> {
