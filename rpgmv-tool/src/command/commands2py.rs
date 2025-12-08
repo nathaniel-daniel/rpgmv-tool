@@ -239,12 +239,10 @@ fn dump_dir(
                             format!("event_{event_id_u32:02}_page_{page_index_u16:02}.py");
                         let output = output.join(file_name);
 
-                        if !dry_run {
-                            if let Some(parent) = output.parent() {
-                                std::fs::create_dir_all(parent).with_context(|| {
-                                    format!("failed to create dir at\"{}\"", parent.display())
-                                })?;
-                            }
+                        if !dry_run && let Some(parent) = output.parent() {
+                            std::fs::create_dir_all(parent).with_context(|| {
+                                format!("failed to create dir at\"{}\"", parent.display())
+                            })?;
                         }
 
                         dump_file(
@@ -288,12 +286,10 @@ fn dump_dir(
                     let output_file_name = format!("{common_event_id_u32:03}_{event_name}.py");
                     let output = output.join(output_file_name);
 
-                    if !dry_run {
-                        if let Some(parent) = output.parent() {
-                            std::fs::create_dir_all(parent).with_context(|| {
-                                format!("failed to create dir at\"{}\"", parent.display())
-                            })?;
-                        }
+                    if !dry_run && let Some(parent) = output.parent() {
+                        std::fs::create_dir_all(parent).with_context(|| {
+                            format!("failed to create dir at\"{}\"", parent.display())
+                        })?;
                     }
 
                     dump_file(
@@ -340,12 +336,10 @@ fn dump_dir(
                             format!("{troop_id_u32:02}_page_{page_index:02}_{troop_name}.py");
                         let output = output.join(output_file_name);
 
-                        if !dry_run {
-                            if let Some(parent) = output.parent() {
-                                std::fs::create_dir_all(parent).with_context(|| {
-                                    format!("failed to create dir at\"{}\"", parent.display())
-                                })?;
-                            }
+                        if !dry_run && let Some(parent) = output.parent() {
+                            std::fs::create_dir_all(parent).with_context(|| {
+                                format!("failed to create dir at\"{}\"", parent.display())
+                            })?;
                         }
 
                         dump_file(
@@ -407,13 +401,13 @@ fn dump_file(
             })?;
         }
     };
-    if options.overwrite {
-        if let (Some(last_mtime), Some(output_mtime)) = (last_mtime, output_mtime) {
-            let last_mtime = std::cmp::max(last_mtime, input_mtime);
+    if options.overwrite
+        && let (Some(last_mtime), Some(output_mtime)) = (last_mtime, output_mtime)
+    {
+        let last_mtime = std::cmp::max(last_mtime, input_mtime);
 
-            if last_mtime < output_mtime {
-                return Ok(());
-            }
+        if last_mtime < output_mtime {
+            return Ok(());
         }
     }
 
