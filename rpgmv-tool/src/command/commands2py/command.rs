@@ -12,9 +12,9 @@ pub use self::control_variables::ControlVariablesValueGameData;
 pub use self::control_variables::OperateVariableOperation;
 use self::param_reader::IntBool;
 use self::param_reader::ParamReader;
+use anyhow::Context;
 use anyhow::bail;
 use anyhow::ensure;
-use anyhow::Context;
 
 #[derive(Debug, Copy, Clone)]
 pub enum GetLocationInfoKind {

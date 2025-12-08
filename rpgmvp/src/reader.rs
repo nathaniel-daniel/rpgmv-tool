@@ -112,12 +112,10 @@ where
         loop {
             match &mut self.state {
                 ReaderState::Header => {
-                    self.read_header()
-                        .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?;
+                    self.read_header().map_err(std::io::Error::other)?;
                 }
                 ReaderState::BodyInitialNoKey => {
-                    self.extract_key()
-                        .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?;
+                    self.extract_key().map_err(std::io::Error::other)?;
                 }
                 ReaderState::BodyInitial { key, offset } => {
                     let n = self.reader.read(buffer)?;

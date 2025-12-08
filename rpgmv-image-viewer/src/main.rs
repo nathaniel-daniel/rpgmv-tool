@@ -27,10 +27,14 @@ use egui_toast::ToastKind;
 use egui_toast::ToastOptions;
 use egui_toast::Toasts;
 use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
 use std::path::Path;
 use std::path::PathBuf;
 
 const TITLE: &str = "RPGMaker Image Viewer";
+const PNG_MAGIC: &[u8] = b"\x89PNG\r\n\x1a\n";
+const JPEG_MAGIC: &[u8] = &[0xff, 0xd8, 0xff];
 
 fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<TextureHandle> {
     let file_name = path
@@ -39,15 +43,28 @@ fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<TextureHandle>
         .to_string_lossy()
         .to_lowercase();
 
-    let file = std::fs::File::open(path)?;
+    let mut file = std::fs::File::open(path)?;
     let metadata = file.metadata()?;
 
-    let mut encrypted_reader = rpgmvp::Reader::new(std::io::BufReader::new(file));
-    let mut raw_image = Vec::with_capacity(usize::try_from(metadata.len())?);
-    encrypted_reader.read_to_end(&mut raw_image)?;
+    let mut magic = [0; 8];
+    file.read_exact(&mut magic)?;
+    file.seek(SeekFrom::Start(0))?;
 
-    let image = image::load_from_memory(&raw_image)?;
-    let rgba8_image = image.into_rgba8();
+    let mut file = std::io::BufReader::new(file);
+    let rgba8_image = if magic.starts_with(PNG_MAGIC) || magic.starts_with(JPEG_MAGIC) {
+        let mut raw_image = Vec::with_capacity(usize::try_from(metadata.len())?);
+        file.read_to_end(&mut raw_image)?;
+
+        let image = image::load_from_memory(&raw_image)?;
+        image.into_rgba8()
+    } else {
+        let mut encrypted_reader = rpgmvp::Reader::new(file);
+        let mut raw_image = Vec::with_capacity(usize::try_from(metadata.len())?);
+        encrypted_reader.read_to_end(&mut raw_image)?;
+
+        let image = image::load_from_memory(&raw_image)?;
+        image.into_rgba8()
+    };
 
     let image_size = [rgba8_image.width() as _, rgba8_image.height() as _];
     let pixels = rgba8_image.as_flat_samples();
@@ -182,11 +199,11 @@ impl eframe::App for App {
         }
 
         egui::TopBottomPanel::top("my_panel").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     ui.add_enabled_ui(!self.loading_image, |ui| {
                         if ui.add(Button::new("Open")).clicked() {
-                            ui.close_menu();
+                            ui.close();
 
                             self.loading_image = true;
 

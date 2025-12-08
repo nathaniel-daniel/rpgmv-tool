@@ -70,8 +70,7 @@ where
         loop {
             match &mut self.state {
                 WriterState::Header => {
-                    self.write_header()
-                        .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?;
+                    self.write_header().map_err(std::io::Error::other)?;
                 }
                 WriterState::BodyInitial { offset } => {
                     let mut written = 0;
