@@ -1,8 +1,8 @@
 use super::escape_string;
 use super::stringify_bool;
 use super::write_indent;
-use anyhow::bail;
 use anyhow::Context;
+use anyhow::bail;
 use std::io::Write;
 
 #[derive(Debug)]

@@ -1,7 +1,7 @@
 use super::Command;
 use super::ParamReader;
-use anyhow::bail;
 use anyhow::Context;
+use anyhow::bail;
 
 /// The type of variable operation.
 #[derive(Debug, Copy, Clone)]
