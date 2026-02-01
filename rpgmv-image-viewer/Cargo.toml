@@ -6,15 +6,15 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1.0.100"
-eframe = "0.33.2"
+eframe = "0.33.3"
 egui-toast = "0.19.1"
-egui_extras = { version = "0.33.2", features = ["all_loaders"] }
+egui_extras = { version = "0.33.3", features = ["all_loaders"] }
 env_logger = "0.11.8"
 image = { version = "0.25.9", features = [ "png", "jpeg", "ico" ], default-features = false }
 rayon = "1.11.0"
 rfd = { version = "0.16.0", features = [ "xdg-portal", "tokio" ], default-features = false }
 rpgmvp = { version = "0.0.0", path = "../rpgmvp" }
-tokio = "1.48.0"
+tokio = "1.49.0"
 
 [build-dependencies]
 winres = "0.1.12"
