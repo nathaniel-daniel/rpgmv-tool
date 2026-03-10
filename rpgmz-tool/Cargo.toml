@@ -5,14 +5,14 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-anyhow = "1.0.100"
-argh = "0.1.13"
-base16ct = { version = "0.3.0", features = [ "alloc" ] }
-flate2 = { version = "1.1.5" }
+anyhow = "1.0.102"
+argh = "0.1.17"
+base16ct = { version = "1.0.0", features = [ "alloc" ] }
+flate2 = { version = "1.1.9" }
 glob = "0.3.3"
 nd-util = { git = "https://github.com/nathaniel-daniel/nd-util-rs", version = "0.0.0" }
 rpgmvp = { version = "0.0.0", path = "../rpgmvp" }
 rpgmz-types = { version = "0.0.0", path = "../rpgmz-types" }
 serde = { version = "1.0.228", features = [ "derive" ] }
-serde_json = "1.0.145"
-toml = "0.9.8"
+serde_json = "1.0.149"
+toml = "1.0.6"

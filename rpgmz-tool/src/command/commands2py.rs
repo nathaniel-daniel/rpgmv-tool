@@ -625,6 +625,9 @@ fn sanitize_file_name(file_name: &str) -> String {
             ':' => {
                 ret.push('：');
             }
+            '/' => {
+                ret.push('／');
+            }
             _ => {
                 ret.push(ch);
             }
