@@ -37,7 +37,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
 
     let output = prepare_compress_output(&output);
 
-    let tmp_out_path = nd_util::with_push_extension(&options.output, "tmp");
+    let tmp_out_path = options.output.with_added_extension("tmp");
     let mut out_file = File::create(&tmp_out_path)
         .with_context(|| format!("failed to create file at \"{}\"", tmp_out_path.display()))?;
     out_file.write_all(output.as_bytes())?;

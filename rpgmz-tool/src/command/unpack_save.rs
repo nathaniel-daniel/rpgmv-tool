@@ -46,7 +46,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
         output_string = serde_json::to_string_pretty(&parsed)?;
     }
 
-    let tmp_out_path = nd_util::with_push_extension(&options.output, "tmp");
+    let tmp_out_path = options.output.with_added_extension("tmp");
     let mut out_file = File::create(&tmp_out_path)
         .with_context(|| format!("failed to create file at \"{}\"", tmp_out_path.display()))?;
     out_file.write_all(output_string.as_bytes())?;
