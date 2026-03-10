@@ -283,7 +283,9 @@ fn dump_dir(
                         .common_events
                         .get(&common_event_id_u32)
                         .unwrap_or(&common_event.name);
-                    let output_file_name = format!("{common_event_id_u32:03}_{event_name}.py");
+                    let sanitized_event_name = sanitize_file_name(event_name);
+                    let output_file_name =
+                        format!("{common_event_id_u32:03}_{sanitized_event_name}.py");
                     let output = output.join(output_file_name);
 
                     if !dry_run && let Some(parent) = output.parent() {
@@ -606,4 +608,25 @@ where
         Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Ok(false),
         Err(error) => Err(error),
     }
+}
+
+/// See: https://rclone.org/overview/#encoding
+fn sanitize_file_name(file_name: &str) -> String {
+    let mut ret = String::with_capacity(file_name.len());
+
+    for ch in file_name.chars() {
+        match ch {
+            ':' => {
+                ret.push('：');
+            }
+            '/' => {
+                ret.push('／');
+            }
+            _ => {
+                ret.push(ch);
+            }
+        }
+    }
+
+    ret
 }
