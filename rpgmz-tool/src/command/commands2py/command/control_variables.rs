@@ -85,6 +85,7 @@ enum GameDataOperandKind {
     Character = 5,
     Party = 6,
     Other = 7,
+    LastAction = 8,
 }
 
 impl GameDataOperandKind {
@@ -99,6 +100,7 @@ impl GameDataOperandKind {
             5 => Ok(Self::Character),
             6 => Ok(Self::Party),
             7 => Ok(Self::Other),
+            8 => Ok(Self::LastAction),
             _ => bail!("{value} is not a valid GameDataOperandKind"),
         }
     }
@@ -198,7 +200,8 @@ pub enum ControlVariablesValueGameData {
     ActorLevel { actor_id: u32 },
     ActorHp { actor_id: u32 },
     ActorMp { actor_id: u32 },
-    ActorParam { param_index: u8 },
+    ActorParam { actor_id: u32, param_index: u8 },
+    EnemyParam { enemy_index: u32, param_index: u8 },
     CharacterMapX { character_id: i32 },
     CharacterMapY { character_id: i32 },
     CharacterScreenX { character_id: i32 },
@@ -206,6 +209,47 @@ pub enum ControlVariablesValueGameData {
     MapId,
     Gold,
     Steps,
+    LastActionSubjectActor,
+}
+
+#[derive(Debug)]
+pub enum LastActionType {
+    Skill = 0,
+    Item = 1,
+    SubjectActor = 2,
+    SubjectEnemy = 3,
+    TargetActor = 4,
+    TargetEnemy = 5,
+}
+
+impl LastActionType {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            0 => Ok(Self::Skill),
+            1 => Ok(Self::Item),
+            2 => Ok(Self::SubjectActor),
+            3 => Ok(Self::SubjectEnemy),
+            4 => Ok(Self::TargetActor),
+            5 => Ok(Self::TargetEnemy),
+            _ => bail!("{value} is not a valid LastActionType"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum EnemyParam {
+    Param(u8),
+}
+
+impl EnemyParam {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            value if (2..=9).contains(&value) => Ok(Self::Param(value - 2)),
+            _ => bail!("{value} is not a valid EnemyParam"),
+        }
+    }
 }
 
 impl Command {
@@ -278,9 +322,26 @@ impl Command {
                                 ControlVariablesValueGameData::ActorMp { actor_id }
                             }
                             GameDataOperandKindActorCheck::Param(index) => {
-                                ControlVariablesValueGameData::ActorParam { param_index: index }
+                                ControlVariablesValueGameData::ActorParam {
+                                    actor_id,
+                                    param_index: index,
+                                }
                             }
                             _ => bail!("GameDataOperandKindActorCheck {check:?} is not supported"),
+                        }
+                    }
+                    GameDataOperandKind::Enemy => {
+                        let enemy_index =
+                            u32::try_from(param1).context("`enemy_index` is not a `u32`")?;
+                        let enemy_param =
+                            u8::try_from(param2).context("`enemy_param` is not a `u8`")?;
+                        let enemy_param = EnemyParam::from_u8(enemy_param)?;
+
+                        match enemy_param {
+                            EnemyParam::Param(index) => ControlVariablesValueGameData::EnemyParam {
+                                enemy_index,
+                                param_index: index,
+                            },
                         }
                     }
                     GameDataOperandKind::Character => {
@@ -321,6 +382,18 @@ impl Command {
                                 ControlVariablesValueGameData::Steps
                             }
                             _ => bail!("GameDataOperandKindOtherCheck {check:?} is not supported"),
+                        }
+                    }
+                    GameDataOperandKind::LastAction => {
+                        let action_type =
+                            u8::try_from(param1).context("`action_type` is not a `u8`")?;
+                        let action_type = LastActionType::from_u8(action_type)?;
+
+                        match action_type {
+                            LastActionType::SubjectActor => {
+                                ControlVariablesValueGameData::LastActionSubjectActor
+                            }
+                            _ => bail!("LastActionType {action_type:?} is not supported"),
                         }
                     }
                     _ => {

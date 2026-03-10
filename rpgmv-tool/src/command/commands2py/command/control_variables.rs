@@ -198,7 +198,8 @@ pub enum ControlVariablesValueGameData {
     ActorLevel { actor_id: u32 },
     ActorHp { actor_id: u32 },
     ActorMp { actor_id: u32 },
-    ActorParam { param_index: u8 },
+    ActorParam { actor_id: u32, param_index: u8 },
+    EnemyParam { enemy_index: u32, param_index: u8 },
     CharacterMapX { character_id: i32 },
     CharacterMapY { character_id: i32 },
     CharacterScreenX { character_id: i32 },
@@ -206,6 +207,21 @@ pub enum ControlVariablesValueGameData {
     MapId,
     Gold,
     Steps,
+}
+
+#[derive(Debug)]
+pub enum EnemyParam {
+    Param(u8),
+}
+
+impl EnemyParam {
+    /// Get this from a u8.
+    pub fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            value if (2..=9).contains(&value) => Ok(Self::Param(value - 2)),
+            _ => bail!("{value} is not a valid EnemyParam"),
+        }
+    }
 }
 
 impl Command {
@@ -278,9 +294,26 @@ impl Command {
                                 ControlVariablesValueGameData::ActorMp { actor_id }
                             }
                             GameDataOperandKindActorCheck::Param(index) => {
-                                ControlVariablesValueGameData::ActorParam { param_index: index }
+                                ControlVariablesValueGameData::ActorParam {
+                                    actor_id,
+                                    param_index: index,
+                                }
                             }
                             _ => bail!("GameDataOperandKindActorCheck {check:?} is not supported"),
+                        }
+                    }
+                    GameDataOperandKind::Enemy => {
+                        let enemy_index =
+                            u32::try_from(param1).context("`enemy_index` is not a `u32`")?;
+                        let enemy_param =
+                            u8::try_from(param2).context("`enemy_param` is not a `u8`")?;
+                        let enemy_param = EnemyParam::from_u8(enemy_param)?;
+
+                        match enemy_param {
+                            EnemyParam::Param(index) => ControlVariablesValueGameData::EnemyParam {
+                                enemy_index,
+                                param_index: index,
+                            },
                         }
                     }
                     GameDataOperandKind::Character => {

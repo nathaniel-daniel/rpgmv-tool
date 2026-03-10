@@ -232,8 +232,18 @@ where
                         let name = config.get_actor_name(*actor_id);
                         format!("{name}.mp")
                     }
-                    ControlVariablesValueGameData::ActorParam { param_index } => {
-                        format!("game_param_{param_index}")
+                    ControlVariablesValueGameData::ActorParam {
+                        actor_id,
+                        param_index,
+                    } => {
+                        let name = config.get_actor_name(*actor_id);
+                        format!("{name}.param({param_index})")
+                    }
+                    ControlVariablesValueGameData::EnemyParam {
+                        enemy_index,
+                        param_index,
+                    } => {
+                        format!("game_troop.members[{enemy_index}].param({param_index})")
                     }
                     ControlVariablesValueGameData::CharacterMapX { character_id } => {
                         format!("game.get_character(id={character_id}).map_x")
@@ -250,6 +260,9 @@ where
                     ControlVariablesValueGameData::MapId => "game_map.map_id()".to_string(),
                     ControlVariablesValueGameData::Gold => "game_party.gold".to_string(),
                     ControlVariablesValueGameData::Steps => "game_party.steps".to_string(),
+                    ControlVariablesValueGameData::LastActionSubjectActor => {
+                        "game.last_subject_actor()".to_string()
+                    }
                 },
                 ControlVariablesValue::Script { value } => {
                     let value = escape_string(value);
