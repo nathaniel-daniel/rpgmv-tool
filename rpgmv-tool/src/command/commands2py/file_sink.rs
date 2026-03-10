@@ -42,7 +42,7 @@ impl FileSink {
         P: AsRef<Path>,
     {
         let path = path.as_ref();
-        let path_temp = nd_util::with_push_extension(path, "tmp");
+        let path_temp = path.with_added_extension("tmp");
         let file = File::create(&path_temp)
             .with_context(|| format!("failed to open \"{}\"", path_temp.display()))?;
         let file = BufWriter::new(file);
