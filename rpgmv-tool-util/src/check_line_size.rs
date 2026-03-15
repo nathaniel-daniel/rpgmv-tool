@@ -39,12 +39,12 @@ fn load_plugins_js(game_path: &Path) -> anyhow::Result<Vec<Plugin>> {
     Ok(plugins)
 }
 
-struct CheckLineSizeEntry {
-    file: String,
-    line: String,
-    text_width: f32,
-    target_width: u16,
-    suggested_line: String,
+pub struct CheckLineSizeEntry {
+    pub file: String,
+    pub line: String,
+    pub text_width: f32,
+    pub target_width: u16,
+    pub suggested_line: String,
 }
 
 struct CheckLineSizeContext {
@@ -65,6 +65,7 @@ impl CheckLineSizeContext {
         }
     }
 
+    #[expect(unused)]
     fn pop_entry(&mut self) -> Option<CheckLineSizeEntry> {
         self.entries.pop_front()
     }
@@ -238,7 +239,7 @@ impl CheckLineSizeContext {
 }
 
 /// Check lines for text overflow in a game.
-pub fn check_line_size(game_path: &Path) -> anyhow::Result<()> {
+pub fn check_line_size(game_path: &Path) -> anyhow::Result<Vec<CheckLineSizeEntry>> {
     let game_is_mv = is_game_mv(game_path)?;
 
     let (font_name, font_size, game_width) = if game_is_mv {
@@ -321,21 +322,7 @@ pub fn check_line_size(game_path: &Path) -> anyhow::Result<()> {
             let value: Vec<Option<rpgmv_types::CommonEvent>> = serde_json::from_str(&string)?;
             context.check_common_events(&value)?;
         }
-
-        while let Some(CheckLineSizeEntry {
-            file,
-            line,
-            text_width,
-            target_width,
-            suggested_line,
-        }) = context.pop_entry()
-        {
-            println!("{file}");
-            println!("  Text: \"{line}\"");
-            println!("  width={text_width} vs target_width={target_width}");
-            println!("  suggested_text=\"{suggested_line}\"");
-        }
     }
 
-    Ok(())
+    Ok(context.entries.into_iter().collect())
 }

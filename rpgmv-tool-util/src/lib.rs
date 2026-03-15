@@ -2,6 +2,7 @@ mod check_line_size;
 pub mod message_parser;
 mod util;
 
+pub use self::check_line_size::CheckLineSizeEntry;
 pub use self::check_line_size::check_line_size;
 use crate::util::try_exists;
 use anyhow::ensure;

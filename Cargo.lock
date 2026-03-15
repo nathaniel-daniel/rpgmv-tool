@@ -3374,6 +3374,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "glob",
+ "rpgmv-tool-util",
  "rpgmv-types",
  "rpgmvp",
  "serde",
