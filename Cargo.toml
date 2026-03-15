@@ -11,7 +11,7 @@ members = [
     "rpgmz-types",
     
     # Both
-    "rpgmv-image-viewer",
+    "rpgmv-image-viewer", "rpgmv-tool-util",
 ]
 
 [profile.release]

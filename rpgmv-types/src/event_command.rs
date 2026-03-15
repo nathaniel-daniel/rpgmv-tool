@@ -10,4 +10,9 @@ pub struct EventCommand {
 
     /// The event parameters
     pub parameters: Vec<serde_json::Value>,
+    
+    /// I'm not sure if this is part of the core engine or not.
+    ///
+    /// This is only for MZ games.
+    pub collapsed: Option<bool>,
 }
