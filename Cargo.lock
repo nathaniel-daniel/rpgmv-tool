@@ -3143,7 +3143,6 @@ name = "rpgmv-tool"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "argh",
  "base16ct",
  "clap",
  "clap_complete",
