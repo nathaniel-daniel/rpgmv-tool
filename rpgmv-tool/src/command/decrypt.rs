@@ -1,7 +1,9 @@
+use crate::util::try_metadata;
 use anyhow::Context;
 use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::ensure;
+use clap::Parser;
 use glob::glob;
 use std::fs::File;
 use std::io::BufReader;
@@ -9,38 +11,17 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
-#[derive(Debug, argh::FromArgs)]
-#[argh(subcommand, name = "decrypt", description = "decrypt a file")]
+#[derive(Debug, Parser)]
+#[command(about = "Decrypt a file")]
 pub struct Options {
-    #[argh(option, long = "input", short = 'i', description = "a file to decrypt")]
+    #[arg(long = "input", short = 'i', help = "A file to decrypt")]
     pub input: Vec<PathBuf>,
 
-    #[argh(
-        option,
-        long = "glob-input",
-        description = "a glob of input files to decrypt"
-    )]
+    #[arg(long = "glob-input", help = "A glob of input files to decrypt")]
     pub glob_input: Vec<String>,
 
-    #[argh(
-        option,
-        long = "output",
-        short = 'o',
-        description = "the output folder"
-    )]
+    #[arg(long = "output", short = 'o', help = "The output folder")]
     pub output: PathBuf,
-}
-
-/// Try to get metadata for a path
-fn try_metadata<P>(path: P) -> std::io::Result<Option<std::fs::Metadata>>
-where
-    P: AsRef<Path>,
-{
-    match std::fs::metadata(path) {
-        Ok(metadata) => Ok(Some(metadata)),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(error),
-    }
 }
 
 /// Interface inspired by mv.
