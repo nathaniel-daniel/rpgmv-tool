@@ -74,8 +74,6 @@ skip = [
     { name = "windows_x86_64_msvc", version = "0.52.6" },
     { name = "windows_x86_64_gnu", version = "0.52.6" },
     { name = "windows-targets", version = "0.52.6" },
-    { name = "zune-jpeg", version = "0.4.21" },
-    { name = "zune-core", version = "0.4.12" },
     { name = "smithay-client-toolkit", version = "0.19.2" },
     { name = "quick-xml", version = "0.38.4" },
     { name = "png", version = "0.17.16" },
@@ -83,6 +81,8 @@ skip = [
     { name = "calloop-wayland-source", version = "0.3.0" },
     { name = "calloop", version = "0.13.0" },
     { name = "getrandom", version = "0.3.4" },
+    { name = "anstream", version = "0.6.21" },
+    { name = "anstyle-parse", version = "0.2.7" },
 ]
 
 [sources]
