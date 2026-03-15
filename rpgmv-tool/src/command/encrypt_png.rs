@@ -1,20 +1,21 @@
 use anyhow::Context;
+use clap::Parser;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::BufWriter;
 use std::io::Write;
 use std::path::PathBuf;
 
-#[derive(Debug, argh::FromArgs)]
-#[argh(subcommand, name = "encrypt-png", description = "encrypt a png")]
+#[derive(Debug, Parser)]
+#[command(about = "Encrypt a png")]
 pub struct Options {
-    #[argh(option, long = "input", short = 'i', description = "a png to encrypt")]
+    #[arg(long = "input", short = 'i', help = "A png to encrypt")]
     pub input: PathBuf,
 
-    #[argh(option, long = "output", short = 'o', description = "the output file")]
+    #[arg(long = "output", short = 'o', help = "The output file")]
     pub output: PathBuf,
 
-    #[argh(option, long = "key", short = 'k', description = "the key, as hex")]
+    #[arg(long = "key", short = 'k', help = "The key, as hex")]
     pub key: String,
 }
 

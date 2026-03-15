@@ -16,65 +16,41 @@ use self::generate::commands2py;
 use anyhow::Context;
 use anyhow::bail;
 use anyhow::ensure;
+use clap::Parser;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-#[derive(Debug, argh::FromArgs)]
-#[argh(
-    subcommand,
-    name = "commands2py",
-    description = "a tool to \"decompile\" scripts to Python for easier inspection"
-)]
+#[derive(Debug, Parser)]
+#[command(about = "A tool to \"decompile\" scripts to Python for easier inspection")]
 pub struct Options {
-    #[argh(
-        option,
-        long = "input",
-        short = 'i',
-        description = "the path to the input file"
-    )]
+    #[arg(long = "input", short = 'i', help = "The path to the input file")]
     input: PathBuf,
 
-    #[argh(option, long = "id", description = "id of the item to convert")]
+    #[arg(long = "id", help = "The id of the item to convert")]
     id: Option<u32>,
 
-    #[argh(option, long = "event-page", description = "the event page to convert")]
+    #[arg(long = "event-page", help = "The event page to convert")]
     event_page: Option<u16>,
 
-    #[argh(
-        option,
-        long = "config",
-        short = 'c',
-        description = "the path to the config to use"
-    )]
+    #[arg(long = "config", short = 'c', help = "The path to the config to use")]
     config: Option<PathBuf>,
 
-    #[argh(
-        switch,
-        long = "dry-run",
-        description = "avoid writing the output files"
-    )]
+    #[arg(long = "dry-run", help = "Avoid writing the output files")]
     dry_run: bool,
 
-    #[argh(
-        option,
-        long = "output",
-        short = 'o',
-        description = "the path to the output file"
-    )]
+    #[arg(long = "output", short = 'o', help = "The path to the output file")]
     output: Option<PathBuf>,
 
-    #[argh(
-        switch,
+    #[arg(
         long = "overwrite",
-        description = "whether to overwrite the output, if it exists"
+        help = "Whether to overwrite the output, if it exists"
     )]
     overwrite: bool,
 
-    #[argh(
-        switch,
+    #[arg(
         long = "use-mtimes",
-        description = "check mtimes to skip assets that don't need to be converted again"
+        help = "Check mtimes to skip assets that don't need to be converted again"
     )]
     use_mtimes: bool,
 }
