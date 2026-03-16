@@ -1,0 +1,13 @@
+[package]
+name = "rpgmv-tool-util"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+allsorts = "0.16.1"
+anyhow = "1.0.102"
+ouroboros = "0.18.5"
+regex = "1.12.3"
+rpgmv-types = { version = "0.0.0", path = "../rpgmv-types" }
+serde_json = "1.0.149"

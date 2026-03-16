@@ -22,6 +22,7 @@ enum SubCommand {
     Commands2Py(self::command::commands2py::Options),
     EncryptPng(self::command::encrypt_png::Options),
     GenerateCompletions(self::command::generate_completions::Options),
+    CheckLineSize(self::command::check_line_size::Options),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -34,6 +35,7 @@ fn main() -> anyhow::Result<()> {
         SubCommand::GenerateCompletions(options) => {
             self::command::generate_completions::exec(options)?
         }
+        SubCommand::CheckLineSize(options) => self::command::check_line_size::exec(options)?,
     }
 
     Ok(())

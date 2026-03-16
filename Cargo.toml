@@ -4,7 +4,6 @@ members = [
     # MV
     "rpgmvp",
     "rpgmv-tool",
-    "rpgmv-types",
     
     # MZ
     "rpgmz-tool",
@@ -12,6 +11,8 @@ members = [
     
     # Both
     "rpgmv-image-viewer",
+    "rpgmv-types",
+    "rpgmv-tool-util",
 ]
 
 [profile.release]
