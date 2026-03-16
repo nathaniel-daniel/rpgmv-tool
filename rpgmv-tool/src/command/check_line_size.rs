@@ -4,7 +4,7 @@ use std::path::PathBuf;
 #[derive(Debug, Parser)]
 #[command(about = "Check a game to see if any text lines overflow their boxes")]
 pub struct Options {
-    #[arg(help = "The path to the game to check", default_value=".")]
+    #[arg(help = "The path to the game to check", default_value = ".")]
     pub input: PathBuf,
 }
 

@@ -53,6 +53,9 @@ impl<'a> MessageParser<'a> {
         parser.single_text_codes.insert('g');
         parser.single_text_codes.insert('!');
         parser.single_text_codes.insert('{');
+        parser.single_text_codes.insert('}');
+        parser.single_text_codes.insert('|');
+
         // Body
         parser.text_codes.insert("c".to_string());
         parser.text_codes.insert("i".to_string());

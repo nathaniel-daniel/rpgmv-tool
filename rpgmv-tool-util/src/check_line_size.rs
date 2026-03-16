@@ -264,7 +264,7 @@ pub fn check_line_size(game_path: &Path) -> anyhow::Result<Vec<CheckLineSizeEntr
             screen_width.unwrap_or(816),
         )
     } else {
-        let system_path = game_path.join("System.json");
+        let system_path = game_path.join("data").join("System.json");
         let system_string = std::fs::read_to_string(&system_path)
             .with_context(|| format!("failed to read to string \"{}\"", system_path.display()))?;
         let system: System =
@@ -293,7 +293,15 @@ pub fn check_line_size(game_path: &Path) -> anyhow::Result<Vec<CheckLineSizeEntr
 
     let mut context = CheckLineSizeContext::new(font, font_size, game_width);
 
-    let mut dir_entries = std::fs::read_dir(game_path)?.collect::<Result<Vec<_>, _>>()?;
+    let data_path = {
+        let mut path = PathBuf::from(game_path);
+        if game_is_mv {
+            path.push("www");
+        }
+        path.push("data");
+        path
+    };
+    let mut dir_entries = std::fs::read_dir(data_path)?.collect::<Result<Vec<_>, _>>()?;
     dir_entries.sort_by_key(|entry_a| entry_a.file_name());
     for entry in dir_entries {
         let entry_file_name = entry

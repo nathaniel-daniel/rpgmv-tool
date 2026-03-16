@@ -13,6 +13,7 @@ pub struct SystemAdvanced {
     pub screen_width: u16,
 
     /// Extra k/v entries
+    #[serde(flatten)]
     pub extra: HashMap<String, serde_json::Value>,
 }
 
@@ -23,5 +24,6 @@ pub struct System {
     pub advanced: Option<SystemAdvanced>,
 
     /// Extra k/v entries
+    #[serde(flatten)]
     pub extra: HashMap<String, serde_json::Value>,
 }
