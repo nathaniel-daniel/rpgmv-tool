@@ -313,6 +313,21 @@ impl CheckLineSizeContext {
         }
         Ok(())
     }
+
+    /*
+    fn check_skills(&mut self, skills: &[Option<rpgmv_types::Skill>]) -> anyhow::Result<()> {
+        let file = "Skills";
+        for skill in skills.iter() {
+            let item = match item {
+                Some(skill) => skill,
+                None => continue,
+            };
+
+            self.check_item_description(&skill.description, file)?;
+        }
+        Ok(())
+    }
+    */
 }
 
 pub struct CheckLineSizeIter {
@@ -396,7 +411,14 @@ impl Iterator for CheckLineSizeIter {
                                 serde_json::from_str(&string).context("failed to parse Items")?;
                             self.context.check_items(&value)?;
                         }
-                        "Skills.json" => {}
+                        "Skills.json" => {
+                            /*
+                            let string = read_to_string(&entry_path)?;
+                            let value: Vec<Option<rpgmv_types::Skill>> =
+                                serde_json::from_str(&string).context("failed to parse Skills")?;
+                            self.context.check_skills(&value)?;
+                            */
+                        }
                         "Weapons.json" => {}
                         _ => {}
                     }
@@ -430,13 +452,19 @@ pub fn check_line_size(game_path: &Path) -> anyhow::Result<CheckLineSizeIter> {
         let mut screen_width = None;
         for plugin in plugins {
             if plugin.name == "Community_Basic" {
-                let screen_width_param = plugin
+                let screen_width_param_raw = plugin
                     .parameters
                     .get("screenWidth")
-                    .context("missing screen width param")?
-                    .parse()
-                    .context("screen width is not a u16")?;
-                screen_width = Some(screen_width_param);
+                    .context("missing screen width param")?;
+                if screen_width_param_raw.is_empty() {
+                    // This plugin will set a default if not present.
+                    screen_width = Some(816);
+                } else {
+                    let screen_width_param = screen_width_param_raw
+                        .parse()
+                        .context("screen width is not a u16")?;
+                    screen_width = Some(screen_width_param);
+                }
             }
         }
 
