@@ -19,6 +19,7 @@ struct Options {
 #[derive(Debug, clap::Subcommand)]
 enum SubCommand {
     Decrypt(self::command::decrypt::Options),
+    #[command(name = "commands2py")]
     Commands2Py(self::command::commands2py::Options),
     EncryptPng(self::command::encrypt_png::Options),
     GenerateCompletions(self::command::generate_completions::Options),

@@ -20,6 +20,16 @@ const MESSAGE_STANDARD_PADDING: u16 = 18;
 /// Message Actor Faces are 144x144 px.
 const MESSAGE_FACE_SIZE: u16 = 144;
 const MESSAGE_FACE_PADDING: u16 = 12;
+/// Text padding is applied in addition to STANDARD_PADDING, but not for all windows.
+const TEXT_PADDING: u16 = 6;
+
+fn read_to_string<P>(path: P) -> anyhow::Result<String>
+where
+    P: AsRef<Path>,
+{
+    let path = path.as_ref();
+    std::fs::read_to_string(path).with_context(|| format!("failed to read \"{}\"", path.display()))
+}
 
 /// MV only
 fn load_plugins_js(game_path: &Path) -> anyhow::Result<Vec<Plugin>> {
@@ -150,6 +160,32 @@ impl CheckLineSizeContext {
         Ok(())
     }
 
+    fn check_item_description(&mut self, description: &str, file: &str) -> anyhow::Result<()> {
+        for line in description.split('\n') {
+            if line.is_empty() {
+                continue;
+            }
+
+            let text_width = self.get_text_width(line)?;
+            let target_width = self.game_width - (2 * (MESSAGE_STANDARD_PADDING + TEXT_PADDING));
+
+            if text_width >= f32::from(target_width) {
+                let suggested_line = self.suggest_line_replacement(line, target_width)?;
+                let suggested_line = suggested_line.as_deref().unwrap_or("None");
+
+                self.entries.push_back(CheckLineSizeEntry {
+                    file: file.to_string(),
+                    line: line.to_string(),
+                    text_width,
+                    target_width,
+                    suggested_line: suggested_line.to_string(),
+                });
+            }
+        }
+
+        Ok(())
+    }
+
     fn check_event_command_list(
         &mut self,
         command_list: &[rpgmv_types::EventCommand],
@@ -236,6 +272,73 @@ impl CheckLineSizeContext {
         }
         Ok(())
     }
+
+    fn check_troops(&mut self, troops: &[Option<rpgmv_types::Troop>]) -> anyhow::Result<()> {
+        let file = "Troops";
+        for troop in troops.iter() {
+            let troop = match troop {
+                Some(troop) => troop,
+                None => continue,
+            };
+
+            for page in troop.pages.iter() {
+                self.check_event_command_list(&page.list, file)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn check_armors(&mut self, armors: &[Option<rpgmv_types::Armor>]) -> anyhow::Result<()> {
+        let file = "Armors";
+        for armor in armors.iter() {
+            let armor = match armor {
+                Some(armor) => armor,
+                None => continue,
+            };
+
+            self.check_item_description(&armor.description, file)?;
+        }
+        Ok(())
+    }
+
+    fn check_items(&mut self, items: &[Option<rpgmv_types::Item>]) -> anyhow::Result<()> {
+        let file = "Items";
+        for item in items.iter() {
+            let item = match item {
+                Some(item) => item,
+                None => continue,
+            };
+
+            self.check_item_description(&item.description, file)?;
+        }
+        Ok(())
+    }
+
+    fn check_skills(&mut self, skills: &[Option<rpgmv_types::Skill>]) -> anyhow::Result<()> {
+        let file = "Skills";
+        for skill in skills.iter() {
+            let skill = match skill {
+                Some(skill) => skill,
+                None => continue,
+            };
+
+            self.check_item_description(&skill.description, file)?;
+        }
+        Ok(())
+    }
+
+    fn check_weapons(&mut self, weapons: &[Option<rpgmv_types::Weapon>]) -> anyhow::Result<()> {
+        let file = "Weapons";
+        for weapon in weapons.iter() {
+            let weapon = match weapon {
+                Some(weapon) => weapon,
+                None => continue,
+            };
+
+            self.check_item_description(&weapon.description, file)?;
+        }
+        Ok(())
+    }
 }
 
 pub struct CheckLineSizeIter {
@@ -269,10 +372,10 @@ impl Iterator for CheckLineSizeIter {
             return Some(Ok(entry));
         }
 
-        let entry = self.dir_entries.next()?;
+        loop {
+            let entry = self.dir_entries.next()?;
 
-        let result = (|| {
-            loop {
+            let result = (|| {
                 let entry_file_name = entry
                     .file_name()
                     .to_str()
@@ -282,37 +385,73 @@ impl Iterator for CheckLineSizeIter {
                 let entry_path = entry.path();
 
                 if !entry_file_name.ends_with(".json") {
-                    continue;
+                    return Ok(());
                 }
                 if entry_file_name == "MapInfos.json" {
-                    continue;
+                    return Ok(());
                 }
 
                 if let Some(map_number) = parse_map_name(&entry_file_name) {
-                    let string = std::fs::read_to_string(&entry_path)
-                        .with_context(|| format!("failed to read \"{}\"", entry_path.display()))?;
-
-                    let map: rpgmv_types::Map = serde_json::from_str(&string)?;
+                    let string = read_to_string(&entry_path)?;
+                    let map: rpgmv_types::Map = serde_json::from_str(&string)
+                        .with_context(|| format!("failed to parse Map {map_number}"))?;
                     self.context.check_map(&map, map_number)?;
-                } else if entry_file_name == "CommonEvents.json" {
-                    let string = std::fs::read_to_string(&entry_path)
-                        .with_context(|| format!("failed to read \"{}\"", entry_path.display()))?;
-                    let value: Vec<Option<rpgmv_types::CommonEvent>> =
-                        serde_json::from_str(&string)?;
-                    self.context.check_common_events(&value)?;
+                } else {
+                    match entry_file_name.as_str() {
+                        "CommonEvents.json" => {
+                            let string = read_to_string(&entry_path)?;
+                            let value: Vec<Option<rpgmv_types::CommonEvent>> =
+                                serde_json::from_str(&string)
+                                    .context("failed to parse CommonEvents")?;
+                            self.context.check_common_events(&value)?;
+                        }
+                        "Troops.json" => {
+                            let string = read_to_string(&entry_path)?;
+                            let value: Vec<Option<rpgmv_types::Troop>> =
+                                serde_json::from_str(&string).context("failed to parse Troops")?;
+                            self.context.check_troops(&value)?;
+                        }
+                        "Armors.json" => {
+                            let string = read_to_string(&entry_path)?;
+                            let value: Vec<Option<rpgmv_types::Armor>> =
+                                serde_json::from_str(&string).context("failed to parse Armors")?;
+                            self.context.check_armors(&value)?;
+                        }
+                        "Items.json" => {
+                            let string = read_to_string(&entry_path)?;
+                            let value: Vec<Option<rpgmv_types::Item>> =
+                                serde_json::from_str(&string).context("failed to parse Items")?;
+                            self.context.check_items(&value)?;
+                        }
+                        "Skills.json" => {
+                            let string = read_to_string(&entry_path)?;
+                            let value: Vec<Option<rpgmv_types::Skill>> =
+                                serde_json::from_str(&string).context("failed to parse Skills")?;
+                            self.context.check_skills(&value)?;
+                        }
+                        "Weapons.json" => {
+                            let string = read_to_string(&entry_path)?;
+                            let value: Vec<Option<rpgmv_types::Weapon>> =
+                                serde_json::from_str(&string).context("failed to parse Weapons")?;
+                            self.context.check_weapons(&value)?;
+                        }
+                        _ => {}
+                    }
                 }
 
-                if let Some(entry) = self.context.pop_entry() {
-                    return Ok(entry);
-                }
-            }
-        })();
+                anyhow::Ok(())
+            })();
 
-        match result {
-            Ok(entry) => Some(Ok(entry)),
-            Err(error) => {
-                self.found_error = true;
-                Some(Err(error))
+            match result {
+                Ok(()) => {
+                    if let Some(entry) = self.context.pop_entry() {
+                        return Some(Ok(entry));
+                    }
+                }
+                Err(error) => {
+                    self.found_error = true;
+                    return Some(Err(error));
+                }
             }
         }
     }
@@ -328,13 +467,19 @@ pub fn check_line_size(game_path: &Path) -> anyhow::Result<CheckLineSizeIter> {
         let mut screen_width = None;
         for plugin in plugins {
             if plugin.name == "Community_Basic" {
-                let screen_width_param = plugin
+                let screen_width_param_raw = plugin
                     .parameters
                     .get("screenWidth")
-                    .context("missing screen width param")?
-                    .parse()
-                    .context("screen width is not a u16")?;
-                screen_width = Some(screen_width_param);
+                    .context("missing screen width param")?;
+                if screen_width_param_raw.is_empty() {
+                    // This plugin will set a default if not present.
+                    screen_width = Some(816);
+                } else {
+                    let screen_width_param = screen_width_param_raw
+                        .parse()
+                        .context("screen width is not a u16")?;
+                    screen_width = Some(screen_width_param);
+                }
             }
         }
 

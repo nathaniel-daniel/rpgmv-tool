@@ -52,5 +52,5 @@ pub struct EventPageCondition {
 
     /// ?
     #[serde(rename = "variableValue")]
-    pub variable_value: u32,
+    pub variable_value: i32,
 }
