@@ -1,9 +1,13 @@
 mod check_line_size;
+mod font;
 pub mod message_parser;
 mod util;
 
 pub use self::check_line_size::CheckLineSizeEntry;
 pub use self::check_line_size::check_line_size;
+pub use self::font::Font;
+pub use self::font::get_text_width;
+pub use self::font::load_font;
 use crate::util::try_exists;
 use anyhow::ensure;
 use std::path::Path;

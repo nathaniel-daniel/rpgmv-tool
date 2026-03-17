@@ -1,9 +1,10 @@
+use crate::Font;
+use crate::get_text_width;
 use crate::is_game_mv;
+use crate::load_font;
 use crate::message_parser::MessageNode;
 use crate::message_parser::MessageParser;
 use crate::parse_map_name;
-use crate::util::Font;
-use crate::util::get_text_width;
 use anyhow::Context;
 use regex::Regex;
 use rpgmv_types::Plugin;
@@ -368,7 +369,7 @@ pub fn check_line_size(game_path: &Path) -> anyhow::Result<CheckLineSizeIter> {
         font_path.push(font_name);
         font_path
     };
-    let font = crate::util::load_font(&font_path)?;
+    let font = load_font(&font_path)?;
 
     let context = CheckLineSizeContext::new(font, font_size, game_width);
 
