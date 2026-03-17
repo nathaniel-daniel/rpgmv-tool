@@ -21,6 +21,14 @@ const MESSAGE_STANDARD_PADDING: u16 = 18;
 const MESSAGE_FACE_SIZE: u16 = 144;
 const MESSAGE_FACE_PADDING: u16 = 12;
 
+fn read_to_string<P>(path: P) -> anyhow::Result<String>
+where
+    P: AsRef<Path>,
+{
+    let path = path.as_ref();
+    std::fs::read_to_string(path).with_context(|| format!("failed to read \"{}\"", path.display()))
+}
+
 /// MV only
 fn load_plugins_js(game_path: &Path) -> anyhow::Result<Vec<Plugin>> {
     static REGEX: LazyLock<Regex> =
@@ -236,6 +244,21 @@ impl CheckLineSizeContext {
         }
         Ok(())
     }
+
+    fn check_troops(&mut self, troops: &[Option<rpgmv_types::Troop>]) -> anyhow::Result<()> {
+        let file = "Troops";
+        for troop in troops.iter() {
+            let troop = match troop {
+                Some(troop) => troop,
+                None => continue,
+            };
+
+            for page in troop.pages.iter() {
+                self.check_event_command_list(&page.list, file)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 pub struct CheckLineSizeIter {
@@ -289,17 +312,18 @@ impl Iterator for CheckLineSizeIter {
                 }
 
                 if let Some(map_number) = parse_map_name(&entry_file_name) {
-                    let string = std::fs::read_to_string(&entry_path)
-                        .with_context(|| format!("failed to read \"{}\"", entry_path.display()))?;
-
+                    let string = read_to_string(&entry_path)?;
                     let map: rpgmv_types::Map = serde_json::from_str(&string)?;
                     self.context.check_map(&map, map_number)?;
                 } else if entry_file_name == "CommonEvents.json" {
-                    let string = std::fs::read_to_string(&entry_path)
-                        .with_context(|| format!("failed to read \"{}\"", entry_path.display()))?;
+                    let string = read_to_string(&entry_path)?;
                     let value: Vec<Option<rpgmv_types::CommonEvent>> =
                         serde_json::from_str(&string)?;
                     self.context.check_common_events(&value)?;
+                } else if entry_file_name == "Troops.json" {
+                    let string = read_to_string(&entry_path)?;
+                    let value: Vec<Option<rpgmv_types::Troop>> = serde_json::from_str(&string)?;
+                    self.context.check_troops(&value)?;
                 }
 
                 if let Some(entry) = self.context.pop_entry() {
