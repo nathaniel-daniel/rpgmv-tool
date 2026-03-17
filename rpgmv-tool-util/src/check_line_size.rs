@@ -65,7 +65,6 @@ impl CheckLineSizeContext {
         }
     }
 
-    #[expect(unused)]
     fn pop_entry(&mut self) -> Option<CheckLineSizeEntry> {
         self.entries.pop_front()
     }
@@ -238,8 +237,88 @@ impl CheckLineSizeContext {
     }
 }
 
+pub struct CheckLineSizeIter {
+    found_error: bool,
+    dir_entries: std::vec::IntoIter<std::fs::DirEntry>,
+    context: CheckLineSizeContext,
+}
+
+impl CheckLineSizeIter {
+    fn new(path: &Path, context: CheckLineSizeContext) -> anyhow::Result<Self> {
+        let mut dir_entries = std::fs::read_dir(path)?.collect::<Result<Vec<_>, _>>()?;
+        dir_entries.sort_by_key(|entry_a| entry_a.file_name());
+
+        Ok(Self {
+            found_error: false,
+            dir_entries: dir_entries.into_iter(),
+            context,
+        })
+    }
+}
+
+impl Iterator for CheckLineSizeIter {
+    type Item = anyhow::Result<CheckLineSizeEntry>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.found_error {
+            return None;
+        }
+
+        if let Some(entry) = self.context.pop_entry() {
+            return Some(Ok(entry));
+        }
+
+        let entry = self.dir_entries.next()?;
+
+        let result = (|| {
+            loop {
+                let entry_file_name = entry
+                    .file_name()
+                    .to_str()
+                    .context("file name is not unicode")?
+                    .to_string();
+
+                let entry_path = entry.path();
+
+                if !entry_file_name.ends_with(".json") {
+                    continue;
+                }
+                if entry_file_name == "MapInfos.json" {
+                    continue;
+                }
+
+                if let Some(map_number) = parse_map_name(&entry_file_name) {
+                    let string = std::fs::read_to_string(&entry_path)
+                        .with_context(|| format!("failed to read \"{}\"", entry_path.display()))?;
+
+                    let map: rpgmv_types::Map = serde_json::from_str(&string)?;
+                    self.context.check_map(&map, map_number)?;
+                } else if entry_file_name == "CommonEvents.json" {
+                    let string = std::fs::read_to_string(&entry_path)
+                        .with_context(|| format!("failed to read \"{}\"", entry_path.display()))?;
+                    let value: Vec<Option<rpgmv_types::CommonEvent>> =
+                        serde_json::from_str(&string)?;
+                    self.context.check_common_events(&value)?;
+                }
+
+                if let Some(entry) = self.context.pop_entry() {
+                    return Ok(entry);
+                }
+            }
+        })();
+
+        match result {
+            Ok(entry) => Some(Ok(entry)),
+            Err(error) => {
+                self.found_error = true;
+                Some(Err(error))
+            }
+        }
+    }
+}
+
 /// Check lines for text overflow in a game.
-pub fn check_line_size(game_path: &Path) -> anyhow::Result<Vec<CheckLineSizeEntry>> {
+pub fn check_line_size(game_path: &Path) -> anyhow::Result<CheckLineSizeIter> {
     let game_is_mv = is_game_mv(game_path)?;
 
     let (font_name, font_size, game_width) = if game_is_mv {
@@ -291,7 +370,7 @@ pub fn check_line_size(game_path: &Path) -> anyhow::Result<Vec<CheckLineSizeEntr
     };
     let font = crate::util::load_font(&font_path)?;
 
-    let mut context = CheckLineSizeContext::new(font, font_size, game_width);
+    let context = CheckLineSizeContext::new(font, font_size, game_width);
 
     let data_path = {
         let mut path = PathBuf::from(game_path);
@@ -301,36 +380,8 @@ pub fn check_line_size(game_path: &Path) -> anyhow::Result<Vec<CheckLineSizeEntr
         path.push("data");
         path
     };
-    let mut dir_entries = std::fs::read_dir(data_path)?.collect::<Result<Vec<_>, _>>()?;
-    dir_entries.sort_by_key(|entry_a| entry_a.file_name());
-    for entry in dir_entries {
-        let entry_file_name = entry
-            .file_name()
-            .to_str()
-            .context("file name is not unicode")?
-            .to_string();
-        let entry_path = entry.path();
 
-        if !entry_file_name.ends_with(".json") {
-            continue;
-        }
-        if entry_file_name == "MapInfos.json" {
-            continue;
-        }
+    let iter = CheckLineSizeIter::new(&data_path, context)?;
 
-        if let Some(map_number) = parse_map_name(&entry_file_name) {
-            let string = std::fs::read_to_string(&entry_path)
-                .with_context(|| format!("failed to read \"{}\"", entry_path.display()))?;
-
-            let map: rpgmv_types::Map = serde_json::from_str(&string)?;
-            context.check_map(&map, map_number)?;
-        } else if entry_file_name == "CommonEvents.json" {
-            let string = std::fs::read_to_string(&entry_path)
-                .with_context(|| format!("failed to read \"{}\"", entry_path.display()))?;
-            let value: Vec<Option<rpgmv_types::CommonEvent>> = serde_json::from_str(&string)?;
-            context.check_common_events(&value)?;
-        }
-    }
-
-    Ok(context.entries.into_iter().collect())
+    Ok(iter)
 }

@@ -16,7 +16,7 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
             text_width,
             target_width,
             suggested_line,
-        } = entry;
+        } = entry?;
 
         println!("{file}");
         println!("  Text: \"{line}\"");
