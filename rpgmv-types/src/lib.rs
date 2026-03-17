@@ -18,6 +18,7 @@ mod troop;
 mod troop_member;
 mod troop_page;
 mod troop_page_condition;
+mod weapon;
 
 pub use self::armor::Armor;
 pub use self::audio_file::AudioFile;
@@ -39,3 +40,4 @@ pub use self::troop::Troop;
 pub use self::troop_member::TroopMember;
 pub use self::troop_page::TroopPage;
 pub use self::troop_page_condition::TroopPageCondition;
+pub use self::weapon::Weapon;

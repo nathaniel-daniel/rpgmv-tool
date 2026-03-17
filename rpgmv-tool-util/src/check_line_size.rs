@@ -326,6 +326,19 @@ impl CheckLineSizeContext {
         }
         Ok(())
     }
+
+    fn check_weapons(&mut self, weapons: &[Option<rpgmv_types::Weapon>]) -> anyhow::Result<()> {
+        let file = "Weapons";
+        for weapon in weapons.iter() {
+            let weapon = match weapon {
+                Some(weapon) => weapon,
+                None => continue,
+            };
+
+            self.check_item_description(&weapon.description, file)?;
+        }
+        Ok(())
+    }
 }
 
 pub struct CheckLineSizeIter {
@@ -416,7 +429,12 @@ impl Iterator for CheckLineSizeIter {
                                 serde_json::from_str(&string).context("failed to parse Skills")?;
                             self.context.check_skills(&value)?;
                         }
-                        "Weapons.json" => {}
+                        "Weapons.json" => {
+                            let string = read_to_string(&entry_path)?;
+                            let value: Vec<Option<rpgmv_types::Weapon>> =
+                                serde_json::from_str(&string).context("failed to parse Weapons")?;
+                            self.context.check_weapons(&value)?;
+                        }
                         _ => {}
                     }
                 }
