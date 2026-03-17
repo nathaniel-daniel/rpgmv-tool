@@ -382,7 +382,8 @@ impl Iterator for CheckLineSizeIter {
 
                 if let Some(map_number) = parse_map_name(&entry_file_name) {
                     let string = read_to_string(&entry_path)?;
-                    let map: rpgmv_types::Map = serde_json::from_str(&string)?;
+                    let map: rpgmv_types::Map = serde_json::from_str(&string)
+                        .with_context(|| format!("failed to parse Map {map_number}"))?;
                     self.context.check_map(&map, map_number)?;
                 } else {
                     match entry_file_name.as_str() {

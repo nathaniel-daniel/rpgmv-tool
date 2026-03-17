@@ -4,7 +4,7 @@
 pub struct Encounter {
     /// ?
     #[serde(rename = "regionSet")]
-    pub region_set: Vec<()>,
+    pub region_set: Vec<u32>,
 
     /// The troop id to spawn
     #[serde(rename = "troopId")]
