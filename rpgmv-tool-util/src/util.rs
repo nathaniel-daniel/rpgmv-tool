@@ -1,8 +1,3 @@
-mod font;
-
-pub use self::font::Font;
-pub use self::font::get_text_width;
-pub use self::font::load_font;
 use anyhow::Context;
 use std::path::Path;
 
