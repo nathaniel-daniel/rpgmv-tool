@@ -20,6 +20,8 @@ const MESSAGE_STANDARD_PADDING: u16 = 18;
 /// Message Actor Faces are 144x144 px.
 const MESSAGE_FACE_SIZE: u16 = 144;
 const MESSAGE_FACE_PADDING: u16 = 12;
+/// Text padding is applied in addition to STANDARD_PADDING, but not for all windows.
+const TEXT_PADDING: u16 = 6;
 
 fn read_to_string<P>(path: P) -> anyhow::Result<String>
 where
@@ -158,6 +160,32 @@ impl CheckLineSizeContext {
         Ok(())
     }
 
+    fn check_item_description(&mut self, description: &str, file: &str) -> anyhow::Result<()> {
+        for line in description.split('\n') {
+            if line.is_empty() {
+                continue;
+            }
+
+            let text_width = self.get_text_width(line)?;
+            let target_width = self.game_width - (2 * (MESSAGE_STANDARD_PADDING + TEXT_PADDING));
+
+            if text_width >= f32::from(target_width) {
+                let suggested_line = self.suggest_line_replacement(line, target_width)?;
+                let suggested_line = suggested_line.as_deref().unwrap_or("None");
+
+                self.entries.push_back(CheckLineSizeEntry {
+                    file: file.to_string(),
+                    line: line.to_string(),
+                    text_width,
+                    target_width,
+                    suggested_line: suggested_line.to_string(),
+                });
+            }
+        }
+
+        Ok(())
+    }
+
     fn check_event_command_list(
         &mut self,
         command_list: &[rpgmv_types::EventCommand],
@@ -259,6 +287,32 @@ impl CheckLineSizeContext {
         }
         Ok(())
     }
+
+    fn check_armors(&mut self, armors: &[Option<rpgmv_types::Armor>]) -> anyhow::Result<()> {
+        let file = "Armors";
+        for armor in armors.iter() {
+            let armor = match armor {
+                Some(armor) => armor,
+                None => continue,
+            };
+
+            self.check_item_description(&armor.description, file)?;
+        }
+        Ok(())
+    }
+
+    fn check_items(&mut self, items: &[Option<rpgmv_types::Item>]) -> anyhow::Result<()> {
+        let file = "Items";
+        for item in items.iter() {
+            let item = match item {
+                Some(item) => item,
+                None => continue,
+            };
+
+            self.check_item_description(&item.description, file)?;
+        }
+        Ok(())
+    }
 }
 
 pub struct CheckLineSizeIter {
@@ -292,10 +346,10 @@ impl Iterator for CheckLineSizeIter {
             return Some(Ok(entry));
         }
 
-        let entry = self.dir_entries.next()?;
+        loop {
+            let entry = self.dir_entries.next()?;
 
-        let result = (|| {
-            loop {
+            let result = (|| {
                 let entry_file_name = entry
                     .file_name()
                     .to_str()
@@ -305,38 +359,62 @@ impl Iterator for CheckLineSizeIter {
                 let entry_path = entry.path();
 
                 if !entry_file_name.ends_with(".json") {
-                    continue;
+                    return Ok(());
                 }
                 if entry_file_name == "MapInfos.json" {
-                    continue;
+                    return Ok(());
                 }
 
                 if let Some(map_number) = parse_map_name(&entry_file_name) {
                     let string = read_to_string(&entry_path)?;
                     let map: rpgmv_types::Map = serde_json::from_str(&string)?;
                     self.context.check_map(&map, map_number)?;
-                } else if entry_file_name == "CommonEvents.json" {
-                    let string = read_to_string(&entry_path)?;
-                    let value: Vec<Option<rpgmv_types::CommonEvent>> =
-                        serde_json::from_str(&string)?;
-                    self.context.check_common_events(&value)?;
-                } else if entry_file_name == "Troops.json" {
-                    let string = read_to_string(&entry_path)?;
-                    let value: Vec<Option<rpgmv_types::Troop>> = serde_json::from_str(&string)?;
-                    self.context.check_troops(&value)?;
+                } else {
+                    match entry_file_name.as_str() {
+                        "CommonEvents.json" => {
+                            let string = read_to_string(&entry_path)?;
+                            let value: Vec<Option<rpgmv_types::CommonEvent>> =
+                                serde_json::from_str(&string)
+                                    .context("failed to parse CommonEvents")?;
+                            self.context.check_common_events(&value)?;
+                        }
+                        "Troops.json" => {
+                            let string = read_to_string(&entry_path)?;
+                            let value: Vec<Option<rpgmv_types::Troop>> =
+                                serde_json::from_str(&string).context("failed to parse Troops")?;
+                            self.context.check_troops(&value)?;
+                        }
+                        "Armors.json" => {
+                            let string = read_to_string(&entry_path)?;
+                            let value: Vec<Option<rpgmv_types::Armor>> =
+                                serde_json::from_str(&string).context("failed to parse Armors")?;
+                            self.context.check_armors(&value)?;
+                        }
+                        "Items.json" => {
+                            let string = read_to_string(&entry_path)?;
+                            let value: Vec<Option<rpgmv_types::Item>> =
+                                serde_json::from_str(&string).context("failed to parse Items")?;
+                            self.context.check_items(&value)?;
+                        }
+                        "Skills.json" => {}
+                        "Weapons.json" => {}
+                        _ => {}
+                    }
                 }
 
-                if let Some(entry) = self.context.pop_entry() {
-                    return Ok(entry);
-                }
-            }
-        })();
+                anyhow::Ok(())
+            })();
 
-        match result {
-            Ok(entry) => Some(Ok(entry)),
-            Err(error) => {
-                self.found_error = true;
-                Some(Err(error))
+            match result {
+                Ok(()) => {
+                    if let Some(entry) = self.context.pop_entry() {
+                        return Some(Ok(entry));
+                    }
+                }
+                Err(error) => {
+                    self.found_error = true;
+                    return Some(Err(error));
+                }
             }
         }
     }

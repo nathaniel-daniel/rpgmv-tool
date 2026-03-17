@@ -1,3 +1,4 @@
+mod armor;
 mod audio_file;
 mod common_event;
 mod encounter;
@@ -6,6 +7,7 @@ mod event_command;
 mod event_page;
 mod event_page_condition;
 mod image_file;
+mod item;
 mod map;
 mod move_command;
 mod move_route;
@@ -16,6 +18,7 @@ mod troop_member;
 mod troop_page;
 mod troop_page_condition;
 
+pub use self::armor::Armor;
 pub use self::audio_file::AudioFile;
 pub use self::common_event::CommonEvent;
 pub use self::encounter::Encounter;
@@ -24,6 +27,7 @@ pub use self::event_command::EventCommand;
 pub use self::event_page::EventPage;
 pub use self::event_page_condition::EventPageCondition;
 pub use self::image_file::ImageFile;
+pub use self::item::Item;
 pub use self::map::Map;
 pub use self::move_command::MoveCommand;
 pub use self::move_route::MoveRoute;
