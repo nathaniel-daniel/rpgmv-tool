@@ -457,77 +457,124 @@ impl Iterator for CheckLineSizeIter {
     }
 }
 
-/// Check lines for text overflow in a game.
-pub fn check_line_size(game_path: &Path) -> anyhow::Result<CheckLineSizeIter> {
-    let game_is_mv = is_game_mv(game_path)?;
+#[derive(Debug)]
+pub struct CheckLineSizeOptions {
+    /// The game path.
+    ///
+    /// Used for loading fonts.
+    pub game_path: PathBuf,
 
-    let (font_name, font_size, game_width) = if game_is_mv {
-        let plugins = load_plugins_js(game_path)?;
+    /// Whether the game is mv.
+    pub game_is_mv: bool,
 
-        let mut screen_width = None;
-        for plugin in plugins {
-            if plugin.name == "Community_Basic" {
-                let screen_width_param_raw = plugin
-                    .parameters
-                    .get("screenWidth")
-                    .context("missing screen width param")?;
-                if screen_width_param_raw.is_empty() {
-                    // This plugin will set a default if not present.
-                    screen_width = Some(816);
-                } else {
-                    let screen_width_param = screen_width_param_raw
-                        .parse()
-                        .context("screen width is not a u16")?;
-                    screen_width = Some(screen_width_param);
+    /// The font name
+    pub font_name: String,
+
+    /// The font size
+    pub font_size: u16,
+
+    /// The screen width
+    pub screen_width: u16,
+
+    /// The data path
+    pub data_path: PathBuf,
+}
+
+impl CheckLineSizeOptions {
+    /// Create options for checking a game from a game path.
+    pub fn from_game_path<P>(game_path: P) -> anyhow::Result<Self>
+    where
+        P: AsRef<Path>,
+    {
+        let game_path = game_path.as_ref();
+
+        let game_is_mv = is_game_mv(game_path)?;
+
+        let (font_name, font_size, screen_width) = if game_is_mv {
+            let plugins = load_plugins_js(game_path)?;
+
+            let mut screen_width = None;
+            for plugin in plugins {
+                if plugin.name == "Community_Basic" {
+                    let screen_width_param_raw = plugin
+                        .parameters
+                        .get("screenWidth")
+                        .context("missing screen width param")?;
+                    if screen_width_param_raw.is_empty() {
+                        // This plugin will set a default if not present.
+                        screen_width = Some(816);
+                    } else {
+                        let screen_width_param = screen_width_param_raw
+                            .parse()
+                            .context("screen width is not a u16")?;
+                        screen_width = Some(screen_width_param);
+                    }
                 }
             }
-        }
 
-        (
-            "mplus-1m-regular.ttf".to_string(),
-            28,
-            screen_width.unwrap_or(816),
-        )
-    } else {
-        let system_path = game_path.join("data").join("System.json");
-        let system_string = std::fs::read_to_string(&system_path)
-            .with_context(|| format!("failed to read to string \"{}\"", system_path.display()))?;
-        let system: System =
-            serde_json::from_str(&system_string).context("failed to parse system json")?;
-        let system_advanced = system
-            .advanced
-            .context("System missing \"advanced\" field")?;
+            (
+                "mplus-1m-regular.ttf".to_string(),
+                28,
+                screen_width.unwrap_or(816),
+            )
+        } else {
+            let system_path = game_path.join("data").join("System.json");
+            let system_string = std::fs::read_to_string(&system_path).with_context(|| {
+                format!("failed to read to string \"{}\"", system_path.display())
+            })?;
+            let system: System =
+                serde_json::from_str(&system_string).context("failed to parse system json")?;
+            let system_advanced = system
+                .advanced
+                .context("System missing \"advanced\" field")?;
 
-        (
-            system_advanced.main_font_filename,
-            system_advanced.font_size,
-            system_advanced.screen_width,
-        )
-    };
+            (
+                system_advanced.main_font_filename,
+                system_advanced.font_size,
+                system_advanced.screen_width,
+            )
+        };
 
-    let font_path = {
-        let mut font_path = PathBuf::from(game_path);
-        if game_is_mv {
-            font_path.push("www");
-        }
-        font_path.push("fonts");
-        font_path.push(font_name);
-        font_path
-    };
-    let font = load_font(&font_path)?;
+        let data_path = {
+            let mut path = PathBuf::from(game_path);
+            if game_is_mv {
+                path.push("www");
+            }
+            path.push("data");
+            path
+        };
 
-    let context = CheckLineSizeContext::new(font, font_size, game_width);
+        Ok(Self {
+            game_path: game_path.to_path_buf(),
+            game_is_mv,
+            font_name,
+            font_size,
+            screen_width,
+            data_path,
+        })
+    }
 
-    let data_path = {
-        let mut path = PathBuf::from(game_path);
-        if game_is_mv {
-            path.push("www");
-        }
-        path.push("data");
-        path
-    };
+    fn load_font(&self) -> anyhow::Result<Font> {
+        let font_path = {
+            let mut font_path = PathBuf::from(&self.game_path);
+            if self.game_is_mv {
+                font_path.push("www");
+            }
+            font_path.push("fonts");
+            font_path.push(&self.font_name);
+            font_path
+        };
+        let font = load_font(&font_path)?;
 
-    let iter = CheckLineSizeIter::new(&data_path, context)?;
+        Ok(font)
+    }
+}
+
+/// Check lines for text overflow in a game.
+pub fn check_line_size(options: &CheckLineSizeOptions) -> anyhow::Result<CheckLineSizeIter> {
+    let font = options.load_font()?;
+    let context = CheckLineSizeContext::new(font, options.font_size, options.screen_width);
+    let iter = CheckLineSizeIter::new(&options.data_path, context)?;
 
     Ok(iter)
 }

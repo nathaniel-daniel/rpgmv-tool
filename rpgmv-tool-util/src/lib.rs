@@ -4,6 +4,7 @@ pub mod message_parser;
 mod util;
 
 pub use self::check_line_size::CheckLineSizeEntry;
+pub use self::check_line_size::CheckLineSizeOptions;
 pub use self::check_line_size::check_line_size;
 pub use self::font::Font;
 pub use self::font::get_text_width;
