@@ -9,7 +9,8 @@ pub struct Options {
 }
 
 pub fn exec(options: Options) -> anyhow::Result<()> {
-    for entry in rpgmv_tool_util::check_line_size(&options.input)? {
+    let options = rpgmv_tool_util::CheckLineSizeOptions::from_game_path(options.input)?;
+    for entry in rpgmv_tool_util::check_line_size(&options)? {
         let rpgmv_tool_util::CheckLineSizeEntry {
             file,
             line,
