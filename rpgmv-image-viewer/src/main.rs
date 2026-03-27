@@ -18,6 +18,7 @@ use egui::FontId;
 use egui::Rect;
 use egui::TextFormat;
 use egui::TextureHandle;
+use egui::Ui;
 use egui::containers::Scene;
 use egui::load::SizedTexture;
 use egui::text::LayoutJob;
@@ -186,19 +187,19 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         while let Ok(message) = self.messages_rx.try_recv() {
-            self.process_message(ctx, message);
+            self.process_message(ui, message);
         }
 
         if !self.loading_image {
-            let dropped_file = ctx.input(|input| input.raw.dropped_files.first()?.path.clone());
+            let dropped_file = ui.input(|input| input.raw.dropped_files.first()?.path.clone());
             if let Some(dropped_file) = dropped_file {
-                self.load_image(ctx, dropped_file);
+                self.load_image(ui, dropped_file);
             }
         }
 
-        egui::TopBottomPanel::top("my_panel").show(ctx, |ui| {
+        egui::Panel::top("my_panel").show_inside(ui, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     ui.add_enabled_ui(!self.loading_image, |ui| {
@@ -207,7 +208,7 @@ impl eframe::App for App {
 
                             self.loading_image = true;
 
-                            let ctx = ctx.clone();
+                            let ctx = ui.ctx().clone();
                             let messages_tx = self.messages_tx.clone();
                             rayon::spawn(move || {
                                 let picked_file = rfd::FileDialog::new()
@@ -227,7 +228,7 @@ impl eframe::App for App {
             });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| match self.image.as_ref() {
+        egui::CentralPanel::default().show_inside(ui, |ui| match self.image.as_ref() {
             Some((sized_texture, _)) => {
                 let response = Scene::new().zoom_range(f32::EPSILON..=50.0_f32).show(
                     ui,
@@ -247,7 +248,7 @@ impl eframe::App for App {
             }
         });
 
-        self.toasts.show(ctx);
+        self.toasts.show(ui);
     }
 }
 

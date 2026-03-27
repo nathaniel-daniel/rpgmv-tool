@@ -19,14 +19,15 @@ allow = [
     "Apache-2.0",
     "BSD-2-Clause",
     "BSD-3-Clause",
-    "BSL-1.0", 
+    "BSL-1.0",
+    "CC0-1.0",
     "CDLA-Permissive-2.0",
-    "ISC", 
+    "ISC",
     "MIT",
     "OFL-1.1",
-    "Ubuntu-font-1.0", 
-    "Unicode-3.0", 
-    "Zlib", 
+    "Ubuntu-font-1.0",
+    "Unicode-3.0",
+    "Zlib",
 ]
 
 [[licenses.clarify]]
@@ -57,7 +58,7 @@ highlight = "all"
 skip = [
     # These update frequently and take a while for the ecosystem to update.
     { name = "windows-sys", version = "0" },
-    { name = "windows-link", version = "0" },
+    # { name = "windows-link", version = "0" },
     
     
     { name = "toml", version = "0.5.11" },
@@ -82,12 +83,16 @@ skip = [
     { name = "calloop-wayland-source", version = "0.3.0" },
     { name = "calloop", version = "0.13.0" },
     { name = "getrandom", version = "0.3.4" },
-    { name = "anstream", version = "0.6.21" },
-    { name = "anstyle-parse", version = "0.2.7" },
     { name = "heck", version = "0.4.1" },
     { name = "ouroboros", version = "0.17.2" },
     { name = "ouroboros_macro", version = "0.17.2" },
     { name = "syn", version = "1.0.109" },
+    { name = "winnow", version = "0.7.15" },
+    { name = "rustc-hash", version = "1.1.0" },
+    { name = "phf_shared", version = "0.11.3" },
+    { name = "phf", version = "0.11.3" },
+    { name = "kurbo", version = "0.11.3" },
+    { name = "foldhash", version = "0.1.5" },
 ]
 
 [sources]
