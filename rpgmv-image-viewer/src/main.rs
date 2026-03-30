@@ -36,6 +36,7 @@ use std::path::PathBuf;
 const TITLE: &str = "RPGMaker Image Viewer";
 const PNG_MAGIC: &[u8] = b"\x89PNG\r\n\x1a\n";
 const JPEG_MAGIC: &[u8] = &[0xff, 0xd8, 0xff];
+const ENCRYPTERATOR_MAGIC: &[u8] = b"ART\0ENCRYPTER100FREE\0VERSION\0\0\0\0";
 
 fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<TextureHandle> {
     let file_name = path
@@ -47,7 +48,7 @@ fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<TextureHandle>
     let mut file = std::fs::File::open(path)?;
     let metadata = file.metadata()?;
 
-    let mut magic = [0; 8];
+    let mut magic = [0; 32];
     file.read_exact(&mut magic)?;
     file.seek(SeekFrom::Start(0))?;
 
@@ -55,6 +56,15 @@ fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<TextureHandle>
     let rgba8_image = if magic.starts_with(PNG_MAGIC) || magic.starts_with(JPEG_MAGIC) {
         let mut raw_image = Vec::with_capacity(usize::try_from(metadata.len())?);
         file.read_to_end(&mut raw_image)?;
+
+        let image = image::load_from_memory(&raw_image)?;
+        image.into_rgba8()
+    } else if magic.starts_with(ENCRYPTERATOR_MAGIC) {
+        let mut encrypted_reader = encrypterator::Reader::new(file);
+        encrypted_reader.guess_key()?;
+
+        let mut raw_image = Vec::with_capacity(usize::try_from(metadata.len())?);
+        encrypted_reader.read_to_end(&mut raw_image)?;
 
         let image = image::load_from_memory(&raw_image)?;
         image.into_rgba8()
