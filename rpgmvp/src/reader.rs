@@ -6,6 +6,8 @@ use crate::VERSION;
 use std::io::BufRead;
 use std::io::Read;
 
+const KEY_LEN: usize = 16;
+
 /// The reader state
 enum ReaderState {
     /// Reads header next
@@ -72,7 +74,7 @@ where
     }
 
     /// Determine the encryption key.
-    pub fn extract_key(&mut self) -> Result<[u8; 16], Error> {
+    pub fn extract_key(&mut self) -> Result<[u8; KEY_LEN], Error> {
         loop {
             match self.state {
                 ReaderState::Header => {
@@ -86,9 +88,9 @@ where
         }
 
         let buffer = self.reader.fill_buf()?;
-        let png_header = buffer.get(..16).ok_or(Error::BufferTooSmall)?;
+        let png_header = buffer.get(..KEY_LEN).ok_or(Error::BufferTooSmall)?;
 
-        let mut key = [0; 16];
+        let mut key = [0; KEY_LEN];
         for ((expected_png_byte, actual_png_byte), key_byte) in PNG_HEADER
             .iter()
             .copied()
@@ -118,7 +120,8 @@ where
                     self.extract_key().map_err(std::io::Error::other)?;
                 }
                 ReaderState::BodyInitial { key, offset } => {
-                    let n = self.reader.read(buffer)?;
+                    let buffer_len = std::cmp::min(buffer.len(), KEY_LEN - *offset);
+                    let n = self.reader.read(&mut buffer[..buffer_len])?;
 
                     for (key_byte, out_byte) in
                         key[*offset..].iter().copied().zip(buffer[..n].iter_mut())
@@ -127,7 +130,7 @@ where
                         *offset += 1;
                     }
 
-                    if *offset == 16 {
+                    if *offset == KEY_LEN {
                         self.state = ReaderState::Body { key: *key };
                     }
 
