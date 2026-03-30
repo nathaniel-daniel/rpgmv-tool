@@ -9,6 +9,10 @@
 
 use anyhow::Context;
 use eframe::egui;
+use eframe::egui_wgpu::WgpuConfiguration;
+use eframe::egui_wgpu::WgpuSetup;
+use eframe::egui_wgpu::WgpuSetupCreateNew;
+use eframe::egui_wgpu::wgpu::wgt::PowerPreference;
 use egui::Align2;
 use egui::Button;
 use egui::Color32;
@@ -281,6 +285,16 @@ fn main() -> anyhow::Result<()> {
             .with_icon(icon)
             .with_drag_and_drop(true),
         centered: true,
+        wgpu_options: WgpuConfiguration {
+            wgpu_setup: WgpuSetup::CreateNew(WgpuSetupCreateNew {
+                // I tried to switch to `LowPower` (from its default of `HighPerformance`) to get the Nvidia app to not detect this as a game.
+                // Not only did this not work, but this also created a lot of stuttering when moving or resizing the window.
+                // As a result, force `HighPerformance`.
+                power_preference: PowerPreference::HighPerformance,
+                ..WgpuSetupCreateNew::without_display_handle()
+            }),
+            ..Default::default()
+        },
         ..Default::default()
     };
     eframe::run_native(
