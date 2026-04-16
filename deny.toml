@@ -93,6 +93,7 @@ skip = [
     { name = "phf", version = "0.11.3" },
     { name = "kurbo", version = "0.11.3" },
     { name = "foldhash", version = "0.1.5" },
+    { name = "hashbrown", version = "0.16.1" },
 ]
 
 [sources]
