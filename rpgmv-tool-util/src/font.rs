@@ -5,7 +5,7 @@ use allsorts::font_data::FontData;
 use allsorts::glyph_position::GlyphLayout;
 use allsorts::glyph_position::TextDirection;
 use allsorts::gsub::FeatureMask;
-use allsorts::gsub::Features;
+use allsorts::gsub::FeatureMaskExt;
 use allsorts::tag;
 use anyhow::Context;
 use std::path::Path;
@@ -65,7 +65,8 @@ pub fn get_text_width(font: &mut Font, text: &str, font_size: Option<f32>) -> an
                 glyphs,
                 script,
                 Some(lang),
-                &Features::Mask(FeatureMask::default()),
+                FeatureMask::default_mask(),
+                &[],
                 variation_tuple,
                 true,
             )

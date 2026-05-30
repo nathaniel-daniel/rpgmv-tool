@@ -250,6 +250,13 @@ impl Command {
 
                         ConditionalBranchCommand::ActorInParty { actor_id }
                     }
+                    ConditionalBranchKindActorCheck::Name => {
+                        reader.ensure_len_is(4)?;
+
+                        let name = reader.read_at(3, "name")?;
+
+                        ConditionalBranchCommand::ActorName { actor_id, name }
+                    }
                     ConditionalBranchKindActorCheck::Skill => {
                         reader.ensure_len_is(4)?;
 
@@ -368,6 +375,10 @@ pub enum ConditionalBranchCommand {
     },
     ActorInParty {
         actor_id: u32,
+    },
+    ActorName {
+        actor_id: u32,
+        name: String,
     },
     ActorSkill {
         actor_id: u32,

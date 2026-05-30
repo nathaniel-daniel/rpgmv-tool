@@ -21,6 +21,15 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
+pub fn try_metadata<P>(path: P) -> anyhow::Result<Option<std::fs::Metadata>>
+where
+    P: AsRef<Path>,
+{
+    let path = path.as_ref();
+    crate::util::try_metadata(path)
+        .with_context(|| format!("failed to get metadata for \"{}\"", path.display()))
+}
+
 #[derive(Debug, Parser)]
 #[command(about = "A tool to \"decompile\" scripts to Python for easier inspection")]
 pub struct Options {
@@ -370,14 +379,10 @@ fn dump_file(
     let input_mtime = std::fs::metadata(options.input)
         .with_context(|| format!("failed to get metadata for \"{}\"", options.input.display()))?
         .modified()?;
-    let output_mtime = match std::fs::metadata(options.output) {
-        Ok(metadata) => Some(metadata.modified()?),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-        Err(error) => {
-            return Err(error).with_context(|| {
-                format!("failed to get metadata for \"{}\"", options.input.display())
-            })?;
-        }
+    let output_mtime = match try_metadata(options.output) {
+        Ok(Some(metadata)) => Some(metadata.modified()?),
+        Ok(None) => None,
+        Err(error) => return Err(error),
     };
     if options.overwrite
         && let (Some(last_mtime), Some(output_mtime)) = (last_mtime, output_mtime)
@@ -508,16 +513,8 @@ enum FileKind {
 impl FileKind {
     /// Try to extract a file kind from a path.
     pub fn new(path: &Path, allow_dir: bool) -> anyhow::Result<Option<Self>> {
-        let metadata = match path.metadata() {
-            Ok(metadata) => metadata,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                bail!("path \"{}\" does not exist", path.display());
-            }
-            Err(error) => {
-                return Err(error)
-                    .with_context(|| format!("failed to get metadata for \"{}\"", path.display()));
-            }
-        };
+        let metadata = try_metadata(path)?
+            .with_context(|| format!("path \"{}\" does not exist", path.display()))?;
         let is_file = !metadata.is_dir();
 
         if is_file {
@@ -597,6 +594,9 @@ fn sanitize_file_name(file_name: &str) -> String {
             }
             '/' => {
                 ret.push('／');
+            }
+            '?' => {
+                ret.push('？');
             }
             _ => {
                 ret.push(ch);
