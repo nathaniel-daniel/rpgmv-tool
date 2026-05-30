@@ -9,6 +9,7 @@ use anyhow::Context;
 use regex::Regex;
 use rpgmv_types::Plugin;
 use rpgmv_types::System;
+use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::path::Path;
 use std::path::PathBuf;
@@ -62,16 +63,27 @@ struct CheckLineSizeContext {
     font: Font,
     font_size: u16,
     game_width: u16,
+    extra_single_text_codes: HashSet<char>,
+    extra_text_codes: HashSet<String>,
 
     entries: VecDeque<CheckLineSizeEntry>,
 }
 
 impl CheckLineSizeContext {
-    fn new(font: Font, font_size: u16, game_width: u16) -> Self {
+    fn new(
+        font: Font,
+        font_size: u16,
+        game_width: u16,
+        extra_single_text_codes: HashSet<char>,
+        extra_text_codes: HashSet<String>,
+    ) -> Self {
         Self {
             font,
             font_size,
             game_width,
+            extra_single_text_codes,
+            extra_text_codes,
+
             entries: VecDeque::new(),
         }
     }
@@ -119,6 +131,12 @@ impl CheckLineSizeContext {
     ) -> anyhow::Result<()> {
         // Strip escape sequences.
         let mut parser = MessageParser::new(lines);
+        for single_text_code in self.extra_single_text_codes.iter() {
+            parser.add_single_text_code(*single_text_code);
+        }
+        for text_code in self.extra_text_codes.iter() {
+            parser.add_text_code(text_code);
+        }
         let nodes = parser
             .parse()
             .with_context(|| format!("failed to parse \"{lines}\""))?;
@@ -478,6 +496,16 @@ pub struct CheckLineSizeOptions {
 
     /// The data path
     pub data_path: PathBuf,
+
+    /// Extra single text codes
+    ///
+    /// RPGMaker games can use plugins that extend the standard single text code set.
+    pub extra_single_text_codes: HashSet<char>,
+
+    /// Extra text codes
+    ///
+    /// RPGMaker games can use plugins that extend the standard text code set.
+    pub extra_text_codes: HashSet<String>,
 }
 
 impl CheckLineSizeOptions {
@@ -551,6 +579,8 @@ impl CheckLineSizeOptions {
             font_size,
             screen_width,
             data_path,
+            extra_single_text_codes: HashSet::new(),
+            extra_text_codes: HashSet::new(),
         })
     }
 
@@ -573,7 +603,13 @@ impl CheckLineSizeOptions {
 /// Check lines for text overflow in a game.
 pub fn check_line_size(options: &CheckLineSizeOptions) -> anyhow::Result<CheckLineSizeIter> {
     let font = options.load_font()?;
-    let context = CheckLineSizeContext::new(font, options.font_size, options.screen_width);
+    let context = CheckLineSizeContext::new(
+        font,
+        options.font_size,
+        options.screen_width,
+        options.extra_single_text_codes.clone(),
+        options.extra_text_codes.clone(),
+    );
     let iter = CheckLineSizeIter::new(&options.data_path, context)?;
 
     Ok(iter)
