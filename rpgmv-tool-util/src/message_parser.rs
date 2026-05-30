@@ -80,6 +80,17 @@ impl<'a> MessageParser<'a> {
         parser
     }
 
+    /// Add a new single text code to the parser.
+    pub fn add_single_text_code(&mut self, single_text_code: char) {
+        self.single_text_codes
+            .insert(single_text_code.to_ascii_lowercase());
+    }
+
+    /// Add a new text code to the parser.
+    pub fn add_text_code(&mut self, text_code: &str) {
+        self.text_codes.insert(text_code.to_ascii_lowercase());
+    }
+
     fn create_text_node(&self, start: usize, end: usize) -> MessageNode<'a> {
         MessageNode::Text {
             value: Cow::Borrowed(&self.input[start..end]),
