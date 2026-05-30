@@ -57,11 +57,23 @@ impl<'a> MessageParser<'a> {
         parser.single_text_codes.insert('|');
         parser.single_text_codes.insert('<');
         parser.single_text_codes.insert('>');
+        // \C
+        // This changes the color of future text to color 0,
+        // based on window skin.
+        //
+        // This is actually the text code \C[n],
+        // but a bug in RPGMaker makes it accept this as a single text code as well.
+        parser.single_text_codes.insert('c');
 
         // Body
+        // \C[n]
+        // This changes the color of future text to color n,
+        // based on window skin.
         parser.text_codes.insert("c".to_string());
         parser.text_codes.insert("i".to_string());
         parser.text_codes.insert("v".to_string());
+        // \N[n]
+        // This is replaced with the name of actor n.
         // TODO: Allow user to specify filler?
         parser.text_codes.insert("n".to_string());
 
@@ -185,7 +197,14 @@ impl<'a> MessageParser<'a> {
                     bail!("unknown single text code \"{text_code_ch}\"");
                 }
 
-                nodes.push(MessageNode::TextCode { name: text_code_ch });
+                if self
+                    .single_text_codes
+                    .contains(&text_code_ch.to_ascii_lowercase())
+                {
+                    nodes.push(MessageNode::TextCode { name: text_code_ch });
+                } else {
+                    bail!("unknown single text code \"{text_code_ch}\"");
+                }
             }
             _ => bail!("invalid state at end of string, got \"{:?}\"", self.state),
         };
@@ -260,6 +279,20 @@ mod test {
                         value: "Colored".into(),
                     },
                     MessageNode::TextCode { name: 'C' },
+                ],
+            ),
+            (
+                "\\C[2]Colored\\C ",
+                vec![
+                    MessageNode::TextCodeWithBody {
+                        name: "C".into(),
+                        body: "2".into(),
+                    },
+                    MessageNode::Text {
+                        value: "Colored".into(),
+                    },
+                    MessageNode::TextCode { name: 'C' },
+                    MessageNode::Text { value: " ".into() },
                 ],
             ),
         ];
