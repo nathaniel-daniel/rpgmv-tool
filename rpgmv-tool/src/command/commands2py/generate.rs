@@ -145,6 +145,12 @@ where
                         "game_party.members.contains(actor={actor_name}):"
                     )?;
                 }
+                ConditionalBranchCommand::ActorName { actor_id, name } => {
+                    let actor_name = config.get_actor_name(*actor_id);
+                    let name = escape_string(name);
+
+                    writeln!(&mut writer, "{actor_name}.name() == '{name}':")?;
+                }
                 ConditionalBranchCommand::Timer { value, is_gte } => {
                     let cmp = if *is_gte { ">=" } else { "<=" };
 
