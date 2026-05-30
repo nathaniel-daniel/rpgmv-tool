@@ -521,22 +521,46 @@ impl CheckLineSizeOptions {
         let (font_name, font_size, screen_width) = if game_is_mv {
             let plugins = load_plugins_js(game_path)?;
 
-            let mut screen_width = None;
+            let mut screen_width: Option<u16> = None;
             for plugin in plugins {
-                if plugin.name == "Community_Basic" {
-                    let screen_width_param_raw = plugin
-                        .parameters
-                        .get("screenWidth")
-                        .context("missing screen width param")?;
-                    if screen_width_param_raw.is_empty() {
+                match plugin.name.as_str() {
+                    "Community_Basic" => {
+                        let screen_width_param = plugin
+                            .parameters
+                            .get("screenWidth")
+                            .context("Missing Community_Basic screenWidth")?;
+                        let screen_width_param = if screen_width_param.is_empty() {
+                            None
+                        } else {
+                            Some(
+                                screen_width_param
+                                    .parse()
+                                    .context("Community_Basic screenWidth is not a u16")?,
+                            )
+                        };
                         // This plugin will set a default if not present.
-                        screen_width = Some(816);
-                    } else {
-                        let screen_width_param = screen_width_param_raw
-                            .parse()
-                            .context("screen width is not a u16")?;
+                        let screen_width_param = screen_width_param.unwrap_or(816);
                         screen_width = Some(screen_width_param);
                     }
+                    "YEP_CoreEngine" => {
+                        let screen_width_param = plugin
+                            .parameters
+                            .get("Screen Width")
+                            .context("Missing YEP_CoreEngine Screen Width")?;
+                        let screen_width_param = if screen_width_param.is_empty() {
+                            None
+                        } else {
+                            Some(
+                                screen_width_param
+                                    .parse()
+                                    .context("YEP_CoreEngine Screen Width is not a u16")?,
+                            )
+                        };
+                        // This plugin will set a default if not present.
+                        let screen_width_param = screen_width_param.unwrap_or(816);
+                        screen_width = Some(screen_width_param);
+                    }
+                    _ => {}
                 }
             }
 

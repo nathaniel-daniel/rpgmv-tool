@@ -9,6 +9,10 @@ pub struct Plugin {
     pub status: bool,
     /// The description of the plugin.
     pub description: String,
-    /// Args passed the the plugin to configure its behavior.
+
+    /// Arguments passed the the plugin to configure its behavior.
+    ///
+    /// Arguments take the form of a key-value string map.
+    /// As an example, the number 5 would be stringifed as "5" before being inserted into this map.
     pub parameters: HashMap<String, String>,
 }
