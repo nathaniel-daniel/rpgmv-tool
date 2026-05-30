@@ -7,10 +7,7 @@ targets = [
 ]
 
 [advisories]
-ignore = [
-    # Blocked on allsorts updating ouroboros.
-    "RUSTSEC-2024-0370",
-]
+ignore = []
 
 [licenses]
 confidence-threshold = 0.93
@@ -77,23 +74,19 @@ skip = [
     { name = "windows_x86_64_gnu", version = "0.52.6" },
     { name = "windows-targets", version = "0.52.6" },
     { name = "smithay-client-toolkit", version = "0.19.2" },
-    { name = "quick-xml", version = "0.38.4" },
     { name = "png", version = "0.17.16" },
     { name = "hashbrown", version = "0.15.5" },
     { name = "calloop-wayland-source", version = "0.3.0" },
     { name = "calloop", version = "0.13.0" },
     { name = "getrandom", version = "0.3.4" },
     { name = "heck", version = "0.4.1" },
-    { name = "ouroboros", version = "0.17.2" },
-    { name = "ouroboros_macro", version = "0.17.2" },
-    { name = "syn", version = "1.0.109" },
-    { name = "winnow", version = "0.7.15" },
     { name = "rustc-hash", version = "1.1.0" },
     { name = "phf_shared", version = "0.11.3" },
     { name = "phf", version = "0.11.3" },
     { name = "kurbo", version = "0.11.3" },
     { name = "foldhash", version = "0.1.5" },
     { name = "hashbrown", version = "0.16.1" },
+    { name = "accesskit_consumer", version = "0.35.0" },
 ]
 
 [sources]

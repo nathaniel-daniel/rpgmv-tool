@@ -12,7 +12,9 @@ members = [
     # Both
     "rpgmv-image-viewer",
     "rpgmv-types",
-    "rpgmv-tool-util", "encrypterator",
+    "rpgmv-tool-util",
+    
+    "encrypterator",
 ]
 
 [profile.release]
