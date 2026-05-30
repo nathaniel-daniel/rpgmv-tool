@@ -249,6 +249,19 @@ mod test {
                     },
                 ],
             ),
+            (
+                "\\C[2]Colored\\C",
+                vec![
+                    MessageNode::TextCodeWithBody {
+                        name: "C".into(),
+                        body: "2".into(),
+                    },
+                    MessageNode::Text {
+                        value: "Colored".into(),
+                    },
+                    MessageNode::TextCode { name: 'C' },
+                ],
+            ),
         ];
 
         for (input, expected_output) in tests {
