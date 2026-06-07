@@ -96,7 +96,7 @@ fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<Image> {
         color_image,
         Default::default(),
     );
-    
+
     let sized_texture = SizedTexture::from_handle(&texture_handle);
 
     anyhow::Ok(Image {
@@ -106,12 +106,8 @@ fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<Image> {
 }
 
 enum Message {
-    SelectedImageFile {
-        path: Option<PathBuf>,
-    },
-    LoadedImage {
-        result: anyhow::Result<Image>,
-    },
+    SelectedImageFile { path: Option<PathBuf> },
+    LoadedImage { result: anyhow::Result<Image> },
 }
 
 struct App {
@@ -129,8 +125,8 @@ impl App {
     fn new() -> Self {
         let (messages_tx, messages_rx) = std::sync::mpsc::channel();
         let toasts = Toasts::new()
-                .anchor(Align2::LEFT_BOTTOM, (20.0, -20.0))
-                .direction(egui::Direction::BottomUp);
+            .anchor(Align2::LEFT_BOTTOM, (20.0, -20.0))
+            .direction(egui::Direction::BottomUp);
 
         Self {
             messages_rx,
@@ -218,7 +214,7 @@ impl eframe::App for App {
         while let Ok(message) = self.messages_rx.try_recv() {
             self.process_message(ui, message);
         }
-        
+
         if !self.navigating_next_image {
             if ui.input_mut(|i| i.key_pressed(egui::Key::ArrowRight)) {
                 todo!()
@@ -226,7 +222,13 @@ impl eframe::App for App {
         }
 
         if !self.loading_image {
-            let dropped_file = ui.input(|input| input.raw.dropped_files.first()?.path.clone());
+            let dropped_file = ui.input(|input| {
+                // Only handle the first file sice we can only open one at a time right now.
+                // TODO: Add tabs for multiple images or ignore multiple files?
+                let dropped_file = input.raw.dropped_files.first()?;
+
+                dropped_file.path.clone()
+            });
             if let Some(dropped_file) = dropped_file {
                 self.load_image(ui, dropped_file);
             }
@@ -256,6 +258,12 @@ impl eframe::App for App {
                                 ctx.request_repaint();
                             });
                         }
+
+                        ui.add_enabled_ui(self.image.is_some(), |ui| {
+                            if ui.add(Button::new("Close")).clicked() {
+                                self.image = None;
+                            }
+                        });
                     });
                 });
             });
