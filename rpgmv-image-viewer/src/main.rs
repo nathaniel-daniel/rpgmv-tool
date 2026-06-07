@@ -144,13 +144,13 @@ fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<Image> {
             }
 
             if dir_entry_file_name < file_name_os_str
-                && prev_path.as_ref().map_or(true, |(prev_file_name, _)| {
+                && prev_path.as_ref().is_none_or(|(prev_file_name, _)| {
                     *prev_file_name < dir_entry_file_name
                 })
             {
                 prev_path = Some((dir_entry_file_name.to_os_string(), dir_entry_path));
             } else if dir_entry_file_name > file_name_os_str
-                && next_path.as_ref().map_or(true, |(next_file_name, _)| {
+                && next_path.as_ref().is_none_or(|(next_file_name, _)| {
                     *next_file_name > dir_entry_file_name
                 })
             {
