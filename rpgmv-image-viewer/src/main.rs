@@ -42,12 +42,34 @@ const PNG_MAGIC: &[u8] = b"\x89PNG\r\n\x1a\n";
 const JPEG_MAGIC: &[u8] = &[0xff, 0xd8, 0xff];
 const ENCRYPTERATOR_MAGIC: &[u8] = b"ART\0ENCRYPTER100FREE\0VERSION\0\0\0\0";
 
-fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<TextureHandle> {
-    let file_name = path
-        .file_name()
-        .context("missing file name")?
-        .to_string_lossy()
-        .to_lowercase();
+const RPGMV_PNG_EXTENSION: &str = "rpgmvp";
+const RPGMZ_PNG_EXTENSION: &str = "png_";
+const PNG_EXTENSION: &str = "png";
+const JPEG_EXTENSION: &str = "jpeg";
+const JPG_EXTENSION: &str = "jpg";
+const IMAGE_EXTENSIONS: &[&str] = &[
+    RPGMV_PNG_EXTENSION,
+    RPGMZ_PNG_EXTENSION,
+    PNG_EXTENSION,
+    JPEG_EXTENSION,
+    JPG_EXTENSION,
+];
+
+struct Image {
+    sized_texture: SizedTexture,
+    // This needs to be kept alive while we use the sized_texture.
+    _texture_handle: TextureHandle,
+
+    /// The previous image path, if it exists.
+    prev_image_path: Option<PathBuf>,
+
+    /// The next image path, if it exists.
+    next_image_path: Option<PathBuf>,
+}
+
+fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<Image> {
+    let file_name_os_str = path.file_name().context("missing file name")?;
+    let file_name = file_name_os_str.to_string_lossy().to_lowercase();
 
     let mut file = std::fs::File::open(path)?;
     let metadata = file.metadata()?;
@@ -90,17 +112,73 @@ fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<TextureHandle>
         color_image,
         Default::default(),
     );
+    let sized_texture = SizedTexture::from_handle(&texture_handle);
 
-    anyhow::Ok(texture_handle)
+    // If this fails, just don't populate the prev/next image fields.
+    let (prev_image_path, next_image_path) = (|| {
+        let parent_dir = match path.parent() {
+            Some(parent_dir) => parent_dir,
+            None => return Ok((None, None)),
+        };
+
+        let mut prev_path = None;
+        let mut next_path = None;
+        for dir_entry in std::fs::read_dir(parent_dir)? {
+            let dir_entry = dir_entry?;
+            let dir_entry_path = dir_entry.path();
+            let dir_entry_file_name = dir_entry_path.file_name().context("missing file name")?;
+
+            if dir_entry_file_name == file_name_os_str {
+                continue;
+            }
+
+            let dir_entry_extension_str = match dir_entry_path
+                .extension()
+                .and_then(|extension| extension.to_str())
+            {
+                Some(extension) => extension,
+                None => continue,
+            };
+            if !IMAGE_EXTENSIONS.contains(&dir_entry_extension_str) {
+                continue;
+            }
+
+            if dir_entry_file_name < file_name_os_str
+                && prev_path.as_ref().is_none_or(|(prev_file_name, _)| {
+                    *prev_file_name < dir_entry_file_name
+                })
+            {
+                prev_path = Some((dir_entry_file_name.to_os_string(), dir_entry_path));
+            } else if dir_entry_file_name > file_name_os_str
+                && next_path.as_ref().is_none_or(|(next_file_name, _)| {
+                    *next_file_name > dir_entry_file_name
+                })
+            {
+                next_path = Some((dir_entry_file_name.to_os_string(), dir_entry_path));
+            }
+        }
+
+        anyhow::Ok((
+            prev_path.map(|(_, path)| path.to_path_buf()),
+            next_path.map(|(_, path)| path.to_path_buf()),
+        ))
+    })()
+    .unwrap_or((None, None));
+
+    let image = Image {
+        sized_texture,
+        _texture_handle: texture_handle,
+
+        prev_image_path,
+        next_image_path,
+    };
+
+    anyhow::Ok(image)
 }
 
 enum Message {
-    SelectedImageFile {
-        path: Option<PathBuf>,
-    },
-    LoadedImage {
-        result: anyhow::Result<egui::TextureHandle>,
-    },
+    SelectedImageFile { path: Option<PathBuf> },
+    LoadedImage { result: anyhow::Result<Image> },
 }
 
 struct App {
@@ -109,20 +187,21 @@ struct App {
     toasts: Toasts,
 
     loading_image: bool,
-    image: Option<(SizedTexture, TextureHandle)>,
+    image: Option<Image>,
     scene_rect: Rect,
 }
 
 impl App {
     fn new() -> Self {
         let (messages_tx, messages_rx) = std::sync::mpsc::channel();
+        let toasts = Toasts::new()
+            .anchor(Align2::LEFT_BOTTOM, (20.0, -20.0))
+            .direction(egui::Direction::BottomUp);
 
         Self {
             messages_rx,
             messages_tx,
-            toasts: Toasts::new()
-                .anchor(Align2::LEFT_BOTTOM, (20.0, -20.0))
-                .direction(egui::Direction::BottomUp),
+            toasts,
 
             loading_image: false,
             image: None,
@@ -149,7 +228,10 @@ impl App {
             Message::SelectedImageFile { path } => {
                 let path = match path {
                     Some(path) => path,
-                    None => return,
+                    None => {
+                        self.loading_image = false;
+                        return;
+                    }
                 };
 
                 self.load_image(ctx, path);
@@ -157,8 +239,8 @@ impl App {
             Message::LoadedImage { result } => {
                 self.loading_image = false;
 
-                let texture_handle = match result {
-                    Ok(texture_handle) => texture_handle,
+                let image = match result {
+                    Ok(image) => image,
                     Err(error) => {
                         let mut job = LayoutJob::default();
                         job.append(
@@ -192,8 +274,7 @@ impl App {
                     }
                 };
 
-                let sized_texture = SizedTexture::from_handle(&texture_handle);
-                self.image = Some((sized_texture, texture_handle));
+                self.image = Some(image);
                 self.scene_rect = Rect::ZERO;
             }
         }
@@ -206,8 +287,31 @@ impl eframe::App for App {
             self.process_message(ui, message);
         }
 
+        if let Some(image) = self.image.as_ref() {
+            let (left_arrow_pressed, right_arrow_pressed) = ui.input_mut(|i| {
+                (
+                    i.key_pressed(egui::Key::ArrowLeft),
+                    i.key_pressed(egui::Key::ArrowRight),
+                )
+            });
+            if left_arrow_pressed && let Some(prev_image_path) = image.prev_image_path.clone() {
+                self.load_image(ui, prev_image_path);
+            } else if right_arrow_pressed
+                && let Some(next_image_path) = image.next_image_path.clone()
+            {
+                self.load_image(ui, next_image_path);
+            }
+        }
+
         if !self.loading_image {
-            let dropped_file = ui.input(|input| input.raw.dropped_files.first()?.path.clone());
+            let dropped_file = ui.input(|input| {
+                // Only handle the first file sice we can only open one at a time right now.
+                // TODO: Add tabs for multiple images or ignore multiple files?
+                // TODO: Handle raw image data?
+                let dropped_file = input.raw.dropped_files.first()?;
+
+                dropped_file.path.clone()
+            });
             if let Some(dropped_file) = dropped_file {
                 self.load_image(ui, dropped_file);
             }
@@ -226,7 +330,10 @@ impl eframe::App for App {
                             let messages_tx = self.messages_tx.clone();
                             rayon::spawn(move || {
                                 let picked_file = rfd::FileDialog::new()
-                                    .add_filter("RPGMaker Image Files", &["rpgmvp", "png_"])
+                                    .add_filter(
+                                        "RPGMaker Image Files",
+                                        &[RPGMV_PNG_EXTENSION, RPGMZ_PNG_EXTENSION],
+                                    )
                                     .add_filter("All types", &["*"])
                                     .pick_file()
                                     .map(|file| file.as_path().to_path_buf());
@@ -238,16 +345,26 @@ impl eframe::App for App {
                             });
                         }
                     });
+
+                    ui.add_enabled_ui(!self.loading_image && self.image.is_some(), |ui| {
+                        if ui.add(Button::new("Close")).clicked() {
+                            self.image = None;
+                        }
+                    });
                 });
             });
         });
 
         egui::CentralPanel::default().show_inside(ui, |ui| match self.image.as_ref() {
-            Some((sized_texture, _)) => {
+            Some(image) => {
+                if self.scene_rect == Rect::ZERO {
+                    ui.request_discard("Recalculate scene_rect");
+                }
+
                 let response = Scene::new().zoom_range(f32::EPSILON..=50.0_f32).show(
                     ui,
                     &mut self.scene_rect,
-                    |ui| ui.add(egui::Image::new(*sized_texture)),
+                    |ui| ui.add(egui::Image::new(image.sized_texture)),
                 );
                 if response.response.double_clicked() {
                     self.scene_rect = Rect::ZERO;
@@ -256,7 +373,7 @@ impl eframe::App for App {
             None => {
                 ui.heading(TITLE);
                 ui.label("Welcome!");
-                ui.label("Use File > Load to open an image.");
+                ui.label("Use File > Open to open an image.");
                 ui.label("You can also drag and drop an image onto this window to load it.");
                 ui.label("This program was created by Nathaniel Daniel.");
             }
