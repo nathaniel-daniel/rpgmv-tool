@@ -240,7 +240,7 @@ impl App {
                 self.loading_image = false;
 
                 let image = match result {
-                    Ok(texture_handle) => texture_handle,
+                    Ok(image) => image,
                     Err(error) => {
                         let mut job = LayoutJob::default();
                         job.append(
@@ -307,6 +307,7 @@ impl eframe::App for App {
             let dropped_file = ui.input(|input| {
                 // Only handle the first file sice we can only open one at a time right now.
                 // TODO: Add tabs for multiple images or ignore multiple files?
+                // TODO: Handle raw image data?
                 let dropped_file = input.raw.dropped_files.first()?;
 
                 dropped_file.path.clone()
@@ -356,6 +357,10 @@ impl eframe::App for App {
 
         egui::CentralPanel::default().show_inside(ui, |ui| match self.image.as_ref() {
             Some(image) => {
+                if self.scene_rect == Rect::ZERO {
+                    ui.request_discard("Recalculate scene_rect");
+                }
+
                 let response = Scene::new().zoom_range(f32::EPSILON..=50.0_f32).show(
                     ui,
                     &mut self.scene_rect,
@@ -368,7 +373,7 @@ impl eframe::App for App {
             None => {
                 ui.heading(TITLE);
                 ui.label("Welcome!");
-                ui.label("Use File > Load to open an image.");
+                ui.label("Use File > Open to open an image.");
                 ui.label("You can also drag and drop an image onto this window to load it.");
                 ui.label("This program was created by Nathaniel Daniel.");
             }
