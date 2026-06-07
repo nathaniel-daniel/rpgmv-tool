@@ -42,7 +42,13 @@ const PNG_MAGIC: &[u8] = b"\x89PNG\r\n\x1a\n";
 const JPEG_MAGIC: &[u8] = &[0xff, 0xd8, 0xff];
 const ENCRYPTERATOR_MAGIC: &[u8] = b"ART\0ENCRYPTER100FREE\0VERSION\0\0\0\0";
 
-fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<TextureHandle> {
+struct Image {
+    sized_texture: SizedTexture,
+    // This needs to be kept alive while we use the sized_texture.
+    _texture_handle: TextureHandle,
+}
+
+fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<Image> {
     let file_name = path
         .file_name()
         .context("missing file name")?
@@ -90,8 +96,13 @@ fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<TextureHandle>
         color_image,
         Default::default(),
     );
+    
+    let sized_texture = SizedTexture::from_handle(&texture_handle);
 
-    anyhow::Ok(texture_handle)
+    anyhow::Ok(Image {
+        sized_texture,
+        _texture_handle: texture_handle,
+    })
 }
 
 enum Message {
@@ -99,7 +110,7 @@ enum Message {
         path: Option<PathBuf>,
     },
     LoadedImage {
-        result: anyhow::Result<egui::TextureHandle>,
+        result: anyhow::Result<Image>,
     },
 }
 
@@ -109,22 +120,25 @@ struct App {
     toasts: Toasts,
 
     loading_image: bool,
-    image: Option<(SizedTexture, TextureHandle)>,
+    navigating_next_image: bool,
+    image: Option<Image>,
     scene_rect: Rect,
 }
 
 impl App {
     fn new() -> Self {
         let (messages_tx, messages_rx) = std::sync::mpsc::channel();
+        let toasts = Toasts::new()
+                .anchor(Align2::LEFT_BOTTOM, (20.0, -20.0))
+                .direction(egui::Direction::BottomUp);
 
         Self {
             messages_rx,
             messages_tx,
-            toasts: Toasts::new()
-                .anchor(Align2::LEFT_BOTTOM, (20.0, -20.0))
-                .direction(egui::Direction::BottomUp),
+            toasts,
 
             loading_image: false,
+            navigating_next_image: false,
             image: None,
             scene_rect: Rect::ZERO,
         }
@@ -157,7 +171,7 @@ impl App {
             Message::LoadedImage { result } => {
                 self.loading_image = false;
 
-                let texture_handle = match result {
+                let image = match result {
                     Ok(texture_handle) => texture_handle,
                     Err(error) => {
                         let mut job = LayoutJob::default();
@@ -192,8 +206,7 @@ impl App {
                     }
                 };
 
-                let sized_texture = SizedTexture::from_handle(&texture_handle);
-                self.image = Some((sized_texture, texture_handle));
+                self.image = Some(image);
                 self.scene_rect = Rect::ZERO;
             }
         }
@@ -204,6 +217,12 @@ impl eframe::App for App {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         while let Ok(message) = self.messages_rx.try_recv() {
             self.process_message(ui, message);
+        }
+        
+        if !self.navigating_next_image {
+            if ui.input_mut(|i| i.key_pressed(egui::Key::ArrowRight)) {
+                todo!()
+            }
         }
 
         if !self.loading_image {
@@ -243,11 +262,11 @@ impl eframe::App for App {
         });
 
         egui::CentralPanel::default().show_inside(ui, |ui| match self.image.as_ref() {
-            Some((sized_texture, _)) => {
+            Some(image) => {
                 let response = Scene::new().zoom_range(f32::EPSILON..=50.0_f32).show(
                     ui,
                     &mut self.scene_rect,
-                    |ui| ui.add(egui::Image::new(*sized_texture)),
+                    |ui| ui.add(egui::Image::new(image.sized_texture)),
                 );
                 if response.response.double_clicked() {
                     self.scene_rect = Rect::ZERO;
