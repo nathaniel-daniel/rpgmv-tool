@@ -42,6 +42,19 @@ const PNG_MAGIC: &[u8] = b"\x89PNG\r\n\x1a\n";
 const JPEG_MAGIC: &[u8] = &[0xff, 0xd8, 0xff];
 const ENCRYPTERATOR_MAGIC: &[u8] = b"ART\0ENCRYPTER100FREE\0VERSION\0\0\0\0";
 
+const RPGMV_PNG_EXTENSION: &str = "rpgmvp";
+const RPGMZ_PNG_EXTENSION: &str = "png_";
+const PNG_EXTENSION: &str = "png";
+const JPEG_EXTENSION: &str = "jpeg";
+const JPG_EXTENSION: &str = "jpg";
+const IMAGE_EXTENSIONS: &[&str] = &[
+    RPGMV_PNG_EXTENSION,
+    RPGMZ_PNG_EXTENSION,
+    PNG_EXTENSION,
+    JPEG_EXTENSION,
+    JPG_EXTENSION,
+];
+
 struct Image {
     sized_texture: SizedTexture,
     // This needs to be kept alive while we use the sized_texture.
@@ -112,9 +125,21 @@ fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<Image> {
         let mut next_path = None;
         for dir_entry in std::fs::read_dir(parent_dir)? {
             let dir_entry = dir_entry?;
-            let dir_entry_file_name = dir_entry.file_name();
+            let dir_entry_path = dir_entry.path();
+            let dir_entry_file_name = dir_entry_path.file_name().context("missing file name")?;
 
             if dir_entry_file_name == file_name_os_str {
+                continue;
+            }
+
+            let dir_entry_extension_str = match dir_entry_path
+                .extension()
+                .and_then(|extension| extension.to_str())
+            {
+                Some(extension) => extension,
+                None => continue,
+            };
+            if !IMAGE_EXTENSIONS.contains(&dir_entry_extension_str) {
                 continue;
             }
 
@@ -123,13 +148,13 @@ fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<Image> {
                     *prev_file_name < dir_entry_file_name
                 })
             {
-                prev_path = Some((dir_entry_file_name, dir_entry.path()));
+                prev_path = Some((dir_entry_file_name.to_os_string(), dir_entry_path));
             } else if dir_entry_file_name > file_name_os_str
                 && next_path.as_ref().map_or(true, |(next_file_name, _)| {
                     *next_file_name > dir_entry_file_name
                 })
             {
-                next_path = Some((dir_entry_file_name, dir_entry.path()));
+                next_path = Some((dir_entry_file_name.to_os_string(), dir_entry_path));
             }
         }
 
@@ -206,7 +231,7 @@ impl App {
                     None => {
                         self.loading_image = false;
                         return;
-                    },
+                    }
                 };
 
                 self.load_image(ctx, path);
@@ -304,7 +329,10 @@ impl eframe::App for App {
                             let messages_tx = self.messages_tx.clone();
                             rayon::spawn(move || {
                                 let picked_file = rfd::FileDialog::new()
-                                    .add_filter("RPGMaker Image Files", &["rpgmvp", "png_"])
+                                    .add_filter(
+                                        "RPGMaker Image Files",
+                                        &[RPGMV_PNG_EXTENSION, RPGMZ_PNG_EXTENSION],
+                                    )
                                     .add_filter("All types", &["*"])
                                     .pick_file()
                                     .map(|file| file.as_path().to_path_buf());
