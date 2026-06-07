@@ -46,14 +46,17 @@ struct Image {
     sized_texture: SizedTexture,
     // This needs to be kept alive while we use the sized_texture.
     _texture_handle: TextureHandle,
+
+    /// The previous image path, if it exists.
+    prev_image_path: Option<PathBuf>,
+
+    /// The next image path, if it exists.
+    next_image_path: Option<PathBuf>,
 }
 
 fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<Image> {
-    let file_name = path
-        .file_name()
-        .context("missing file name")?
-        .to_string_lossy()
-        .to_lowercase();
+    let file_name_os_str = path.file_name().context("missing file name")?;
+    let file_name = file_name_os_str.to_string_lossy().to_lowercase();
 
     let mut file = std::fs::File::open(path)?;
     let metadata = file.metadata()?;
@@ -96,13 +99,56 @@ fn load_image(ctx: &egui::Context, path: &Path) -> anyhow::Result<Image> {
         color_image,
         Default::default(),
     );
-
     let sized_texture = SizedTexture::from_handle(&texture_handle);
 
-    anyhow::Ok(Image {
+    // If this fails, just don't populate the prev/next image fields.
+    let (prev_image_path, next_image_path) = (|| {
+        let parent_dir = match path.parent() {
+            Some(parent_dir) => parent_dir,
+            None => return Ok((None, None)),
+        };
+
+        let mut prev_path = None;
+        let mut next_path = None;
+        for dir_entry in std::fs::read_dir(parent_dir)? {
+            let dir_entry = dir_entry?;
+            let dir_entry_file_name = dir_entry.file_name();
+
+            if dir_entry_file_name == file_name_os_str {
+                continue;
+            }
+
+            if dir_entry_file_name < file_name_os_str
+                && prev_path.as_ref().map_or(true, |(prev_file_name, _)| {
+                    *prev_file_name < dir_entry_file_name
+                })
+            {
+                prev_path = Some((dir_entry_file_name, dir_entry.path()));
+            } else if dir_entry_file_name > file_name_os_str
+                && next_path.as_ref().map_or(true, |(next_file_name, _)| {
+                    *next_file_name > dir_entry_file_name
+                })
+            {
+                next_path = Some((dir_entry_file_name, dir_entry.path()));
+            }
+        }
+
+        anyhow::Ok((
+            prev_path.map(|(_, path)| path.to_path_buf()),
+            next_path.map(|(_, path)| path.to_path_buf()),
+        ))
+    })()
+    .unwrap_or((None, None));
+
+    let image = Image {
         sized_texture,
         _texture_handle: texture_handle,
-    })
+
+        prev_image_path,
+        next_image_path,
+    };
+
+    anyhow::Ok(image)
 }
 
 enum Message {
@@ -116,7 +162,6 @@ struct App {
     toasts: Toasts,
 
     loading_image: bool,
-    navigating_next_image: bool,
     image: Option<Image>,
     scene_rect: Rect,
 }
@@ -134,7 +179,6 @@ impl App {
             toasts,
 
             loading_image: false,
-            navigating_next_image: false,
             image: None,
             scene_rect: Rect::ZERO,
         }
@@ -159,7 +203,10 @@ impl App {
             Message::SelectedImageFile { path } => {
                 let path = match path {
                     Some(path) => path,
-                    None => return,
+                    None => {
+                        self.loading_image = false;
+                        return;
+                    },
                 };
 
                 self.load_image(ctx, path);
@@ -215,9 +262,19 @@ impl eframe::App for App {
             self.process_message(ui, message);
         }
 
-        if !self.navigating_next_image {
-            if ui.input_mut(|i| i.key_pressed(egui::Key::ArrowRight)) {
-                todo!()
+        if let Some(image) = self.image.as_ref() {
+            let (left_arrow_pressed, right_arrow_pressed) = ui.input_mut(|i| {
+                (
+                    i.key_pressed(egui::Key::ArrowLeft),
+                    i.key_pressed(egui::Key::ArrowRight),
+                )
+            });
+            if left_arrow_pressed && let Some(prev_image_path) = image.prev_image_path.clone() {
+                self.load_image(ui, prev_image_path);
+            } else if right_arrow_pressed
+                && let Some(next_image_path) = image.next_image_path.clone()
+            {
+                self.load_image(ui, next_image_path);
             }
         }
 
@@ -258,12 +315,12 @@ impl eframe::App for App {
                                 ctx.request_repaint();
                             });
                         }
+                    });
 
-                        ui.add_enabled_ui(self.image.is_some(), |ui| {
-                            if ui.add(Button::new("Close")).clicked() {
-                                self.image = None;
-                            }
-                        });
+                    ui.add_enabled_ui(!self.loading_image && self.image.is_some(), |ui| {
+                        if ui.add(Button::new("Close")).clicked() {
+                            self.image = None;
+                        }
                     });
                 });
             });
