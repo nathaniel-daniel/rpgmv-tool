@@ -37,6 +37,8 @@ use std::io::SeekFrom;
 use std::path::Path;
 use std::path::PathBuf;
 
+const GIT_REV: &str = env!("GIT_REV");
+
 const TITLE: &str = "RPGMaker Image Viewer";
 const PNG_MAGIC: &[u8] = b"\x89PNG\r\n\x1a\n";
 const JPEG_MAGIC: &[u8] = &[0xff, 0xd8, 0xff];
@@ -189,6 +191,7 @@ struct App {
     loading_image: bool,
     image: Option<Image>,
     scene_rect: Rect,
+    about_modal_open: bool,
 }
 
 impl App {
@@ -206,6 +209,7 @@ impl App {
             loading_image: false,
             image: None,
             scene_rect: Rect::ZERO,
+            about_modal_open: false,
         }
     }
 
@@ -282,7 +286,7 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut Ui, frame: &mut eframe::Frame) {
         while let Ok(message) = self.messages_rx.try_recv() {
             self.process_message(ui, message);
         }
@@ -328,15 +332,20 @@ impl eframe::App for App {
 
                             let ctx = ui.ctx().clone();
                             let messages_tx = self.messages_tx.clone();
+                            let window = frame.winit_window().cloned();
                             rayon::spawn(move || {
-                                let picked_file = rfd::FileDialog::new()
-                                    .add_filter(
-                                        "RPGMaker Image Files",
-                                        &[RPGMV_PNG_EXTENSION, RPGMZ_PNG_EXTENSION],
-                                    )
-                                    .add_filter("All types", &["*"])
-                                    .pick_file()
-                                    .map(|file| file.as_path().to_path_buf());
+                                let picked_file = {
+                                    let mut picker = rfd::FileDialog::new()
+                                        .add_filter(
+                                            "RPGMaker Image Files",
+                                            &[RPGMV_PNG_EXTENSION, RPGMZ_PNG_EXTENSION],
+                                        )
+                                        .add_filter("All types", &["*"]);
+                                    if let Some(window) = window {
+                                        picker = picker.set_parent(&window);
+                                    }
+                                    picker.pick_file().map(|file| file.as_path().to_path_buf())
+                                };
 
                                 let _ = messages_tx
                                     .send(Message::SelectedImageFile { path: picked_file })
@@ -351,6 +360,12 @@ impl eframe::App for App {
                             self.image = None;
                         }
                     });
+                });
+
+                ui.menu_button("About", |ui| {
+                    if ui.add(Button::new("Help")).clicked() {
+                        self.about_modal_open = true;
+                    }
                 });
             });
         });
@@ -378,6 +393,18 @@ impl eframe::App for App {
                 ui.label("This program was created by Nathaniel Daniel.");
             }
         });
+
+        if self.about_modal_open {
+            let modal = egui::Modal::new(egui::Id::new("About Modal")).show(ui.ctx(), |ui| {
+                ui.heading("About");
+                ui.label(format!("Build: {GIT_REV}"));
+                ui.label("Created by Nathaniel Daniel.");
+            });
+
+            if modal.should_close() {
+                self.about_modal_open = false;
+            }
+        }
 
         self.toasts.show(ui);
     }
