@@ -6,7 +6,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1.0.102"
-eframe = "0.34.3"
+eframe = { version = "0.34.3", features = [ "glow" ] }
 egui-toast = "0.20.0"
 egui_extras = { version = "0.34.3", features = [ "all_loaders" ] }
 encrypterator = { path = "../encrypterator" }
