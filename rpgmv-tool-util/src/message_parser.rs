@@ -144,7 +144,7 @@ impl<'a> MessageParser<'a> {
                             name: text_code,
                             start_index: None,
                         }
-                    } else if text_code.len() == 1 {
+                    } else if text_code.chars().count() == 1 {
                         let text_code_ch = text_code.chars().next().unwrap();
 
                         if self
@@ -207,7 +207,7 @@ impl<'a> MessageParser<'a> {
 
                 // We parsed a \ and read chars until the string end, never finding a [.
                 // This is likely an unknown single text code.
-                if text_code.len() > 1 {
+                if text_code.chars().count() > 1 {
                     bail!("unknown single text code \"{text_code_ch}\"");
                 }
 
