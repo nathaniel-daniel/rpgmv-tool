@@ -90,7 +90,7 @@ pub struct Map {
     pub width: u32,
 
     /// ?
-    pub data: Vec<u32>,
+    pub data: Vec<i32>,
 
     /// ?
     pub events: Vec<Option<Event>>,
