@@ -64,6 +64,9 @@ impl<'a> MessageParser<'a> {
         // This is actually the text code \C[n],
         // but a bug in RPGMaker makes it accept this as a single text code as well.
         parser.single_text_codes.insert('c');
+        // \.
+        // Wait for 1/4 second.
+        parser.single_text_codes.insert('.');
 
         // Body
         // \C[n]
