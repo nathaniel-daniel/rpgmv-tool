@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ENCRYPTERATOR_MAGIC","GIT_REV","IMAGE_EXTENSIONS","JPEG_EXTENSION","JPEG_MAGIC","JPG_EXTENSION","PNG_EXTENSION","PNG_MAGIC","RPGMV_PNG_EXTENSION","RPGMZ_PNG_EXTENSION","TITLE"],"enum":["Message"],"fn":["load_image","main"],"struct":["App","Image"]};
