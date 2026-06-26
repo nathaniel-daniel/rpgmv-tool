@@ -14,6 +14,10 @@ pub enum MessageNode<'a> {
         name: Cow<'a, str>,
         body: Cow<'a, str>,
     },
+    YepTextCodeWithBody {
+        name: Cow<'a, str>,
+        body: Cow<'a, str>,
+    },
 }
 
 #[derive(Debug)]
@@ -27,6 +31,7 @@ enum MessageParserState<'a> {
     TextCodeBody {
         name: &'a str,
         start_index: Option<usize>,
+        yep_message_core: bool,
     },
 }
 
@@ -34,8 +39,10 @@ pub struct MessageParser<'a> {
     input: &'a str,
     char_iter: std::str::CharIndices<'a>,
     state: MessageParserState<'a>,
+    yep_message_core: bool,
     single_text_codes: HashSet<char>,
     text_codes: HashSet<String>,
+    yep_text_codes: HashSet<String>,
 }
 
 impl<'a> MessageParser<'a> {
@@ -44,8 +51,10 @@ impl<'a> MessageParser<'a> {
             input,
             char_iter: input.char_indices(),
             state: MessageParserState::Normal { start_index: None },
+            yep_message_core: false,
             single_text_codes: HashSet::new(),
             text_codes: HashSet::new(),
+            yep_text_codes: HashSet::new(),
         };
 
         // RPGMaker MV Defaults
@@ -80,7 +89,18 @@ impl<'a> MessageParser<'a> {
         // TODO: Allow user to specify filler?
         parser.text_codes.insert("n".to_string());
 
+        // YEP_MessageCore
+        // \n<x>
+        // This creates a name box with contents x on the left side on top of the message box.
+        parser.yep_text_codes.insert("n".to_string());
+
         parser
+    }
+
+    /// Enable support for parsing YEP_MessageCore.js messages.
+    pub fn yep_message_core(mut self, value: bool) -> Self {
+        self.yep_message_core = value;
+        self
     }
 
     /// Add a new single text code to the parser.
@@ -143,7 +163,19 @@ impl<'a> MessageParser<'a> {
                         self.state = MessageParserState::TextCodeBody {
                             name: text_code,
                             start_index: None,
+                            yep_message_core: false,
+                        };
+                    } else if self.yep_message_core && ch == '<' {
+                        let text_code_lower = text_code.to_ascii_lowercase();
+                        if !self.yep_text_codes.contains(&text_code_lower) {
+                            bail!("unknown yep text code \"{text_code}\"");
                         }
+
+                        self.state = MessageParserState::TextCodeBody {
+                            name: text_code,
+                            start_index: None,
+                            yep_message_core: true,
+                        };
                     } else if text_code.chars().count() == 1 {
                         let text_code_ch = text_code.chars().next().unwrap();
 
@@ -159,13 +191,18 @@ impl<'a> MessageParser<'a> {
                         }
                     };
                 }
-                MessageParserState::TextCodeBody { name, start_index } => {
+                MessageParserState::TextCodeBody {
+                    name,
+                    start_index,
+                    yep_message_core,
+                } => {
                     let start_index = match start_index {
                         Some(start_index) => start_index,
                         None => {
                             self.state = MessageParserState::TextCodeBody {
                                 name,
                                 start_index: Some(ch_index),
+                                yep_message_core,
                             };
                             continue;
                         }
@@ -175,6 +212,14 @@ impl<'a> MessageParser<'a> {
                         let body = &self.input[start_index..ch_index];
 
                         nodes.push(MessageNode::TextCodeWithBody {
+                            name: name.into(),
+                            body: body.into(),
+                        });
+                        self.state = MessageParserState::Normal { start_index: None };
+                    } else if yep_message_core && ch == '>' {
+                        let body = &self.input[start_index..ch_index];
+
+                        nodes.push(MessageNode::YepTextCodeWithBody {
                             name: name.into(),
                             body: body.into(),
                         });
@@ -230,6 +275,29 @@ impl<'a> MessageParser<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn yep() {
+        let tests = [(
+            "\\n<Bob>Hello!",
+            vec![
+                MessageNode::YepTextCodeWithBody {
+                    name: "n".into(),
+                    body: "Bob".into(),
+                },
+                MessageNode::Text {
+                    value: "Hello!".into(),
+                },
+            ],
+        )];
+
+        for (input, expected_output) in tests {
+            let mut parser = MessageParser::new(input).yep_message_core(true);
+            let actual_output = parser.parse().expect("failed to parse");
+            dbg!(&actual_output);
+            assert!(actual_output == expected_output);
+        }
+    }
 
     #[test]
     fn strip_escapes() {
