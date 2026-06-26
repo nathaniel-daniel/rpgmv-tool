@@ -5,7 +5,7 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-anyhow = "1.0.102"
+anyhow = "1.0.103"
 argh = "0.1.19"
 base16ct = { version = "1.0.0", features = [ "alloc" ] }
 flate2 = { version = "1.1.9" }

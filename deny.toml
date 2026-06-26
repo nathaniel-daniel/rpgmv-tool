@@ -87,6 +87,7 @@ skip = [
     { name = "foldhash", version = "0.1.5" },
     { name = "hashbrown", version = "0.16.1" },
     { name = "accesskit_consumer", version = "0.35.0" },
+    { name = "accesskit_consumer", version = "0.36.0" },
 ]
 
 [sources]
