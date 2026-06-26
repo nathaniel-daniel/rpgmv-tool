@@ -144,7 +144,9 @@ impl CheckLineSizeContext {
         for node in nodes {
             match node {
                 MessageNode::Text { value } => stripped_lines.push_str(&value),
-                MessageNode::TextCode { .. } | MessageNode::TextCodeWithBody { .. } => {
+                MessageNode::TextCode { .. }
+                | MessageNode::TextCodeWithBody { .. }
+                | MessageNode::YepTextCodeWithBody { .. } => {
                     // Ignore text codes
                 }
             }
