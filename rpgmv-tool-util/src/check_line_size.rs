@@ -131,7 +131,7 @@ impl CheckLineSizeContext {
         file: &str,
     ) -> anyhow::Result<()> {
         // Strip escape sequences.
-        let mut parser = MessageParser::new(lines);
+        let mut parser = MessageParser::new(lines).yep_message_core(self.yep_message_core);
         for single_text_code in self.extra_single_text_codes.iter() {
             parser.add_single_text_code(*single_text_code);
         }
