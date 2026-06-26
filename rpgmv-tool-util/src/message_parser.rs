@@ -90,6 +90,8 @@ impl<'a> MessageParser<'a> {
         parser.text_codes.insert("n".to_string());
 
         // YEP_MessageCore
+        // \n<x>
+        // This creates a name box with contents x on the left side on top of the message box.
         parser.yep_text_codes.insert("n".to_string());
 
         parser
