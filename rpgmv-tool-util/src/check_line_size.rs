@@ -66,6 +66,7 @@ struct CheckLineSizeContext {
     game_width: u16,
     extra_single_text_codes: HashSet<char>,
     extra_text_codes: HashSet<String>,
+    yep_message_core: bool,
 
     entries: VecDeque<CheckLineSizeEntry>,
 }
@@ -77,6 +78,7 @@ impl CheckLineSizeContext {
         game_width: u16,
         extra_single_text_codes: HashSet<char>,
         extra_text_codes: HashSet<String>,
+        yep_message_core: bool,
     ) -> Self {
         Self {
             font,
@@ -84,6 +86,7 @@ impl CheckLineSizeContext {
             game_width,
             extra_single_text_codes,
             extra_text_codes,
+            yep_message_core,
 
             entries: VecDeque::new(),
         }
@@ -131,7 +134,7 @@ impl CheckLineSizeContext {
         file: &str,
     ) -> anyhow::Result<()> {
         // Strip escape sequences.
-        let mut parser = MessageParser::new(lines);
+        let mut parser = MessageParser::new(lines).yep_message_core(self.yep_message_core);
         for single_text_code in self.extra_single_text_codes.iter() {
             parser.add_single_text_code(*single_text_code);
         }
@@ -645,6 +648,7 @@ pub fn check_line_size(options: &CheckLineSizeOptions) -> anyhow::Result<CheckLi
         options.screen_width,
         options.extra_single_text_codes.clone(),
         options.extra_text_codes.clone(),
+        options.yep_message_core,
     );
     let iter = CheckLineSizeIter::new(&options.data_path, context)?;
 
