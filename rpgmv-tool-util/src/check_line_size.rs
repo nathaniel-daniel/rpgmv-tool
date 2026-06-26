@@ -51,6 +51,7 @@ fn load_plugins_js(game_path: &Path) -> anyhow::Result<Vec<Plugin>> {
     Ok(plugins)
 }
 
+#[derive(Debug)]
 pub struct CheckLineSizeEntry {
     pub file: String,
     pub line: String,
@@ -508,6 +509,9 @@ pub struct CheckLineSizeOptions {
     ///
     /// RPGMaker games can use plugins that extend the standard text code set.
     pub extra_text_codes: HashSet<String>,
+
+    /// Whether to enable YEP_MessageCore support.
+    pub yep_message_core: bool,
 }
 
 impl CheckLineSizeOptions {
@@ -520,11 +524,16 @@ impl CheckLineSizeOptions {
 
         let game_is_mv = is_game_mv(game_path)?;
 
-        let (font_name, font_size, screen_width) = if game_is_mv {
+        let mut screen_width = 816;
+        let mut yep_message_core = false;
+        let (font_name, font_size) = if game_is_mv {
             let plugins = load_plugins_js(game_path)?;
 
-            let mut screen_width: Option<u16> = None;
             for plugin in plugins {
+                if !plugin.status {
+                    continue;
+                }
+
                 match plugin.name.as_str() {
                     "Community_Basic" => {
                         let screen_width_param = plugin
@@ -542,7 +551,7 @@ impl CheckLineSizeOptions {
                         };
                         // This plugin will set a default if not present.
                         let screen_width_param = screen_width_param.unwrap_or(816);
-                        screen_width = Some(screen_width_param);
+                        screen_width = screen_width_param;
                     }
                     "YEP_CoreEngine" => {
                         let screen_width_param = plugin
@@ -560,17 +569,16 @@ impl CheckLineSizeOptions {
                         };
                         // This plugin will set a default if not present.
                         let screen_width_param = screen_width_param.unwrap_or(816);
-                        screen_width = Some(screen_width_param);
+                        screen_width = screen_width_param;
+                    }
+                    "YEP_MessageCore" => {
+                        yep_message_core = true;
                     }
                     _ => {}
                 }
             }
 
-            (
-                "mplus-1m-regular.ttf".to_string(),
-                28,
-                screen_width.unwrap_or(816),
-            )
+            ("mplus-1m-regular.ttf".to_string(), 28)
         } else {
             let system_path = game_path.join("data").join("System.json");
             let system_string = std::fs::read_to_string(&system_path).with_context(|| {
@@ -582,10 +590,11 @@ impl CheckLineSizeOptions {
                 .advanced
                 .context("System missing \"advanced\" field")?;
 
+            screen_width = system_advanced.screen_width;
+
             (
                 system_advanced.main_font_filename,
                 system_advanced.font_size,
-                system_advanced.screen_width,
             )
         };
 
@@ -607,6 +616,7 @@ impl CheckLineSizeOptions {
             data_path,
             extra_single_text_codes: HashSet::new(),
             extra_text_codes: HashSet::new(),
+            yep_message_core,
         })
     }
 
