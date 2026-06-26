@@ -39,7 +39,7 @@ pub struct MessageParser<'a> {
     input: &'a str,
     char_iter: std::str::CharIndices<'a>,
     state: MessageParserState<'a>,
-    yep_message_core_support: bool,
+    yep_message_core: bool,
     single_text_codes: HashSet<char>,
     text_codes: HashSet<String>,
     yep_text_codes: HashSet<String>,
@@ -51,7 +51,7 @@ impl<'a> MessageParser<'a> {
             input,
             char_iter: input.char_indices(),
             state: MessageParserState::Normal { start_index: None },
-            yep_message_core_support: false,
+            yep_message_core: false,
             single_text_codes: HashSet::new(),
             text_codes: HashSet::new(),
             yep_text_codes: HashSet::new(),
@@ -96,8 +96,8 @@ impl<'a> MessageParser<'a> {
     }
 
     /// Enable support for parsing YEP_MessageCore.js messages.
-    pub fn yep_message_core_support(mut self, value: bool) -> Self {
-        self.yep_message_core_support = value;
+    pub fn yep_message_core(mut self, value: bool) -> Self {
+        self.yep_message_core = value;
         self
     }
 
@@ -163,7 +163,7 @@ impl<'a> MessageParser<'a> {
                             start_index: None,
                             yep_message_core: false,
                         };
-                    } else if self.yep_message_core_support && ch == '<' {
+                    } else if self.yep_message_core && ch == '<' {
                         let text_code_lower = text_code.to_ascii_lowercase();
                         if !self.yep_text_codes.contains(&text_code_lower) {
                             bail!("unknown yep text code \"{text_code}\"");
@@ -290,7 +290,7 @@ mod test {
         )];
 
         for (input, expected_output) in tests {
-            let mut parser = MessageParser::new(input).yep_message_core_support(true);
+            let mut parser = MessageParser::new(input).yep_message_core(true);
             let actual_output = parser.parse().expect("failed to parse");
             dbg!(&actual_output);
             assert!(actual_output == expected_output);
