@@ -19,18 +19,14 @@ pub struct Options {
 }
 
 pub fn exec(options: Options) -> anyhow::Result<()> {
-    let input = File::open(&options.input).with_context(|| {
-        format!(
-            "failed to open \"{}\" for reading",
-            &options.input.display()
-        )
-    })?;
+    let input = File::open(&options.input)
+        .with_context(|| format!("failed to open \"{}\" for reading", options.input.display()))?;
     let mut input = BufReader::new(input);
 
     let output = File::create(&options.output).with_context(|| {
         format!(
             "failed to open \"{}\" for writing",
-            &options.output.display()
+            options.output.display()
         )
     })?;
     let mut output = BufWriter::new(output);

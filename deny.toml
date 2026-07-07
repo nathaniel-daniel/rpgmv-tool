@@ -7,7 +7,14 @@ targets = [
 ]
 
 [advisories]
-ignore = []
+ignore = [
+    # Blocked on sctk-adwaita moving off of ab_glyph.
+    "RUSTSEC-2026-0192",
+    
+    # Blocked on various wayland and d-bus crates updating quick-xml.
+    "RUSTSEC-2026-0195",
+    "RUSTSEC-2026-0194",
+]
 
 [licenses]
 confidence-threshold = 0.93

@@ -383,9 +383,7 @@ mod test {
             (
                 "\\^nowait",
                 vec![
-                    MessageNode::TextCode {
-                        name: '^',
-                    },
+                    MessageNode::TextCode { name: '^' },
                     MessageNode::Text {
                         value: "nowait".into(),
                     },
