@@ -75,7 +75,7 @@ fn exec_vector(inputs: &[PathBuf], output: &Path) -> anyhow::Result<()> {
     for input in inputs.iter() {
         let input_file_name = input
             .file_name()
-            .with_context(|| format!("failed to get file name from \"{}\"", &input.display()))?;
+            .with_context(|| format!("failed to get file name from \"{}\"", input.display()))?;
 
         let output = {
             let mut path = output.join(input_file_name);
