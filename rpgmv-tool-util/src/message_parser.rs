@@ -76,6 +76,9 @@ impl<'a> MessageParser<'a> {
         // \.
         // Wait for 1/4 second.
         parser.single_text_codes.insert('.');
+        // \^
+        // Do not wait for input after showing the text.
+        parser.single_text_codes.insert('^');
 
         // Body
         // \C[n]
@@ -377,12 +380,23 @@ mod test {
                     MessageNode::Text { value: " ".into() },
                 ],
             ),
+            (
+                "\\^nowait",
+                vec![
+                    MessageNode::TextCode {
+                        name: '^',
+                    },
+                    MessageNode::Text {
+                        value: "nowait".into(),
+                    },
+                ],
+            ),
         ];
 
         for (input, expected_output) in tests {
             let mut parser = MessageParser::new(input);
             let actual_output = parser.parse().expect("failed to parse");
-            dbg!(&actual_output);
+            // dbg!(&actual_output);
             assert!(actual_output == expected_output);
         }
     }
