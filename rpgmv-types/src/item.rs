@@ -29,7 +29,7 @@ pub struct ItemEffect {
     pub data_id: u32,
 
     /// ?
-    pub value1: u32,
+    pub value1: f64,
 
     /// ?
     pub value2: u32,
