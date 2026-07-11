@@ -62,6 +62,8 @@ impl<'a> MessageParser<'a> {
     }
 
     /// Add RPGMaker MV text codes.
+    ///
+    /// See: https://www.yanfly.moe/wiki/Category:Text_Codes_(MV)
     pub fn add_rpgmaker_mv_text_codes(mut self) -> Self {
         // RPGMaker MV Defaults
         // Single
@@ -113,8 +115,13 @@ impl<'a> MessageParser<'a> {
     }
 
     /// Add YEP_MessageCore.js text codes.
+    ///
+    /// See: https://www.yanfly.moe/wiki/Category:Text_Codes_(MV)
     pub fn add_yep_message_core_text_codes(mut self) -> Self {
         // Single
+        // \fr
+        // Resets all font changes.
+        self.single_text_codes.insert("fr".to_string());
         // \fb
         // Toggles font boldness.
         self.single_text_codes.insert("fb".to_string());
@@ -150,17 +157,9 @@ impl<'a> MessageParser<'a> {
     pub fn parse(&mut self) -> anyhow::Result<Vec<MessageNode<'a>>> {
         let mut nodes = Vec::new();
         while let Some((ch_index, ch)) = self.char_iter.next() {
-            match self.state {
+            match &mut self.state {
                 MessageParserState::Normal { start_index } => {
-                    let start_index = match start_index {
-                        Some(start_index) => start_index,
-                        None => {
-                            self.state = MessageParserState::Normal {
-                                start_index: Some(ch_index),
-                            };
-                            ch_index
-                        }
-                    };
+                    let start_index = *start_index.get_or_insert(ch_index);
 
                     if ch == '\\' {
                         if start_index != ch_index {
@@ -170,15 +169,7 @@ impl<'a> MessageParser<'a> {
                     }
                 }
                 MessageParserState::TextCodeName { start_index } => {
-                    let start_index = match start_index {
-                        Some(start_index) => start_index,
-                        None => {
-                            self.state = MessageParserState::TextCodeName {
-                                start_index: Some(ch_index),
-                            };
-                            ch_index
-                        }
-                    };
+                    let start_index = *start_index.get_or_insert(ch_index);
 
                     let text_code = &self.input[start_index..ch_index];
                     if ch == '[' {
@@ -221,31 +212,21 @@ impl<'a> MessageParser<'a> {
                     start_index,
                     yep_message_core,
                 } => {
-                    let start_index = match start_index {
-                        Some(start_index) => start_index,
-                        None => {
-                            self.state = MessageParserState::TextCodeBody {
-                                name,
-                                start_index: Some(ch_index),
-                                yep_message_core,
-                            };
-                            continue;
-                        }
-                    };
+                    let start_index = *start_index.get_or_insert(ch_index);
 
                     if ch == ']' {
                         let body = &self.input[start_index..ch_index];
 
                         nodes.push(MessageNode::TextCodeWithBody {
-                            name: name.into(),
+                            name: (*name).into(),
                             body: body.into(),
                         });
                         self.state = MessageParserState::Normal { start_index: None };
-                    } else if yep_message_core && ch == '>' {
+                    } else if *yep_message_core && ch == '>' {
                         let body = &self.input[start_index..ch_index];
 
                         nodes.push(MessageNode::YepTextCodeWithBody {
-                            name: name.into(),
+                            name: (*name).into(),
                             body: body.into(),
                         });
                         self.state = MessageParserState::Normal { start_index: None };
@@ -311,7 +292,7 @@ mod test {
                 ],
             ),
             (
-                "\\fbThis is bold.\\fiThis is italic.",
+                "\\fbThis is bold.\\fiThis is italic.\\frThis is normal.",
                 vec![
                     MessageNode::TextCode { name: "fb".into() },
                     MessageNode::Text {
@@ -320,6 +301,10 @@ mod test {
                     MessageNode::TextCode { name: "fi".into() },
                     MessageNode::Text {
                         value: "This is italic.".into(),
+                    },
+                    MessageNode::TextCode { name: "fr".into() },
+                    MessageNode::Text {
+                        value: "This is normal.".into(),
                     },
                 ],
             ),
