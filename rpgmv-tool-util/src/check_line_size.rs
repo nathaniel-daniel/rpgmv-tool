@@ -135,6 +135,9 @@ impl CheckLineSizeContext {
     ) -> anyhow::Result<()> {
         // Strip escape sequences.
         let mut parser = MessageParser::new(lines).yep_message_core(self.yep_message_core);
+        if self.yep_message_core {
+            parser = parser.add_yep_message_core_text_codes();
+        }
         for single_text_code in self.extra_single_text_codes.iter() {
             parser.add_single_text_code(single_text_code);
         }
