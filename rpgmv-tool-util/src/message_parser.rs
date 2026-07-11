@@ -185,7 +185,9 @@ impl<'a> MessageParser<'a> {
                             .single_text_codes
                             .contains(&text_code.to_ascii_lowercase())
                         {
-                            nodes.push(MessageNode::TextCode { name: Cow::Borrowed(text_code) });
+                            nodes.push(MessageNode::TextCode {
+                                name: Cow::Borrowed(text_code),
+                            });
                             self.state = MessageParserState::Normal {
                                 // The current char we are on is part of the next state.
                                 start_index: Some(ch_index),
@@ -260,7 +262,9 @@ impl<'a> MessageParser<'a> {
                     .single_text_codes
                     .contains(&text_code.to_ascii_lowercase())
                 {
-                    nodes.push(MessageNode::TextCode { name: Cow::Borrowed(text_code) });
+                    nodes.push(MessageNode::TextCode {
+                        name: Cow::Borrowed(text_code),
+                    });
                 } else {
                     bail!("Unknown single text code \"{text_code}\"");
                 }
@@ -331,13 +335,13 @@ mod test {
             (
                 "\\G abc",
                 vec![
-                    MessageNode::TextCode { name: 'G' },
+                    MessageNode::TextCode { name: "G".into() },
                     MessageNode::Text {
                         value: " abc".into(),
                     },
                 ],
             ),
-            ("\\G", vec![MessageNode::TextCode { name: 'G' }]),
+            ("\\G", vec![MessageNode::TextCode { name: "G".into() }]),
             (
                 "\\V[1] potions",
                 vec![
@@ -360,7 +364,7 @@ mod test {
                     MessageNode::Text {
                         value: "Colored".into(),
                     },
-                    MessageNode::TextCode { name: 'C' },
+                    MessageNode::TextCode { name: "C".into() },
                 ],
             ),
             (
@@ -373,14 +377,14 @@ mod test {
                     MessageNode::Text {
                         value: "Colored".into(),
                     },
-                    MessageNode::TextCode { name: 'C' },
+                    MessageNode::TextCode { name: "C".into() },
                     MessageNode::Text { value: " ".into() },
                 ],
             ),
             (
                 "\\^nowait",
                 vec![
-                    MessageNode::TextCode { name: '^' },
+                    MessageNode::TextCode { name: "^".into() },
                     MessageNode::Text {
                         value: "nowait".into(),
                     },
