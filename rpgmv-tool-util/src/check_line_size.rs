@@ -170,7 +170,7 @@ impl CheckLineSizeContext {
                 target_width -= MESSAGE_FACE_SIZE + (MESSAGE_FACE_PADDING * 2);
             }
 
-            if text_width >= f32::from(target_width) {
+            if text_width > f32::from(target_width) {
                 let suggested_line = self.suggest_line_replacement(line, target_width)?;
                 let suggested_line = suggested_line.as_deref().unwrap_or("None");
 
@@ -196,7 +196,7 @@ impl CheckLineSizeContext {
             let text_width = self.get_text_width(line)?;
             let target_width = self.game_width - (2 * (MESSAGE_STANDARD_PADDING + TEXT_PADDING));
 
-            if text_width >= f32::from(target_width) {
+            if text_width > f32::from(target_width) {
                 let suggested_line = self.suggest_line_replacement(line, target_width)?;
                 let suggested_line = suggested_line.as_deref().unwrap_or("None");
 
