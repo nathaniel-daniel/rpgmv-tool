@@ -321,7 +321,7 @@ impl eframe::App for App {
             }
         }
 
-        egui::Panel::top("my_panel").show_inside(ui, |ui| {
+        egui::Panel::top("my_panel").show(ui, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     ui.add_enabled_ui(!self.loading_image, |ui| {
@@ -370,7 +370,7 @@ impl eframe::App for App {
             });
         });
 
-        egui::CentralPanel::default().show_inside(ui, |ui| match self.image.as_ref() {
+        egui::CentralPanel::default().show(ui, |ui| match self.image.as_ref() {
             Some(image) => {
                 if self.scene_rect == Rect::ZERO {
                     ui.request_discard("Recalculate scene_rect");

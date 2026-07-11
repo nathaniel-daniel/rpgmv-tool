@@ -8,7 +8,7 @@ pub enum MessageNode<'a> {
         value: Cow<'a, str>,
     },
     TextCode {
-        name: char,
+        name: Cow<'a, str>,
     },
     TextCodeWithBody {
         name: Cow<'a, str>,
@@ -40,14 +40,15 @@ pub struct MessageParser<'a> {
     char_iter: std::str::CharIndices<'a>,
     state: MessageParserState<'a>,
     yep_message_core: bool,
-    single_text_codes: HashSet<char>,
+    single_text_codes: HashSet<String>,
     text_codes: HashSet<String>,
     yep_text_codes: HashSet<String>,
 }
 
 impl<'a> MessageParser<'a> {
+    /// Make a new message parser to parse some text.
     pub fn new(input: &'a str) -> Self {
-        let mut parser = Self {
+        let parser = Self {
             input,
             char_iter: input.char_indices(),
             state: MessageParserState::Normal { start_index: None },
@@ -57,47 +58,52 @@ impl<'a> MessageParser<'a> {
             yep_text_codes: HashSet::new(),
         };
 
+        parser.add_rpgmaker_mv_text_codes()
+    }
+
+    /// Add RPGMaker MV text codes.
+    pub fn add_rpgmaker_mv_text_codes(mut self) -> Self {
         // RPGMaker MV Defaults
         // Single
-        parser.single_text_codes.insert('g');
-        parser.single_text_codes.insert('!');
-        parser.single_text_codes.insert('{');
-        parser.single_text_codes.insert('}');
-        parser.single_text_codes.insert('|');
-        parser.single_text_codes.insert('<');
-        parser.single_text_codes.insert('>');
+        self.single_text_codes.insert("g".to_string());
+        self.single_text_codes.insert("!".to_string());
+        self.single_text_codes.insert("{".to_string());
+        self.single_text_codes.insert("}".to_string());
+        self.single_text_codes.insert("|".to_string());
+        self.single_text_codes.insert("<".to_string());
+        self.single_text_codes.insert(">".to_string());
         // \C
         // This changes the color of future text to color 0,
         // based on window skin.
         //
         // This is actually the text code \C[n],
         // but a bug in RPGMaker makes it accept this as a single text code as well.
-        parser.single_text_codes.insert('c');
+        self.single_text_codes.insert("c".to_string());
         // \.
         // Wait for 1/4 second.
-        parser.single_text_codes.insert('.');
+        self.single_text_codes.insert(".".to_string());
         // \^
         // Do not wait for input after showing the text.
-        parser.single_text_codes.insert('^');
+        self.single_text_codes.insert("^".to_string());
 
         // Body
         // \C[n]
         // This changes the color of future text to color n,
         // based on window skin.
-        parser.text_codes.insert("c".to_string());
-        parser.text_codes.insert("i".to_string());
-        parser.text_codes.insert("v".to_string());
+        self.text_codes.insert("c".to_string());
+        self.text_codes.insert("i".to_string());
+        self.text_codes.insert("v".to_string());
         // \N[n]
         // This is replaced with the name of actor n.
         // TODO: Allow user to specify filler?
-        parser.text_codes.insert("n".to_string());
+        self.text_codes.insert("n".to_string());
 
         // YEP_MessageCore
         // \n<x>
         // This creates a name box with contents x on the left side on top of the message box.
-        parser.yep_text_codes.insert("n".to_string());
+        self.yep_text_codes.insert("n".to_string());
 
-        parser
+        self
     }
 
     /// Enable support for parsing YEP_MessageCore.js messages.
@@ -106,8 +112,26 @@ impl<'a> MessageParser<'a> {
         self
     }
 
+    /// Add YEP_MessageCore.js text codes.
+    pub fn add_yep_message_core_text_codes(mut self) -> Self {
+        // Single
+        // \fb
+        // Toggles font boldness.
+        self.single_text_codes.insert("fb".to_string());
+        // \fi
+        // Toggles font italic.
+        self.single_text_codes.insert("fi".to_string());
+
+        // Body
+        // \is[n]
+        // Writes out skill n's name including icon.
+        self.text_codes.insert("is".to_string());
+
+        self
+    }
+
     /// Add a new single text code to the parser.
-    pub fn add_single_text_code(&mut self, single_text_code: char) {
+    pub fn add_single_text_code(&mut self, single_text_code: &str) {
         self.single_text_codes
             .insert(single_text_code.to_ascii_lowercase());
     }
@@ -160,7 +184,7 @@ impl<'a> MessageParser<'a> {
                     if ch == '[' {
                         let text_code_lower = text_code.to_ascii_lowercase();
                         if !self.text_codes.contains(&text_code_lower) {
-                            bail!("unknown text code \"{text_code}\"");
+                            bail!("Unknown text code \"{text_code}\"");
                         }
 
                         self.state = MessageParserState::TextCodeBody {
@@ -171,7 +195,7 @@ impl<'a> MessageParser<'a> {
                     } else if self.yep_message_core && ch == '<' {
                         let text_code_lower = text_code.to_ascii_lowercase();
                         if !self.yep_text_codes.contains(&text_code_lower) {
-                            bail!("unknown yep text code \"{text_code}\"");
+                            bail!("Unknown yep text code \"{text_code}\"");
                         }
 
                         self.state = MessageParserState::TextCodeBody {
@@ -179,19 +203,17 @@ impl<'a> MessageParser<'a> {
                             start_index: None,
                             yep_message_core: true,
                         };
-                    } else if text_code.chars().count() == 1 {
-                        let text_code_ch = text_code.chars().next().unwrap();
-
-                        if self
-                            .single_text_codes
-                            .contains(&text_code_ch.to_ascii_lowercase())
-                        {
-                            nodes.push(MessageNode::TextCode { name: text_code_ch });
-                            self.state = MessageParserState::Normal {
-                                // The current char we are on is part of the next state.
-                                start_index: Some(ch_index),
-                            };
-                        }
+                    } else if self
+                        .single_text_codes
+                        .contains(&text_code.to_ascii_lowercase())
+                    {
+                        nodes.push(MessageNode::TextCode {
+                            name: Cow::Borrowed(text_code),
+                        });
+                        self.state = MessageParserState::Normal {
+                            // The current char we are on is part of the next state.
+                            start_index: Some(ch_index),
+                        };
                     };
                 }
                 MessageParserState::TextCodeBody {
@@ -242,33 +264,27 @@ impl<'a> MessageParser<'a> {
                 let start_index = match start_index {
                     Some(start_index) => start_index,
                     // We parsed a \, but then the text ended.
-                    None => bail!("incomplete text code"),
+                    None => bail!("Incomplete text code"),
                 };
                 let text_code = &self.input[start_index..];
 
                 // TODO: Is this possible?
                 if text_code.is_empty() {
-                    bail!("incomplete text code");
-                }
-
-                let text_code_ch = text_code.chars().next().unwrap();
-
-                // We parsed a \ and read chars until the string end, never finding a [.
-                // This is likely an unknown single text code.
-                if text_code.chars().count() > 1 {
-                    bail!("unknown single text code \"{text_code_ch}\"");
+                    bail!("Incomplete text code");
                 }
 
                 if self
                     .single_text_codes
-                    .contains(&text_code_ch.to_ascii_lowercase())
+                    .contains(&text_code.to_ascii_lowercase())
                 {
-                    nodes.push(MessageNode::TextCode { name: text_code_ch });
+                    nodes.push(MessageNode::TextCode {
+                        name: Cow::Borrowed(text_code),
+                    });
                 } else {
-                    bail!("unknown single text code \"{text_code_ch}\"");
+                    bail!("Unknown single text code \"{text_code}\"");
                 }
             }
-            _ => bail!("invalid state at end of string, got \"{:?}\"", self.state),
+            _ => bail!("Invalid state at end of string, got \"{:?}\"", self.state),
         };
 
         Ok(nodes)
@@ -281,24 +297,44 @@ mod test {
 
     #[test]
     fn yep() {
-        let tests = [(
-            "\\n<Bob>Hello!",
-            vec![
-                MessageNode::YepTextCodeWithBody {
-                    name: "n".into(),
-                    body: "Bob".into(),
-                },
-                MessageNode::Text {
-                    value: "Hello!".into(),
-                },
-            ],
-        )];
+        let tests = [
+            (
+                "\\n<Bob>Hello!",
+                vec![
+                    MessageNode::YepTextCodeWithBody {
+                        name: "n".into(),
+                        body: "Bob".into(),
+                    },
+                    MessageNode::Text {
+                        value: "Hello!".into(),
+                    },
+                ],
+            ),
+            (
+                "\\fbThis is bold.\\fiThis is italic.",
+                vec![
+                    MessageNode::TextCode { name: "fb".into() },
+                    MessageNode::Text {
+                        value: "This is bold.".into(),
+                    },
+                    MessageNode::TextCode { name: "fi".into() },
+                    MessageNode::Text {
+                        value: "This is italic.".into(),
+                    },
+                ],
+            ),
+        ];
 
         for (input, expected_output) in tests {
-            let mut parser = MessageParser::new(input).yep_message_core(true);
-            let actual_output = parser.parse().expect("failed to parse");
-            dbg!(&actual_output);
-            assert!(actual_output == expected_output);
+            let mut parser = MessageParser::new(input)
+                .yep_message_core(true)
+                .add_yep_message_core_text_codes();
+            let actual_output = parser.parse().expect("Failed to parse");
+            // dbg!(&actual_output);
+            assert!(
+                actual_output == expected_output,
+                "actual != expected, {actual_output:#?} != {expected_output:#?}"
+            );
         }
     }
 
@@ -334,13 +370,13 @@ mod test {
             (
                 "\\G abc",
                 vec![
-                    MessageNode::TextCode { name: 'G' },
+                    MessageNode::TextCode { name: "G".into() },
                     MessageNode::Text {
                         value: " abc".into(),
                     },
                 ],
             ),
-            ("\\G", vec![MessageNode::TextCode { name: 'G' }]),
+            ("\\G", vec![MessageNode::TextCode { name: "G".into() }]),
             (
                 "\\V[1] potions",
                 vec![
@@ -363,7 +399,7 @@ mod test {
                     MessageNode::Text {
                         value: "Colored".into(),
                     },
-                    MessageNode::TextCode { name: 'C' },
+                    MessageNode::TextCode { name: "C".into() },
                 ],
             ),
             (
@@ -376,14 +412,14 @@ mod test {
                     MessageNode::Text {
                         value: "Colored".into(),
                     },
-                    MessageNode::TextCode { name: 'C' },
+                    MessageNode::TextCode { name: "C".into() },
                     MessageNode::Text { value: " ".into() },
                 ],
             ),
             (
                 "\\^nowait",
                 vec![
-                    MessageNode::TextCode { name: '^' },
+                    MessageNode::TextCode { name: "^".into() },
                     MessageNode::Text {
                         value: "nowait".into(),
                     },
@@ -393,7 +429,7 @@ mod test {
 
         for (input, expected_output) in tests {
             let mut parser = MessageParser::new(input);
-            let actual_output = parser.parse().expect("failed to parse");
+            let actual_output = parser.parse().expect("Failed to parse");
             // dbg!(&actual_output);
             assert!(actual_output == expected_output);
         }

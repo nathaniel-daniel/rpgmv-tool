@@ -64,7 +64,7 @@ struct CheckLineSizeContext {
     font: Font,
     font_size: u16,
     game_width: u16,
-    extra_single_text_codes: HashSet<char>,
+    extra_single_text_codes: HashSet<String>,
     extra_text_codes: HashSet<String>,
     yep_message_core: bool,
 
@@ -76,7 +76,7 @@ impl CheckLineSizeContext {
         font: Font,
         font_size: u16,
         game_width: u16,
-        extra_single_text_codes: HashSet<char>,
+        extra_single_text_codes: HashSet<String>,
         extra_text_codes: HashSet<String>,
         yep_message_core: bool,
     ) -> Self {
@@ -135,8 +135,11 @@ impl CheckLineSizeContext {
     ) -> anyhow::Result<()> {
         // Strip escape sequences.
         let mut parser = MessageParser::new(lines).yep_message_core(self.yep_message_core);
+        if self.yep_message_core {
+            parser = parser.add_yep_message_core_text_codes();
+        }
         for single_text_code in self.extra_single_text_codes.iter() {
-            parser.add_single_text_code(*single_text_code);
+            parser.add_single_text_code(single_text_code);
         }
         for text_code in self.extra_text_codes.iter() {
             parser.add_text_code(text_code);
@@ -506,7 +509,7 @@ pub struct CheckLineSizeOptions {
     /// Extra single text codes
     ///
     /// RPGMaker games can use plugins that extend the standard single text code set.
-    pub extra_single_text_codes: HashSet<char>,
+    pub extra_single_text_codes: HashSet<String>,
 
     /// Extra text codes
     ///
