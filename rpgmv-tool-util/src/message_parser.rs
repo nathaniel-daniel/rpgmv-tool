@@ -62,6 +62,8 @@ impl<'a> MessageParser<'a> {
     }
 
     /// Add RPGMaker MV text codes.
+    ///
+    /// See: https://www.yanfly.moe/wiki/Category:Text_Codes_(MV)
     pub fn add_rpgmaker_mv_text_codes(mut self) -> Self {
         // RPGMaker MV Defaults
         // Single
@@ -113,8 +115,13 @@ impl<'a> MessageParser<'a> {
     }
 
     /// Add YEP_MessageCore.js text codes.
+    ///
+    /// See: https://www.yanfly.moe/wiki/Category:Text_Codes_(MV)
     pub fn add_yep_message_core_text_codes(mut self) -> Self {
         // Single
+        // \fr
+        // Resets all font changes.
+        self.single_text_codes.insert("fr".to_string());
         // \fb
         // Toggles font boldness.
         self.single_text_codes.insert("fb".to_string());
@@ -311,7 +318,7 @@ mod test {
                 ],
             ),
             (
-                "\\fbThis is bold.\\fiThis is italic.",
+                "\\fbThis is bold.\\fiThis is italic.\\frThis is normal.",
                 vec![
                     MessageNode::TextCode { name: "fb".into() },
                     MessageNode::Text {
@@ -320,6 +327,10 @@ mod test {
                     MessageNode::TextCode { name: "fi".into() },
                     MessageNode::Text {
                         value: "This is italic.".into(),
+                    },
+                     MessageNode::TextCode { name: "fr".into() },
+                    MessageNode::Text {
+                        value: "This is normal.".into(),
                     },
                 ],
             ),
