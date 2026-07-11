@@ -46,8 +46,9 @@ pub struct MessageParser<'a> {
 }
 
 impl<'a> MessageParser<'a> {
+    /// Make a new message parser to parse some text.
     pub fn new(input: &'a str) -> Self {
-        let mut parser = Self {
+        let parser = Self {
             input,
             char_iter: input.char_indices(),
             state: MessageParserState::Normal { start_index: None },
@@ -57,47 +58,52 @@ impl<'a> MessageParser<'a> {
             yep_text_codes: HashSet::new(),
         };
 
+        parser.add_rpgmaker_mv_text_codes()
+    }
+
+    /// Add RPGMaker MV text codes.
+    pub fn add_rpgmaker_mv_text_codes(mut self) -> Self {
         // RPGMaker MV Defaults
         // Single
-        parser.single_text_codes.insert("g".to_string());
-        parser.single_text_codes.insert("!".to_string());
-        parser.single_text_codes.insert("{".to_string());
-        parser.single_text_codes.insert("}".to_string());
-        parser.single_text_codes.insert("|".to_string());
-        parser.single_text_codes.insert("<".to_string());
-        parser.single_text_codes.insert(">".to_string());
+        self.single_text_codes.insert("g".to_string());
+        self.single_text_codes.insert("!".to_string());
+        self.single_text_codes.insert("{".to_string());
+        self.single_text_codes.insert("}".to_string());
+        self.single_text_codes.insert("|".to_string());
+        self.single_text_codes.insert("<".to_string());
+        self.single_text_codes.insert(">".to_string());
         // \C
         // This changes the color of future text to color 0,
         // based on window skin.
         //
         // This is actually the text code \C[n],
         // but a bug in RPGMaker makes it accept this as a single text code as well.
-        parser.single_text_codes.insert("c".to_string());
+        self.single_text_codes.insert("c".to_string());
         // \.
         // Wait for 1/4 second.
-        parser.single_text_codes.insert(".".to_string());
+        self.single_text_codes.insert(".".to_string());
         // \^
         // Do not wait for input after showing the text.
-        parser.single_text_codes.insert("^".to_string());
+        self.single_text_codes.insert("^".to_string());
 
         // Body
         // \C[n]
         // This changes the color of future text to color n,
         // based on window skin.
-        parser.text_codes.insert("c".to_string());
-        parser.text_codes.insert("i".to_string());
-        parser.text_codes.insert("v".to_string());
+        self.text_codes.insert("c".to_string());
+        self.text_codes.insert("i".to_string());
+        self.text_codes.insert("v".to_string());
         // \N[n]
         // This is replaced with the name of actor n.
         // TODO: Allow user to specify filler?
-        parser.text_codes.insert("n".to_string());
+        self.text_codes.insert("n".to_string());
 
         // YEP_MessageCore
         // \n<x>
         // This creates a name box with contents x on the left side on top of the message box.
-        parser.yep_text_codes.insert("n".to_string());
+        self.yep_text_codes.insert("n".to_string());
 
-        parser
+        self
     }
 
     /// Enable support for parsing YEP_MessageCore.js messages.
