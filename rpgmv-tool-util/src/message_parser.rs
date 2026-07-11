@@ -108,12 +108,18 @@ impl<'a> MessageParser<'a> {
 
     /// Add YEP_MessageCore.js text codes.
     pub fn add_yep_message_core_text_codes(mut self) -> Self {
+        // Single
         // \fb
         // Toggles font boldness.
         self.single_text_codes.insert("fb".to_string());
         // \fi
         // Toggles font italic.
         self.single_text_codes.insert("fi".to_string());
+
+        // Body
+        // \is[n]
+        // Writes out skill n's name including icon.
+        self.text_codes.insert("is".to_string());
 
         self
     }
