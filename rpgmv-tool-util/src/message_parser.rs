@@ -106,6 +106,18 @@ impl<'a> MessageParser<'a> {
         self
     }
 
+    /// Add YEP_MessageCore.js text codes.
+    pub fn add_yep_message_core_text_codes(mut self) -> Self {
+        // \fb
+        // Toggles font boldness.
+        self.single_text_codes.insert("fb".to_string());
+        // \fi
+        // Toggles font italic.
+        self.single_text_codes.insert("fi".to_string());
+
+        self
+    }
+
     /// Add a new single text code to the parser.
     pub fn add_single_text_code(&mut self, single_text_code: &str) {
         self.single_text_codes
@@ -179,20 +191,17 @@ impl<'a> MessageParser<'a> {
                             start_index: None,
                             yep_message_core: true,
                         };
-                    } else if text_code.chars().count() == 1 {
-                        #[expect(clippy::collapsible_if)]
-                        if self
-                            .single_text_codes
-                            .contains(&text_code.to_ascii_lowercase())
-                        {
-                            nodes.push(MessageNode::TextCode {
-                                name: Cow::Borrowed(text_code),
-                            });
-                            self.state = MessageParserState::Normal {
-                                // The current char we are on is part of the next state.
-                                start_index: Some(ch_index),
-                            };
-                        }
+                    } else if self
+                        .single_text_codes
+                        .contains(&text_code.to_ascii_lowercase())
+                    {
+                        nodes.push(MessageNode::TextCode {
+                            name: Cow::Borrowed(text_code),
+                        });
+                        self.state = MessageParserState::Normal {
+                            // The current char we are on is part of the next state.
+                            start_index: Some(ch_index),
+                        };
                     };
                 }
                 MessageParserState::TextCodeBody {
@@ -252,12 +261,6 @@ impl<'a> MessageParser<'a> {
                     bail!("Incomplete text code");
                 }
 
-                // We parsed a \ and read chars until the string end, never finding a [.
-                // This is likely an unknown single text code.
-                if text_code.chars().count() > 1 {
-                    bail!("Unknown single text code \"{text_code}\"");
-                }
-
                 if self
                     .single_text_codes
                     .contains(&text_code.to_ascii_lowercase())
@@ -282,24 +285,44 @@ mod test {
 
     #[test]
     fn yep() {
-        let tests = [(
-            "\\n<Bob>Hello!",
-            vec![
-                MessageNode::YepTextCodeWithBody {
-                    name: "n".into(),
-                    body: "Bob".into(),
-                },
-                MessageNode::Text {
-                    value: "Hello!".into(),
-                },
-            ],
-        )];
+        let tests = [
+            (
+                "\\n<Bob>Hello!",
+                vec![
+                    MessageNode::YepTextCodeWithBody {
+                        name: "n".into(),
+                        body: "Bob".into(),
+                    },
+                    MessageNode::Text {
+                        value: "Hello!".into(),
+                    },
+                ],
+            ),
+            (
+                "\\fbThis is bold.\\fiThis is italic.",
+                vec![
+                    MessageNode::TextCode { name: "fb".into() },
+                    MessageNode::Text {
+                        value: "This is bold.".into(),
+                    },
+                    MessageNode::TextCode { name: "fi".into() },
+                    MessageNode::Text {
+                        value: "This is italic.".into(),
+                    },
+                ],
+            ),
+        ];
 
         for (input, expected_output) in tests {
-            let mut parser = MessageParser::new(input).yep_message_core(true);
-            let actual_output = parser.parse().expect("failed to parse");
-            dbg!(&actual_output);
-            assert!(actual_output == expected_output);
+            let mut parser = MessageParser::new(input)
+                .yep_message_core(true)
+                .add_yep_message_core_text_codes();
+            let actual_output = parser.parse().expect("Failed to parse");
+            // dbg!(&actual_output);
+            assert!(
+                actual_output == expected_output,
+                "actual != expected, {actual_output:#?} != {expected_output:#?}"
+            );
         }
     }
 
@@ -394,7 +417,7 @@ mod test {
 
         for (input, expected_output) in tests {
             let mut parser = MessageParser::new(input);
-            let actual_output = parser.parse().expect("failed to parse");
+            let actual_output = parser.parse().expect("Failed to parse");
             // dbg!(&actual_output);
             assert!(actual_output == expected_output);
         }
