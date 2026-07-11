@@ -328,7 +328,7 @@ mod test {
                     MessageNode::Text {
                         value: "This is italic.".into(),
                     },
-                     MessageNode::TextCode { name: "fr".into() },
+                    MessageNode::TextCode { name: "fr".into() },
                     MessageNode::Text {
                         value: "This is normal.".into(),
                     },
