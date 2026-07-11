@@ -157,17 +157,9 @@ impl<'a> MessageParser<'a> {
     pub fn parse(&mut self) -> anyhow::Result<Vec<MessageNode<'a>>> {
         let mut nodes = Vec::new();
         while let Some((ch_index, ch)) = self.char_iter.next() {
-            match self.state {
+            match &mut self.state {
                 MessageParserState::Normal { start_index } => {
-                    let start_index = match start_index {
-                        Some(start_index) => start_index,
-                        None => {
-                            self.state = MessageParserState::Normal {
-                                start_index: Some(ch_index),
-                            };
-                            ch_index
-                        }
-                    };
+                    let start_index = *start_index.get_or_insert(ch_index);
 
                     if ch == '\\' {
                         if start_index != ch_index {
@@ -177,15 +169,7 @@ impl<'a> MessageParser<'a> {
                     }
                 }
                 MessageParserState::TextCodeName { start_index } => {
-                    let start_index = match start_index {
-                        Some(start_index) => start_index,
-                        None => {
-                            self.state = MessageParserState::TextCodeName {
-                                start_index: Some(ch_index),
-                            };
-                            ch_index
-                        }
-                    };
+                    let start_index = *start_index.get_or_insert(ch_index);
 
                     let text_code = &self.input[start_index..ch_index];
                     if ch == '[' {
@@ -228,31 +212,21 @@ impl<'a> MessageParser<'a> {
                     start_index,
                     yep_message_core,
                 } => {
-                    let start_index = match start_index {
-                        Some(start_index) => start_index,
-                        None => {
-                            self.state = MessageParserState::TextCodeBody {
-                                name,
-                                start_index: Some(ch_index),
-                                yep_message_core,
-                            };
-                            continue;
-                        }
-                    };
+                    let start_index = *start_index.get_or_insert(ch_index);
 
                     if ch == ']' {
                         let body = &self.input[start_index..ch_index];
 
                         nodes.push(MessageNode::TextCodeWithBody {
-                            name: name.into(),
+                            name: (*name).into(),
                             body: body.into(),
                         });
                         self.state = MessageParserState::Normal { start_index: None };
-                    } else if yep_message_core && ch == '>' {
+                    } else if *yep_message_core && ch == '>' {
                         let body = &self.input[start_index..ch_index];
 
                         nodes.push(MessageNode::YepTextCodeWithBody {
-                            name: name.into(),
+                            name: (*name).into(),
                             body: body.into(),
                         });
                         self.state = MessageParserState::Normal { start_index: None };
