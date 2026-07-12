@@ -29,7 +29,7 @@ where
     P: AsRef<Path>,
 {
     let path = path.as_ref();
-    std::fs::read_to_string(path).with_context(|| format!("failed to read \"{}\"", path.display()))
+    std::fs::read_to_string(path).with_context(|| format!("Failed to read \"{}\"", path.display()))
 }
 
 /// MV only
@@ -43,9 +43,9 @@ fn load_plugins_js(game_path: &Path) -> anyhow::Result<Vec<Plugin>> {
     let plugins_js_raw = std::fs::read_to_string(plugins_js_path)?;
     let plugins_js_string = REGEX
         .captures(&plugins_js_raw)
-        .context("failed to locate plugins with regex")?
+        .context("Failed to locate plugins with regex")?
         .get(1)
-        .context("missing group")?
+        .context("Missing group")?
         .as_str();
     let plugins = serde_json::from_str(plugins_js_string)?;
     Ok(plugins)
@@ -98,7 +98,7 @@ impl CheckLineSizeContext {
 
     fn get_text_width(&mut self, text: &str) -> anyhow::Result<f32> {
         get_text_width(&mut self.font, text, Some(self.font_size.into()))
-            .context("failed to get text width")
+            .context("Failed to get text width")
     }
 
     fn suggest_line_replacement(
@@ -131,6 +131,7 @@ impl CheckLineSizeContext {
         &mut self,
         face: &str,
         lines: &str,
+        message_width: u16,
         file: &str,
     ) -> anyhow::Result<()> {
         // Strip escape sequences.
@@ -146,7 +147,7 @@ impl CheckLineSizeContext {
         }
         let nodes = parser
             .parse()
-            .with_context(|| format!("failed to parse \"{lines}\""))?;
+            .with_context(|| format!("Failed to parse \"{lines}\""))?;
         let mut stripped_lines = String::with_capacity(lines.len());
         for node in nodes {
             match node {
@@ -165,7 +166,7 @@ impl CheckLineSizeContext {
             }
 
             let text_width = self.get_text_width(line)?;
-            let mut target_width = self.game_width - (2 * MESSAGE_STANDARD_PADDING);
+            let mut target_width = message_width - (2 * MESSAGE_STANDARD_PADDING);
             if !face.is_empty() {
                 target_width -= MESSAGE_FACE_SIZE + (MESSAGE_FACE_PADDING * 2);
             }
@@ -188,7 +189,33 @@ impl CheckLineSizeContext {
     }
 
     fn check_item_description(&mut self, description: &str, file: &str) -> anyhow::Result<()> {
-        for line in description.split('\n') {
+        // Strip escape sequences.
+        let mut parser = MessageParser::new(description).yep_message_core(self.yep_message_core);
+        if self.yep_message_core {
+            parser = parser.add_yep_message_core_text_codes();
+        }
+        for single_text_code in self.extra_single_text_codes.iter() {
+            parser.add_single_text_code(single_text_code);
+        }
+        for text_code in self.extra_text_codes.iter() {
+            parser.add_text_code(text_code);
+        }
+        let nodes = parser
+            .parse()
+            .with_context(|| format!("Failed to parse \"{description}\""))?;
+        let mut stripped_lines = String::with_capacity(description.len());
+        for node in nodes {
+            match node {
+                MessageNode::Text { value } => stripped_lines.push_str(&value),
+                MessageNode::TextCode { .. }
+                | MessageNode::TextCodeWithBody { .. }
+                | MessageNode::YepTextCodeWithBody { .. } => {
+                    // Ignore text codes
+                }
+            }
+        }
+
+        for line in stripped_lines.split('\n') {
             if line.is_empty() {
                 continue;
             }
@@ -218,51 +245,72 @@ impl CheckLineSizeContext {
         command_list: &[rpgmv_types::EventCommand],
         file: &str,
     ) -> anyhow::Result<()> {
+        const SHOW_TEXT: u32 = 101;
+        const PLUGIN_COMMAND: u32 = 356;
+        const TEXT_DATA: u32 = 401;
+
         let mut last_face = "";
         let mut lines = None;
+        let mut message_width = self.game_width;
         for command in command_list.iter() {
             let code = command.code;
             let parameters = &command.parameters;
 
+            if code != SHOW_TEXT && code != TEXT_DATA {
+                if let Some(lines) = lines.as_deref() {
+                    self.check_event_command_message(last_face, lines, message_width, file)?;
+                }
+
+                last_face = "";
+                lines = None;
+            }
+
             match code {
-                101 => {
+                SHOW_TEXT => {
                     if let Some(lines) = lines.as_deref() {
-                        self.check_event_command_message(last_face, lines, file)?;
+                        self.check_event_command_message(last_face, lines, message_width, file)?;
                     }
 
                     last_face = parameters
                         .first()
-                        .context("missing last face")?
+                        .context("Missing last face")?
                         .as_str()
-                        .context("face is not a string")?;
+                        .context("Face is not a string")?;
                     lines = Some(String::new());
                 }
-                401 => {
+                PLUGIN_COMMAND if self.yep_message_core => {
+                    let value = parameters
+                        .first()
+                        .context("Missing plugin parameter")?
+                        .as_str()
+                        .context("Plugin parameter is not a string")?;
+                    if let Some(("MessageWidth", args)) = value.split_once(' ') {
+                        let width: u16 = args.parse()?;
+
+                        message_width = width;
+                    }
+                }
+                TEXT_DATA => {
                     let line = parameters
                         .first()
-                        .context("missing line")?
+                        .context("Missing line")?
                         .as_str()
-                        .context("line is not a string")?;
+                        .context("Line is not a string")?;
 
                     let lines = lines
                         .as_mut()
-                        .context("encountered 401 command out of message")?;
-                    lines.push('\n');
+                        .context("Encountered TEXT_DATA command out of message")?;
+                    if !lines.is_empty() {
+                        lines.push('\n');
+                    }
                     lines.push_str(line);
                 }
-                _ => {
-                    if let Some(lines) = lines.as_deref() {
-                        self.check_event_command_message(last_face, lines, file)?;
-                    }
-
-                    last_face = "";
-                    lines = None;
-                }
+                _ => {}
             }
         }
 
         if let Some(lines) = lines.as_deref() {
-            self.check_event_command_message(last_face, lines, file)?;
+            self.check_event_command_message(last_face, lines, message_width, file)?;
         }
 
         Ok(())
@@ -421,7 +469,7 @@ impl Iterator for CheckLineSizeIter {
                 if let Some(map_number) = parse_map_name(&entry_file_name) {
                     let string = read_to_string(&entry_path)?;
                     let map: rpgmv_types::Map = serde_json::from_str(&string)
-                        .with_context(|| format!("failed to parse Map {map_number}"))?;
+                        .with_context(|| format!("Failed to parse Map {map_number}"))?;
                     self.context.check_map(&map, map_number)?;
                 } else {
                     match entry_file_name.as_str() {
@@ -429,37 +477,37 @@ impl Iterator for CheckLineSizeIter {
                             let string = read_to_string(&entry_path)?;
                             let value: Vec<Option<rpgmv_types::CommonEvent>> =
                                 serde_json::from_str(&string)
-                                    .context("failed to parse CommonEvents")?;
+                                    .context("Failed to parse CommonEvents")?;
                             self.context.check_common_events(&value)?;
                         }
                         "Troops.json" => {
                             let string = read_to_string(&entry_path)?;
                             let value: Vec<Option<rpgmv_types::Troop>> =
-                                serde_json::from_str(&string).context("failed to parse Troops")?;
+                                serde_json::from_str(&string).context("Failed to parse Troops")?;
                             self.context.check_troops(&value)?;
                         }
                         "Armors.json" => {
                             let string = read_to_string(&entry_path)?;
                             let value: Vec<Option<rpgmv_types::Armor>> =
-                                serde_json::from_str(&string).context("failed to parse Armors")?;
+                                serde_json::from_str(&string).context("Failed to parse Armors")?;
                             self.context.check_armors(&value)?;
                         }
                         "Items.json" => {
                             let string = read_to_string(&entry_path)?;
                             let value: Vec<Option<rpgmv_types::Item>> =
-                                serde_json::from_str(&string).context("failed to parse Items")?;
+                                serde_json::from_str(&string).context("Failed to parse Items")?;
                             self.context.check_items(&value)?;
                         }
                         "Skills.json" => {
                             let string = read_to_string(&entry_path)?;
                             let value: Vec<Option<rpgmv_types::Skill>> =
-                                serde_json::from_str(&string).context("failed to parse Skills")?;
+                                serde_json::from_str(&string).context("Failed to parse Skills")?;
                             self.context.check_skills(&value)?;
                         }
                         "Weapons.json" => {
                             let string = read_to_string(&entry_path)?;
                             let value: Vec<Option<rpgmv_types::Weapon>> =
-                                serde_json::from_str(&string).context("failed to parse Weapons")?;
+                                serde_json::from_str(&string).context("Failed to parse Weapons")?;
                             self.context.check_weapons(&value)?;
                         }
                         _ => {}
@@ -588,10 +636,10 @@ impl CheckLineSizeOptions {
         } else {
             let system_path = game_path.join("data").join("System.json");
             let system_string = std::fs::read_to_string(&system_path).with_context(|| {
-                format!("failed to read to string \"{}\"", system_path.display())
+                format!("Failed to read to string \"{}\"", system_path.display())
             })?;
             let system: System =
-                serde_json::from_str(&system_string).context("failed to parse system json")?;
+                serde_json::from_str(&system_string).context("Failed to parse system json")?;
             let system_advanced = system
                 .advanced
                 .context("System missing \"advanced\" field")?;
