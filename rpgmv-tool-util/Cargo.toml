@@ -8,6 +8,6 @@ license = "MIT OR Apache-2.0"
 allsorts = "0.17.0"
 anyhow = "1.0.103"
 ouroboros = "0.18.5"
-regex = "1.13.0"
+regex = "1.13.1"
 rpgmv-types = { version = "0.0.0", path = "../rpgmv-types" }
 serde_json = "1.0.150"
