@@ -6,7 +6,7 @@ pub struct ItemDamage {
 
     /// ?
     #[serde(rename = "elementId")]
-    pub element_id: u32,
+    pub element_id: i32,
 
     /// ?
     pub formula: String,
