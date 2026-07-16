@@ -32,7 +32,7 @@ pub struct ItemEffect {
     pub value1: f64,
 
     /// ?
-    pub value2: u32,
+    pub value2: f64,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Clone)]
