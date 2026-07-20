@@ -29,8 +29,8 @@ enum MessageParserState<'a> {
         start_index: Option<usize>,
     },
     TextCodeBody {
-        name: &'a str,
         start_index: Option<usize>,
+        name: &'a str,
         yep_message_core: bool,
     },
 }
@@ -154,85 +154,142 @@ impl<'a> MessageParser<'a> {
         }
     }
 
+    fn process_normal(
+        &mut self,
+        ch_index: usize,
+        ch: char,
+        start_index: usize,
+        nodes: &mut Vec<MessageNode<'a>>,
+    ) -> bool {
+        if ch == '\\' {
+            if start_index != ch_index {
+                nodes.push(self.create_text_node(start_index, ch_index));
+            }
+            self.state = MessageParserState::TextCodeName { start_index: None };
+        }
+
+        true
+    }
+
+    fn process_text_code_name(
+        &mut self,
+        ch_index: usize,
+        ch: char,
+        start_index: usize,
+        nodes: &mut Vec<MessageNode<'a>>,
+    ) -> anyhow::Result<bool> {
+        let text_code = &self.input[start_index..ch_index];
+        if ch == '[' {
+            let text_code_lower = text_code.to_ascii_lowercase();
+            if !self.text_codes.contains(&text_code_lower) {
+                bail!("Unknown text code \"{text_code}\"");
+            }
+
+            self.state = MessageParserState::TextCodeBody {
+                name: text_code,
+                start_index: None,
+                yep_message_core: false,
+            };
+
+            Ok(true)
+        } else if self.yep_message_core && ch == '<' {
+            let text_code_lower = text_code.to_ascii_lowercase();
+            if !self.yep_text_codes.contains(&text_code_lower) {
+                bail!("Unknown yep text code \"{text_code}\"");
+            }
+
+            self.state = MessageParserState::TextCodeBody {
+                start_index: None,
+                name: text_code,
+                yep_message_core: true,
+            };
+
+            Ok(true)
+        } else if self
+            .single_text_codes
+            .contains(&text_code.to_ascii_lowercase())
+        {
+            nodes.push(MessageNode::TextCode {
+                name: Cow::Borrowed(text_code),
+            });
+            self.state = MessageParserState::Normal {
+                // The current char we are on is part of the next state.
+                start_index: Some(ch_index),
+            };
+
+            Ok(false)
+        } else {
+            Ok(true)
+        }
+    }
+
+    fn process_text_code_body(
+        &mut self,
+        ch_index: usize,
+        ch: char,
+        start_index: usize,
+        name: &'a str,
+        yep_message_core: bool,
+        nodes: &mut Vec<MessageNode<'a>>,
+    ) -> anyhow::Result<bool> {
+        if ch == ']' {
+            let body = &self.input[start_index..ch_index];
+
+            nodes.push(MessageNode::TextCodeWithBody {
+                name: (*name).into(),
+                body: body.into(),
+            });
+            self.state = MessageParserState::Normal { start_index: None };
+        } else if yep_message_core && ch == '>' {
+            let body = &self.input[start_index..ch_index];
+
+            nodes.push(MessageNode::YepTextCodeWithBody {
+                name: (*name).into(),
+                body: body.into(),
+            });
+            self.state = MessageParserState::Normal { start_index: None };
+        }
+
+        Ok(true)
+    }
+
     pub fn parse(&mut self) -> anyhow::Result<Vec<MessageNode<'a>>> {
         let mut nodes = Vec::new();
-        while let Some((ch_index, ch)) = self.char_iter.next() {
-            match &mut self.state {
+        let mut next_char_entry = self.char_iter.next();
+        while let Some((ch_index, ch)) = next_char_entry {
+            let consume = match &mut self.state {
                 MessageParserState::Normal { start_index } => {
                     let start_index = *start_index.get_or_insert(ch_index);
-
-                    if ch == '\\' {
-                        if start_index != ch_index {
-                            nodes.push(self.create_text_node(start_index, ch_index));
-                        }
-                        self.state = MessageParserState::TextCodeName { start_index: None };
-                    }
+                    self.process_normal(ch_index, ch, start_index, &mut nodes)
                 }
                 MessageParserState::TextCodeName { start_index } => {
                     let start_index = *start_index.get_or_insert(ch_index);
 
-                    let text_code = &self.input[start_index..ch_index];
-                    if ch == '[' {
-                        let text_code_lower = text_code.to_ascii_lowercase();
-                        if !self.text_codes.contains(&text_code_lower) {
-                            bail!("Unknown text code \"{text_code}\"");
-                        }
-
-                        self.state = MessageParserState::TextCodeBody {
-                            name: text_code,
-                            start_index: None,
-                            yep_message_core: false,
-                        };
-                    } else if self.yep_message_core && ch == '<' {
-                        let text_code_lower = text_code.to_ascii_lowercase();
-                        if !self.yep_text_codes.contains(&text_code_lower) {
-                            bail!("Unknown yep text code \"{text_code}\"");
-                        }
-
-                        self.state = MessageParserState::TextCodeBody {
-                            name: text_code,
-                            start_index: None,
-                            yep_message_core: true,
-                        };
-                    } else if self
-                        .single_text_codes
-                        .contains(&text_code.to_ascii_lowercase())
-                    {
-                        nodes.push(MessageNode::TextCode {
-                            name: Cow::Borrowed(text_code),
-                        });
-                        self.state = MessageParserState::Normal {
-                            // The current char we are on is part of the next state.
-                            start_index: Some(ch_index),
-                        };
-                    };
+                    self.process_text_code_name(ch_index, ch, start_index, &mut nodes)?
                 }
                 MessageParserState::TextCodeBody {
-                    name,
                     start_index,
+                    name,
                     yep_message_core,
                 } => {
                     let start_index = *start_index.get_or_insert(ch_index);
+                    let name = *name;
+                    let yep_message_core = *yep_message_core;
 
-                    if ch == ']' {
-                        let body = &self.input[start_index..ch_index];
-
-                        nodes.push(MessageNode::TextCodeWithBody {
-                            name: (*name).into(),
-                            body: body.into(),
-                        });
-                        self.state = MessageParserState::Normal { start_index: None };
-                    } else if *yep_message_core && ch == '>' {
-                        let body = &self.input[start_index..ch_index];
-
-                        nodes.push(MessageNode::YepTextCodeWithBody {
-                            name: (*name).into(),
-                            body: body.into(),
-                        });
-                        self.state = MessageParserState::Normal { start_index: None };
-                    }
+                    self.process_text_code_body(
+                        ch_index,
+                        ch,
+                        start_index,
+                        name,
+                        yep_message_core,
+                        &mut nodes,
+                    )?
                 }
             };
+
+            if consume {
+                next_char_entry = self.char_iter.next();
+            }
         }
 
         match self.state {
@@ -407,6 +464,16 @@ mod test {
                     MessageNode::TextCode { name: "^".into() },
                     MessageNode::Text {
                         value: "nowait".into(),
+                    },
+                ],
+            ),
+            (
+                "\\.\\.test",
+                vec![
+                    MessageNode::TextCode { name: ".".into() },
+                    MessageNode::TextCode { name: ".".into() },
+                    MessageNode::Text {
+                        value: "test".into(),
                     },
                 ],
             ),
