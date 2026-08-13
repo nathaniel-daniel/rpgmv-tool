@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AudioFile","CommonEvent","Encounter","Event","EventCommand","EventPage","EventPageCondition","ImageFile","Map","MoveCommand","MoveRoute","Troop","TroopMember","TroopPage","TroopPageCondition"]};
