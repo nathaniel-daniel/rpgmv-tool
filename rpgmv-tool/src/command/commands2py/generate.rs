@@ -207,6 +207,18 @@ where
 
                     writeln!(&mut writer, "game_party.has_item(item={name}):")?;
                 }
+                ConditionalBranchCommand::Weapon {
+                    weapon_id,
+                    include_equipped,
+                } => {
+                    let name = config.get_weapon_name(*weapon_id);
+                    let include_equipped = stringify_bool(*include_equipped);
+
+                    writeln!(
+                        &mut writer,
+                        "game_party.has_weapon(weapon={name}, include_equipped={include_equipped}):"
+                    )?;
+                }
                 ConditionalBranchCommand::Button { key_name } => {
                     let key_name = escape_string(key_name);
 
