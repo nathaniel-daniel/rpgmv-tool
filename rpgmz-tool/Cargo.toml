@@ -9,10 +9,10 @@ anyhow = "1.0.104"
 argh = "0.1.19"
 base16ct = { version = "1.0.0", features = [ "alloc" ] }
 flate2 = { version = "1.1.9" }
-glob = "0.3.3"
+glob = "0.3.4"
 nd-util = { git = "https://github.com/nathaniel-daniel/nd-util-rs", version = "0.0.0" }
 rpgmvp = { version = "0.0.0", path = "../rpgmvp" }
 rpgmz-types = { version = "0.0.0", path = "../rpgmz-types" }
 serde = { version = "1.0.229", features = [ "derive" ] }
 serde_json = "1.0.151"
-toml = "1.1.3"
+toml = "1.1.4"

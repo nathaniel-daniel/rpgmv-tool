@@ -10,10 +10,6 @@ targets = [
 ignore = [
     # Blocked on sctk-adwaita moving off of ab_glyph.
     "RUSTSEC-2026-0192",
-    
-    # Blocked on various wayland and d-bus crates updating quick-xml.
-    "RUSTSEC-2026-0195",
-    "RUSTSEC-2026-0194",
 ]
 
 [licenses]
@@ -24,7 +20,6 @@ allow = [
     "BSD-2-Clause",
     "BSD-3-Clause",
     "BSL-1.0",
-    "CC0-1.0",
     "CDLA-Permissive-2.0",
     "ISC",
     "MIT",
@@ -74,7 +69,6 @@ skip = [
     { name = "objc2", version = "0.5.2" },
     { name = "linux-raw-sys", version = "0.4.15" },
     { name = "getrandom", version = "0.2.16" },
-    { name = "core-foundation", version = "0.9.4" },
     { name = "block2", version = "0.5.1" },
     { name = "bitflags", version = "1.3.2" },
     { name = "windows_x86_64_msvc", version = "0.52.6" },
@@ -82,7 +76,6 @@ skip = [
     { name = "windows-targets", version = "0.52.6" },
     { name = "smithay-client-toolkit", version = "0.19.2" },
     { name = "png", version = "0.17.16" },
-    { name = "hashbrown", version = "0.15.5" },
     { name = "calloop-wayland-source", version = "0.3.0" },
     { name = "calloop", version = "0.13.0" },
     { name = "getrandom", version = "0.3.4" },
@@ -91,11 +84,13 @@ skip = [
     { name = "phf_shared", version = "0.11.3" },
     { name = "phf", version = "0.11.3" },
     { name = "kurbo", version = "0.11.3" },
-    { name = "foldhash", version = "0.1.5" },
-    { name = "hashbrown", version = "0.16.1" },
     { name = "accesskit_consumer", version = "0.35.0" },
     { name = "accesskit_consumer", version = "0.36.0" },
     { name = "syn", version = "2.0.119" },
+    { name = "pollster", version = "0.4.0" },
+    { name = "itertools", version = "0.14.0 " },
+    { name = "hashbrown", version = "0.16.1" },
+    { name = "base64", version = "0.22.1" },
 ]
 
 [sources]
