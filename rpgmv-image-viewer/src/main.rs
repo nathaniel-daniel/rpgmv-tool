@@ -314,7 +314,7 @@ impl eframe::App for App {
                 // TODO: Handle raw image data?
                 let dropped_file = input.raw.dropped_files.first()?;
 
-                dropped_file.path.clone()
+                Some(dropped_file.path().to_path_buf())
             });
             if let Some(dropped_file) = dropped_file {
                 self.load_image(ui, dropped_file);
