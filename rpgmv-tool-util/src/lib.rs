@@ -23,7 +23,14 @@ where
     {
         let node_dll_path = game_path.join("node.dll");
         let node_dll_path_exists = try_exists(&node_dll_path)?;
-        ensure!(node_dll_path_exists);
+        
+        // I've seen one game that's had node and nw statically linked.
+        // However, pdf.dll remained in this build.
+        // We can use it as a fallback.
+        let pdf_dll_path = game_path.join("pdf.dll");
+        let pdf_dll_path_exists = try_exists(&pdf_dll_path)?;
+        
+        ensure!(node_dll_path_exists || pdf_dll_path_exists);
     }
 
     let www_path = game_path.join("www");
