@@ -333,6 +333,17 @@ impl Command {
 
                 ConditionalBranchCommand::Item { item_id }
             }
+            ConditionalBranchKind::Weapon => {
+                reader.ensure_len_is(3)?;
+
+                let weapon_id = reader.read_at(1, "weapon_id")?;
+                let include_equipped = reader.read_at(2, "include_equipped")?;
+
+                ConditionalBranchCommand::Weapon {
+                    weapon_id,
+                    include_equipped,
+                }
+            }
             ConditionalBranchKind::Button => {
                 reader.ensure_len_is(2)?;
 
@@ -406,6 +417,10 @@ pub enum ConditionalBranchCommand {
     },
     Item {
         item_id: u32,
+    },
+    Weapon {
+        weapon_id: u32,
+        include_equipped: bool,
     },
     Button {
         key_name: String,
