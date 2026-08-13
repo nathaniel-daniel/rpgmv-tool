@@ -196,6 +196,7 @@ pub enum ControlVariablesValue {
 pub enum ControlVariablesValueGameData {
     NumItems { item_id: u32 },
     ActorLevel { actor_id: u32 },
+    ActorExp { actor_id: u32 },
     ActorHp { actor_id: u32 },
     ActorMp { actor_id: u32 },
     ActorParam { actor_id: u32, param_index: u8 },
@@ -287,6 +288,9 @@ impl Command {
                             GameDataOperandKindActorCheck::Level => {
                                 ControlVariablesValueGameData::ActorLevel { actor_id }
                             }
+                            GameDataOperandKindActorCheck::Exp => {
+                                ControlVariablesValueGameData::ActorExp { actor_id }
+                            }
                             GameDataOperandKindActorCheck::Hp => {
                                 ControlVariablesValueGameData::ActorHp { actor_id }
                             }
@@ -299,7 +303,6 @@ impl Command {
                                     param_index: index,
                                 }
                             }
-                            _ => bail!("GameDataOperandKindActorCheck {check:?} is not supported"),
                         }
                     }
                     GameDataOperandKind::Enemy => {
