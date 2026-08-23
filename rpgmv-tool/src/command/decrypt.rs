@@ -7,9 +7,14 @@ use clap::Parser;
 use glob::glob;
 use std::fs::File;
 use std::io::BufReader;
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
+
+const ENCRYPTERATOR_MAGIC: &[u8] = b"ART\0ENCRYPTER100FREE\0VERSION\0\0\0\0";
 
 #[derive(Debug, Parser)]
 #[command(about = "Decrypt a file")]
@@ -37,10 +42,10 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
         }
     }
 
-    ensure!(!inputs.is_empty(), "need at least 1 input");
+    ensure!(!inputs.is_empty(), "Need at least 1 input");
 
     let output_metadata = try_metadata(&options.output)
-        .with_context(|| format!("failed to stat \"{}\"", options.output.display()))?;
+        .with_context(|| format!("Failed to stat \"{}\"", options.output.display()))?;
 
     // If the output is a directory, use the vector impl.
     match output_metadata {
@@ -75,7 +80,7 @@ fn exec_vector(inputs: &[PathBuf], output: &Path) -> anyhow::Result<()> {
     for input in inputs.iter() {
         let input_file_name = input
             .file_name()
-            .with_context(|| format!("failed to get file name from \"{}\"", input.display()))?;
+            .with_context(|| format!("Failed to get file name from \"{}\"", input.display()))?;
 
         let output = {
             let mut path = output.join(input_file_name);
@@ -91,29 +96,46 @@ fn exec_vector(inputs: &[PathBuf], output: &Path) -> anyhow::Result<()> {
 
 fn decrypt_single_file(input: &Path, output: &Path) -> anyhow::Result<()> {
     let output_metadata =
-        try_metadata(output).with_context(|| format!("failed to stat \"{}\"", output.display()))?;
+        try_metadata(output).with_context(|| format!("Failed to stat \"{}\"", output.display()))?;
 
     if output_metadata.is_some() {
         bail!(
-            "output path \"{}\" exists, refusing to overwrite",
+            "Output path \"{}\" exists, refusing to overwrite",
             output.display()
         );
     }
 
     let file =
-        File::open(input).with_context(|| format!("failed to open \"{}\"", input.display()))?;
+        File::open(input).with_context(|| format!("Failed to open \"{}\"", input.display()))?;
 
-    let file = BufReader::new(file);
-    let mut reader = rpgmvp::Reader::new(file);
-    reader.read_header().context("invalid header")?;
-    let key = reader.extract_key().context("failed to extract key")?;
-    let key_hex = base16ct::lower::encode_string(&key);
-    println!("Key for \"{}\": {}", input.display(), key_hex);
+    let mut file = BufReader::new(file);
+    let mut magic = vec![0; ENCRYPTERATOR_MAGIC.len()];
+    file.read_exact(&mut magic)?;
+    file.seek(SeekFrom::Start(0))?;
 
     let output_tmp = output.with_added_extension("tmp");
     let mut writer = File::create(&output_tmp)
-        .with_context(|| format!("failed to open \"{}\"", output_tmp.display()))?;
-    std::io::copy(&mut reader, &mut writer)?;
+        .with_context(|| format!("Failed to open \"{}\"", output_tmp.display()))?;
+    if magic.starts_with(ENCRYPTERATOR_MAGIC) {
+        let mut reader = encrypterator::Reader::new(file);
+        reader.read_magic().context("Invalid header")?;
+        reader.guess_key()?;
+        println!(
+            "Key for \"{}\": Indeterminate, file encrypted with encrypterator",
+            input.display()
+        );
+
+        std::io::copy(&mut reader, &mut writer)?;
+    } else {
+        let mut reader = rpgmvp::Reader::new(file);
+        reader.read_header().context("Invalid header")?;
+        let key = reader.extract_key().context("Failed to extract key")?;
+        let key_hex = base16ct::lower::encode_string(&key);
+        println!("Key for \"{}\": {}", input.display(), key_hex);
+
+        std::io::copy(&mut reader, &mut writer)?;
+    }
+
     writer.flush()?;
     writer.sync_all()?;
     std::fs::rename(&output_tmp, output)?;
