@@ -27,6 +27,12 @@ pub struct Options {
 
     #[arg(long = "output", short = 'o', help = "The output folder")]
     pub output: PathBuf,
+
+    #[arg(
+        long = "preserve-tree-root",
+        help = "Preserve input tree structure, with the given root"
+    )]
+    pub preserve_tree_root: Option<PathBuf>,
 }
 
 /// Interface inspired by mv.
@@ -50,7 +56,11 @@ pub fn exec(options: Options) -> anyhow::Result<()> {
     // If the output is a directory, use the vector impl.
     match output_metadata {
         Some(metadata) if metadata.is_dir() => {
-            return exec_vector(&inputs, &options.output);
+            return exec_vector(
+                &inputs,
+                &options.output,
+                options.preserve_tree_root.as_deref(),
+            );
         }
         Some(_) | None => {}
     }
@@ -76,17 +86,33 @@ fn exec_scalar(input: &Path, output: &Path) -> anyhow::Result<()> {
     decrypt_single_file(input, output)
 }
 
-fn exec_vector(inputs: &[PathBuf], output: &Path) -> anyhow::Result<()> {
+fn exec_vector(
+    inputs: &[PathBuf],
+    output: &Path,
+    preserve_tree_root: Option<&Path>,
+) -> anyhow::Result<()> {
     for input in inputs.iter() {
         let input_file_name = input
             .file_name()
             .with_context(|| format!("Failed to get file name from \"{}\"", input.display()))?;
 
         let output = {
-            let mut path = output.join(input_file_name);
+            let mut path = output.to_path_buf();
+            match preserve_tree_root {
+                Some(root) => {
+                    path.push(input.strip_prefix(root).unwrap_or(input_file_name.as_ref()));
+                }
+                None => {
+                    path.push(input_file_name);
+                }
+            };
             path.set_extension("png");
             path
         };
+
+        if let Some(parent) = output.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
 
         decrypt_single_file(input, &output)?;
     }

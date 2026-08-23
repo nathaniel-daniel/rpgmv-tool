@@ -1,9 +1,0 @@
-You can use something like this to dump a folder, but it should probably be built into this CLI at some point:
-find img -type f -print0 |
-while IFS= read -r -d '' file; do
-    rel=${file#input/}
-    out="img-decrypted/${rel%.*}.png"
-
-    mkdir -p "$(dirname "$out")"
-    rpgmv-tool decrypt -i "$file" -o "$out"
-done
